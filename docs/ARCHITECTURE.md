@@ -12,11 +12,9 @@ _NOTE_: this step is focused on implementing the most simple full workflow (from
 * Parity: write a reusable pallet-chainlink allowin 3rd party users to interact with Chainlink
 * Chainlink: write necessary components (External Initiator, ..) so that Chainlink nodes pick those events then write back a substrate transaction with the associated result
 
-Estimated delivery: January 3rd 2020
+More details can be found in the relevant Github issues.
 
-## Questions
-
-How will the data be encapsulated in the OracleEvent? If in `CBOR`, a no_std Rust library will have to be written.
+Estimated delivery: January 10 2020
 
 # Second step: as a separate module, no token involved, Ethereum feature parity
 
@@ -27,6 +25,6 @@ Based on feedback from the first step, implement missing bits allowing to suppor
 3rd party requesters must pay a fee in LINK tokens to Oracle providers as part of their request.
 This step must be secure and involve real Ethereum LINK tokens.
 
-# Forth step: full parachain
+# Tentative step: full parachain
 
 This steps requires Polkadot full parachain implementation, XCMP support and eventually access to an Ethereum bridge.
