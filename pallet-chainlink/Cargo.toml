@@ -8,7 +8,7 @@ edition = "2018"
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
 sp-std = { version = "2.0.0", default-features = false, git = 'https://github.com/paritytech/substrate.git', rev = '40a16efefc070faf5a25442bc3ae1d0ea2478eee' }
 frame-support = { version = "2.0.0", default-features = false, git = 'https://github.com/paritytech/substrate.git', rev = '40a16efefc070faf5a25442bc3ae1d0ea2478eee' }
-frame-system = { version = "2.0.0", default-features = false, git = 'https://github.com/paritytech/substrate.git', rev = '40a16efefc070faf5a25442bc3ae1d0ea2478eee' }
+system = { package = "frame-system", version = "2.0.0", default-features = false, git = 'https://github.com/paritytech/substrate.git', rev = '40a16efefc070faf5a25442bc3ae1d0ea2478eee' }
 
 [dev-dependencies.sp-core]
 default-features = false
@@ -31,5 +31,5 @@ std = [
 	"codec/std",
 	"sp-std/std",
 	"frame-support/std",
-	"frame-system/std",
+	"system/std",
 ]

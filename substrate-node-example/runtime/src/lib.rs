@@ -37,6 +37,8 @@ pub use frame_support::{
 	weights::Weight,
 };
 
+mod example;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -89,8 +91,8 @@ pub mod opaque {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("node"),
-	impl_name: create_runtime_str!("node"),
+	spec_name: create_runtime_str!("chainlink-polkadot"),
+	impl_name: create_runtime_str!("chainlink-polkadot"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 1,
@@ -227,10 +229,10 @@ impl sudo::Trait for Runtime {
 	type Event = Event;
 	type Proposal = Call;
 }
-/*
+
 impl chainlink::Trait for Runtime {
 	type Event = Event;
-}*/
+}
 
 construct_runtime!(
 	pub enum Runtime where
@@ -247,7 +249,7 @@ construct_runtime!(
 		TransactionPayment: transaction_payment::{Module, Storage},
 		Sudo: sudo,
 		// Declare the chainlink pallet
-	//	Chainlink: chainlink::{Module, Call, Storage, Event<T>},
+		Chainlink: chainlink::{Module, Event<T>},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
 	}
 );
