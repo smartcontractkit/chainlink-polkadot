@@ -6,4 +6,7 @@ help:
 
 # Run the example chain
 run-chain:
-	cd substrate-node-example; cargo run
+	cd substrate-node-example; cargo run -- --dev
+
+run-front-end:
+	cd substrate-node-example/front-end; yarn start
