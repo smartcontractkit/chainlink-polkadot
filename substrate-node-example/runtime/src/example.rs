@@ -1,10 +1,16 @@
-use frame_support::{decl_module, dispatch};
+use frame_support::{decl_module, decl_storage, dispatch};
 use system::ensure_signed;
 use chainlink::{Event, create_get_parse_request};
 use sp_std::prelude::*;
 
 pub trait Trait: system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+}
+
+decl_storage! {
+    trait Store for Module<T: Trait> as ExampleStorage {
+        // Declare storage and getter functions here
+    }
 }
 
 decl_module! {

@@ -67,3 +67,35 @@ Self::deposit_event(create_get_parse_request::<T>(who));
 Those will be picked up by chainlink nodes that will in turn 
 
 See the full [example](substrate-node-example/runtime/src/example.rs) for more details.
+
+## Run the example
+
+`substrate-node-example` shows off out to use `pallet-chainlink` end-to-end.
+To test:
+
+* start the chain using `make run-chain`
+* start the frontend using `make run-front-end`
+
+You are now ready to send test requests and see the result being provided back by an Oracle (TBD).
+
+### Send a test request using PolkadotJS
+
+```js
+const alice = ...;
+const txHash = await api.tx.example
+  .sendRequest()
+  .signAndSend(alice);
+console.log(`Submitted with hash ${txHash}`);
+```
+
+### Send a test request using PolkadotJS Apps
+
+Make sure you add the following additional to `Settings/Developer` section:
+
+```json
+{"SpecIndex": "u32",
+ "RequestIdentifier": "u64",
+ "DataVersion": "u64"}
+```
+
+Then in `Extrinsincs`, `example` / `sendRequest` can be submitted.

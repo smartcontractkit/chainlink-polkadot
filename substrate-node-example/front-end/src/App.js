@@ -8,6 +8,7 @@ import { DeveloperConsole } from './substrate-lib/components';
 import AccountSelector from './AccountSelector';
 import Balances from './Balances';
 import BlockNumber from './BlockNumber';
+import ChainlinkExample from './ChainlinkExample';
 import ChainState from './ChainState';
 import Events from './Events';
 import Extrinsics from './Extrinsics';
@@ -57,6 +58,9 @@ function Main () {
           </Grid.Row>
           <Grid.Row stretched>
             <Balances />
+          </Grid.Row>
+          <Grid.Row>
+            <ChainlinkExample accountPair={accountPair} />
           </Grid.Row>
           <Grid.Row>
             <Transfer accountPair={accountPair} />

@@ -2,7 +2,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_module, decl_event};
+use frame_support::{decl_event, decl_module, decl_storage};
 use codec::{Encode, Decode};
 use sp_std::prelude::Vec;
 
@@ -21,6 +21,11 @@ pub fn create_get_parse_request<T: system::Trait>(spec_index: SpecIndex, request
 
 pub fn create_request_event<T: system::Trait>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, data: Vec<u8>) -> Event<T> {
 	RawEvent::OracleRequest(spec_index, request_id, requester, data_version, data)
+}
+
+decl_storage! {
+    trait Store for Module<T: Trait> as ChainlinkStorage {
+    }
 }
 
 decl_module! {

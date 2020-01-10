@@ -1,5 +1,7 @@
 {
   "APP_NAME": "substrate-front-end-tutorial",
   "DEVELOPMENT_KEYRING": true,
-  "CUSTOM_TYPES": {}
+  "CUSTOM_TYPES": {"SpecIndex": "u32",
+                   "RequestIdentifier": "u64",
+                   "DataVersion": "u64"}
 }

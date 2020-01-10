@@ -230,6 +230,10 @@ impl sudo::Trait for Runtime {
 	type Proposal = Call;
 }
 
+impl example::Trait for Runtime {
+	type Event = Event;
+}
+
 impl chainlink::Trait for Runtime {
 	type Event = Event;
 }
@@ -249,7 +253,8 @@ construct_runtime!(
 		TransactionPayment: transaction_payment::{Module, Storage},
 		Sudo: sudo,
 		// Declare the chainlink pallet
-		Chainlink: chainlink::{Module, Event<T>},
+		Chainlink: chainlink::{Module, Call, Storage, Event<T>},
+		Example: example::{Module, Call, Storage},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
 	}
 );
