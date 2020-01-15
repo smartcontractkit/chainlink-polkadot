@@ -50,7 +50,6 @@ export default function TxButton ({
     if (txExecute) {
       txExecute
         .signAndSend(fromParam, ({ status }) => {
-          console.log(status)
           status.isFinalized
             ? setStatus(
                 `Completed at block hash #${status.asFinalized.toString()}`
