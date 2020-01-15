@@ -70,6 +70,12 @@ See the full [example](substrate-node-example/runtime/src/example.rs) for more d
 
 ## Run the example
 
+`rust-toolchain` is used to make sure the correct rust version is used. Make sure to install the WASM target using:
+
+```
+rustup target add wasm32-unknown-unknown
+```
+
 `substrate-node-example` shows off out to use `pallet-chainlink` end-to-end.
 To test:
 
