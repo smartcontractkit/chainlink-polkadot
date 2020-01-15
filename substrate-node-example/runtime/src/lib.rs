@@ -156,6 +156,7 @@ impl system::Trait for Runtime {
 	type AvailableBlockRatio = AvailableBlockRatio;
 	/// Version of the runtime.
 	type Version = Version;
+	type ModuleToIndex = ();
 }
 
 impl aura::Trait for Runtime {
@@ -249,7 +250,7 @@ construct_runtime!(
 		Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
 		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
 		Indices: indices,
-		Balances: balances::{default, Error},
+		Balances: balances,
 		TransactionPayment: transaction_payment::{Module, Storage},
 		Sudo: sudo,
 		// Declare the chainlink pallet
