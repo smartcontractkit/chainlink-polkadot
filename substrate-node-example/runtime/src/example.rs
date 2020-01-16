@@ -19,7 +19,7 @@ decl_module! {
 
 		pub fn send_request(origin) -> DispatchResult {
             let who : <T as system::Trait>::AccountId = ensure_signed(origin)?;
-			//Self::deposit_event(create_get_parse_request::<T>(1, 0, who, 0, vec!["https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "RAW.ETH.USD.CHANGEPCTDAY", "1000000000"]));
+			Self::deposit_event(create_get_parse_request::<T>(1, 0, who, 0, vec!["https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "RAW.ETH.USD.CHANGEPCTDAY", "1000000000"]));
 			Ok(())
 		}
     }
