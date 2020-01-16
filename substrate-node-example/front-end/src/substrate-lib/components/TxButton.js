@@ -49,7 +49,12 @@ export default function TxButton ({
 
     if (txExecute) {
       txExecute
-        .signAndSend(fromParam, ({ status }) => {
+        .signAndSend(fromParam, ({ events = [], status }) => {
+          if (status.isFinalized) {
+            events.forEach(({ phase, event: { data, method, section } }) => {
+              console.log('\t', phase.toString(), `: ${section}.${method}`, data.toString());
+            });
+          }
           status.isFinalized
             ? setStatus(
                 `Completed at block hash #${status.asFinalized.toString()}`

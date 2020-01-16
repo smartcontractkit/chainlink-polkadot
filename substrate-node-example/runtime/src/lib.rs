@@ -156,7 +156,7 @@ impl system::Trait for Runtime {
 	type AvailableBlockRatio = AvailableBlockRatio;
 	/// Version of the runtime.
 	type Version = Version;
-	type ModuleToIndex = ();
+	type ModuleToIndex = ModuleToIndex;
 }
 
 impl aura::Trait for Runtime {
