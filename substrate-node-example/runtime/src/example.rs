@@ -1,6 +1,6 @@
 use frame_support::{decl_module, decl_storage, dispatch::DispatchResult};
 use system::ensure_signed;
-use chainlink::{Event, create_get_parse_request};
+use chainlink::{Event, create_request_event_from_parameters};
 use sp_std::prelude::*;
 
 pub trait Trait: system::Trait {
@@ -19,7 +19,7 @@ decl_module! {
 
 		pub fn send_request(origin) -> DispatchResult {
             let who : <T as system::Trait>::AccountId = ensure_signed(origin)?;
-			Self::deposit_event(create_get_parse_request::<T>(1, 0, who, 0, vec!["https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "RAW.ETH.USD.CHANGEPCTDAY", "1000000000"]));
+			Self::deposit_event(create_request_event_from_parameters::<T, (&[u8], &[u8], &[u8], &[u8], &[u8], u128)>(1, 0, who, 0, (b"get", b"https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", b"path", b"RAW.ETH.USD.CHANGEPCTDAY", b"times", 2)));
 			Ok(())
 		}
     }

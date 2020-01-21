@@ -3,7 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{decl_event, decl_module, decl_storage};
-use codec::{Encode, Decode};
+use codec::Encode;
 use sp_std::prelude::Vec;
 
 pub trait Trait: system::Trait {
@@ -14,9 +14,8 @@ pub type SpecIndex = u32;
 pub type RequestIdentifier = u64;
 pub type DataVersion = u64;
 
-pub fn create_get_parse_request<T: system::Trait>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, path: Vec<& str>) -> Event<T> {
-	let data = <(u32, Vec<&str>)>::encode(&(1, path));
-	create_request_event::<T>(spec_index, request_id, requester, data_version, data)
+pub fn create_request_event_from_parameters<T: system::Trait, U: Encode>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, parameters: U) -> Event<T> {
+	create_request_event::<T>(spec_index, request_id, requester, data_version, parameters.encode())
 }
 
 pub fn create_request_event<T: system::Trait>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, data: Vec<u8>) -> Event<T> {
