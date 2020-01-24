@@ -19,7 +19,7 @@ decl_module! {
 
 		pub fn send_request(origin) -> DispatchResult {
             let who : <T as system::Trait>::AccountId = ensure_signed(origin)?;
-			Self::deposit_event(create_request_event_from_parameters::<T, (&[u8], &[u8], &[u8], &[u8], &[u8], u128)>(1, 0, who, 0, (b"get", b"https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", b"path", b"RAW.ETH.USD.CHANGEPCTDAY", b"times", 2)));
+			Self::deposit_event(create_request_event_from_parameters::<T, (&[u8], &[u8], &[u8], &[u8], &[u8], &[u8])>(1, 0, who, 0, (b"get", b"https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", b"path", b"RAW.ETH.USD.CHANGEPCTDAY", b"times", b"2")));
 			Ok(())
 		}
     }
