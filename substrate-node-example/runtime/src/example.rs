@@ -9,7 +9,7 @@ pub trait Trait: system::Trait {
 
 decl_storage! {
     trait Store for Module<T: Trait> as ExampleStorage {
-        // Declare storage and getter functions here
+        pub Result: u128;
     }
 }
 
@@ -18,8 +18,17 @@ decl_module! {
 		fn deposit_event() = default;
 
 		pub fn send_request(origin) -> DispatchResult {
+            // TODO Investigate if Enum can be safely used to refer to a callback 
+            // let name: &str = stringify!(Call::<T>::callback); 'Example :: callback'
+            // For now , simply rely on a string to identify the callback
             let who : <T as system::Trait>::AccountId = ensure_signed(origin)?;
-			Self::deposit_event(create_request_event_from_parameters::<T, (&[u8], &[u8], &[u8], &[u8], &[u8], &[u8])>(1, 0, who, 0, (b"get", b"https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", b"path", b"RAW.ETH.USD.CHANGEPCTDAY", b"times", b"2")));
+			Self::deposit_event(create_request_event_from_parameters::<T, (&[u8], &[u8], &[u8], &[u8], &[u8], &[u8])>(1, 0, who, 0, (b"get", b"https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", b"path", b"RAW.ETH.USD.CHANGEPCTDAY", b"times", b"2"), "Example.callback".into()));
+			Ok(())
+        }
+        
+        pub fn callback(origin, result: u128) -> DispatchResult {
+            let who : <T as system::Trait>::AccountId = ensure_signed(origin)?;
+            <Result>::put(result);
 			Ok(())
 		}
     }

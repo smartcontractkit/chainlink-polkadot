@@ -14,12 +14,12 @@ pub type SpecIndex = u32;
 pub type RequestIdentifier = u64;
 pub type DataVersion = u64;
 
-pub fn create_request_event_from_parameters<T: system::Trait, U: Encode>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, parameters: U) -> Event<T> {
-	create_request_event::<T>(spec_index, request_id, requester, data_version, parameters.encode())
+pub fn create_request_event_from_parameters<T: system::Trait, U: Encode>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, parameters: U, callback: Vec<u8>) -> Event<T> {
+	create_request_event::<T>(spec_index, request_id, requester, data_version, parameters.encode(), callback)
 }
 
-pub fn create_request_event<T: system::Trait>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, data: Vec<u8>) -> Event<T> {
-	RawEvent::OracleRequest(spec_index, request_id, requester, data_version, data)
+pub fn create_request_event<T: system::Trait>(spec_index: SpecIndex, request_id: RequestIdentifier, requester: T::AccountId, data_version: DataVersion, data: Vec<u8>, callback: Vec<u8>) -> Event<T> {
+	RawEvent::OracleRequest(spec_index, request_id, requester, data_version, data, callback)
 }
 
 decl_storage! {
@@ -34,7 +34,7 @@ decl_module! {
 
 decl_event!(
 	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
-		OracleRequest(SpecIndex, RequestIdentifier, AccountId, DataVersion, Vec<u8>),
+		OracleRequest(SpecIndex, RequestIdentifier, AccountId, DataVersion, Vec<u8>, Vec<u8>),
 	}
 );
 
