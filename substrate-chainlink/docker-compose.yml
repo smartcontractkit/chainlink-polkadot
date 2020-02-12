@@ -38,8 +38,6 @@ services:
       - 'cl1:/chainlink'
   postgres-node1:
     <<: *postgres-def
-    ports:
-      - "5432:5432"
     volumes:
       - './docker-init-scripts:/docker-entrypoint-initdb.d'
       - 'pg1:/var/lib/postgresql/data'
