@@ -1,0 +1,47 @@
+#!/bin/bash
+
+source ./internal-scripts/common.sh
+
+run_setup() {
+  touch external_initiator1.env
+  touch external_initiator2.env
+  touch external_initiator3.env
+
+  SA_ENDPOINT="ws://host.docker.internal:9944/"
+
+  if [ "$1" != "" ]; then
+    SA_ENDPOINT=$1
+  fi
+
+  echo "Endpoint: $SA_ENDPOINT"
+
+  export SA_ENDPOINT
+  start_docker
+
+  source ./internal-scripts/add-ei.sh
+
+  add_ei "1"
+  add_ei "2"
+  add_ei "3"
+
+  source ./internal-scripts/add-bridge.sh
+
+  add_bridge "1"
+  add_bridge "2"
+  add_bridge "3"
+
+  source ./internal-scripts/add-jobspec.sh
+
+  add_jobspec "1"
+  add_jobspec "2"
+  add_jobspec "3"
+
+  title "Done setting up Chainlink nodes and services"
+
+  title "Setup complete. Remember to fund each address with 100000000000000"
+  echo "5EsiCstpHTxarfafS3tvG7WDwbrp9Bv6BbyRvpwt3fY8PCtN"
+  echo "5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ"
+  echo "5HjLHE3A9L6zxUEn6uy8mcx3tqyVxZvVXu7okovfWzemadzs"
+}
+
+run_setup "$1"
