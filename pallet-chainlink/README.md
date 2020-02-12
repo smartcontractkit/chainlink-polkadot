@@ -6,41 +6,104 @@ This pallet allows to interract with [chainlink](https://chain.link/).
 
 ## Installation
 
-### Runtime `Cargo.toml`
+Using `pallet-chainlink` is fairly straightforward and requires a couple easy steps:
 
-To add this pallet to your runtime, simply include the following to your runtime's `Cargo.toml` file:
+* add the correct dependency to your runtime
+* use some of the pallet bundled functions
 
-```TOML
+### Add the pallet dependency
+
+Update `Cargo.toml` to reference `pallet-chainlink`.
+
+Add the following section:
+
+```toml
 [dependencies.chainlink]
 default_features = false
-git = 'TODO'
+package = 'pallet-chainlink'
 ```
 
-and update your runtime's `std` feature to include this pallet:
+And amend the `std` section so that it shows like this:
 
-```TOML
+```toml
 std = [
-    # --snip--
-    'chainlink/std',
+    ... // all the existing pallets
+    'chainlink/std'
 ]
 ```
 
-### Runtime `lib.rs`
+### Use provided functions
 
-You should implement it's trait like so:
+Edit `lib.rs` to that it references `pallet-chainlink`:
 
 ```rust
-/// Used for test_module
+...
+// Add the chainlink Trait
 impl chainlink::Trait for Runtime {
-	type Event = Event;
+  type Event = Event;
+  type Currency = balances::Module<Runtime>;
+  type Callback = example_module::Call<Runtime>;
+  type ValidityPeriod = ValidityPeriod;
+}
+
+parameter_types! {
+	pub const ValidityPeriod: u32 = 50;
+}
+...
+// In construct_runtime!, add the pallet
+...
+construct_runtime!(
+    ...
+    Chainlink: chainlink::{Module, Call, Storage, Event<T>},
+  }
+);
+```
+
+Add necessary `use` declarations:
+
+```rust
+use chainlink::{CallbackWithParameter, Event, Trait as ChainlinkTrait};
+
+pub trait Trait: chainlink::Trait + ChainlinkTrait {
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Callback: From<Call<Self>> + Into<<Self as ChainlinkTrait>::Callback>;
 }
 ```
 
-and include it in your `construct_runtime!` macro:
+You can now call the right chainlink Extrinsic:
 
 ```rust
-Chainlink: chainlink::{Module, Call, Storage, Event<T>},
+pub fn send_request(origin, operator: T::AccountId) -> DispatchResult {
+    let parameters = ("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "path", "RAW.ETH.USD.PRICE", "times", "100000000");
+    let call: <T as Trait>::Callback = Call::callback(vec![]).into();
+    <chainlink::Module<T>>::initiate_request(origin, operator, 1, 0, parameters.encode(), 100, call.into())?;
+
+    Ok(())
+}
 ```
+
+This call refers to a callback Extrinsic that mut be define in the pallet. It will receive back the chainlink Operator's result:
+
+```rust
+pub fn callback(origin, result: u128) -> DispatchResult {
+    ensure_root(origin)?;
+
+    let r : u128 = u128::decode(&mut &result[..]).map_err(|err| err.what())?;
+    <Result>::put(r);
+    Ok(())
+}
+
+impl <T: Trait> CallbackWithParameter for Call<T> {
+    fn with_result(&self, result: u128) -> Option<Self> {
+        match *self {
+            Call::callback(_) => Some(Call::callback(result)),
+            _ => None
+        }
+    }
+}
+```
+
+Under the hood a specific event will be picked up by chainlink nodes that will in turn call be a well-known Extrinsic.
 
 ### Genesis Configuration
 
