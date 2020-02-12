@@ -9,13 +9,14 @@ add_bridge() {
 
   login_cl "$CL_URL"
 
-  payload=$(cat <<EOF
+  payload=$(
+    cat <<EOF
 {
   "name": "substrate",
   "url": "http://substrate-chainlink_substrate-adapter$1_1:8080/"
 }
 EOF
-)
+  )
 
   curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/bridge_types" &>/dev/null
 

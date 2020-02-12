@@ -36,13 +36,13 @@ login_cl() {
 
   while IFS= read -r line; do
     if [[ "$username" == "" ]]; then
-        username=${line}
+      username=${line}
     else
-        password=${line}
+      password=${line}
     fi
-  done < "./secrets/apicredentials"
+  done <"./secrets/apicredentials"
 
-  echo "" > ./tmp/cookiefile
+  echo "" >./tmp/cookiefile
 
   curl -s -c ./tmp/cookiefile -d "{\"email\":\"${username}\", \"password\":\"${password}\"}" -X POST -H 'Content-Type: application/json' "$CL_URL/sessions" &>/dev/null
 }
@@ -61,7 +61,7 @@ run_ei() {
       echo "EI_CI_SECRET=$EI_CI_SECRET"
       echo "EI_IC_ACCESSKEY=$EI_IC_ACCESSKEY"
       echo "EI_IC_SECRET=$EI_IC_SECRET"
-    } > "external_initiator$1.env"
+    } >"external_initiator$1.env"
   fi
 
   docker-compose up -d "external-initiator-node$1"

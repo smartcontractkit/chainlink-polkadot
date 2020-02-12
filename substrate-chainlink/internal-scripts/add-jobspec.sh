@@ -9,7 +9,8 @@ add_jobspec() {
 
   login_cl "$CL_URL"
 
-  payload=$(cat <<EOF
+  payload=$(
+    cat <<EOF
 {
   "initiators": [
     {
@@ -42,7 +43,7 @@ add_jobspec() {
   ]
 }
 EOF
-)
+  )
 
   curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs" &>/dev/null
 

@@ -10,7 +10,7 @@ run_setup() {
   SA_ENDPOINT="ws://host.docker.internal:9944/"
 
   if [ "$1" != "" ]; then
-      SA_ENDPOINT=$1
+    SA_ENDPOINT=$1
   fi
 
   echo "Endpoint: $SA_ENDPOINT"
