@@ -52,7 +52,7 @@ pub type DataVersion = u64;
 decl_storage! {
     trait Store for Module<T: Trait> as Chainlink {
 		// A set of all registered Operator
-		pub Operators get(fn operator): map hasher(blake2_256) T::AccountId => Option<()>;
+		pub Operators get(fn operator): map hasher(blake2_256) T::AccountId => bool;
 
 		// A running counter used internally to identify the next request
 		pub NextRequestIdentifier get(fn request_identifier): RequestIdentifier;
@@ -111,7 +111,7 @@ decl_module! {
 
 			ensure!(!<Operators<T>>::exists(who.clone()), Error::<T>::OperatorAlreadyRegistered);
 
-			<Operators<T>>::insert(who.clone(), ());
+			<Operators<T>>::insert(&who, true);
 
 			Self::deposit_event(RawEvent::OperatorRegistered(who));
 
@@ -122,7 +122,7 @@ decl_module! {
 		pub fn unregister_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
 
-			if <Operators<T>>::take(who.clone()).is_some() {
+			if <Operators<T>>::take(who.clone()) {
 				Self::deposit_event(RawEvent::OperatorUnregistered(who));
 				Ok(())
 			} else {

@@ -33,7 +33,7 @@ async function main() {
 
     // Register the operator, this is supposed to be initiated once by the operator itself
     const operator = await api.query.chainlink.operators(operatorAccount.address);
-    if(operator.isNone) {
+    if(operator.isFalse) {
         await api.tx.chainlink.registerOperator().signAndSend(operatorAccount);
         console.log('Operator registered');
     }
