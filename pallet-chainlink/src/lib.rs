@@ -64,8 +64,11 @@ decl_storage! {
 
 decl_event!(
 	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
-		// A request has been accepted. COrresponding fee paiement is scrowed
+		// A request has been accepted. Corresponding fee paiement is reserved
 		OracleRequest(AccountId, SpecIndex, RequestIdentifier, AccountId, DataVersion, Vec<u8>, Vec<u8>, u32),
+
+		// A request has been answered. Corresponding fee paiement is transfered
+		OracleAnswer(AccountId, RequestIdentifier, AccountId, Vec<u8>, u32),
 
 		// A new operator has been registered
 		OperatorRegistered(AccountId),
@@ -130,10 +133,10 @@ decl_module! {
 		// Hint specified Operator (via its `AccountId`) of a request to be performed.
 		// Request details are encapsulated in `data` and identified by `spec_index`.
 		// `data` must be SCALE encoded.
-		// If provided fee is sufficient, Operator must send back the request result in `callback` Extrinsic which then will dispatch back to the request originator callback identified by `encoded_callback`.
+		// If provided fee is sufficient, Operator must send back the request result in `callback` Extrinsic which then will dispatch back to the request originator callback identified by `callback`.
 		// The fee is `reserved` and only actually transferred when the result is provided in the callback.
 		// Operators are expected to listen to `OracleRequest` events. This event contains all the required information to perform the request and provide back the result.
-		pub fn initiate_request(origin, operator: T::AccountId, spec_index: SpecIndex, data_version: DataVersion, data: Vec<u8>, fee: u32, encoded_callback: <T as Trait>::Callback/*Vec<u8>*/) -> DispatchResult {
+		pub fn initiate_request(origin, operator: T::AccountId, spec_index: SpecIndex, data_version: DataVersion, data: Vec<u8>, fee: u32, callback: <T as Trait>::Callback) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
 			ensure!(<Operators<T>>::exists(operator.clone()), Error::<T>::UnknownOperator);
@@ -145,7 +148,7 @@ decl_module! {
 			<NextRequestIdentifier>::put(request_id + 1);
 
 			let now = <frame_system::Module<T>>::block_number();
-			<Requests<T>>::insert(request_id.clone(), (operator.clone(), vec![encoded_callback], now, fee));
+			<Requests<T>>::insert(request_id.clone(), (operator.clone(), vec![callback], now, fee));
 
 			Self::deposit_event(RawEvent::OracleRequest(operator, spec_index, request_id, who, data_version, data, "Chainlink.callback".into(), fee));
 
@@ -166,7 +169,10 @@ decl_module! {
 
 			T::Currency::repatriate_reserved(&who, &operator, fee.into())?;
 
-			callback[0].with_result(result).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into())?;
+			// Dispatch the result to the original callback registered by the caller
+			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into())?;
+
+			Self::deposit_event(RawEvent::OracleAnswer(operator, request_id, who, result, fee));
 
             Ok(())
 		}

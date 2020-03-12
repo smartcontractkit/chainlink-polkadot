@@ -11,7 +11,7 @@ pub trait Trait: chainlink::Trait + ChainlinkTrait {
 
 decl_storage! {
     trait Store for Module<T: Trait> as ExampleStorage {
-        pub Result: u128;
+        pub Result: i128;
     }
 }
 
@@ -31,8 +31,8 @@ decl_module! {
         pub fn callback(origin, result: Vec<u8>) -> DispatchResult {
             ensure_root(origin)?;
 
-            // The result is expected to be a SCALE encoded `u128`
-            let r : u128 = u128::decode(&mut &result[..]).map_err(|err| err.what())?;
+            // The result is expected to be a SCALE encoded `i128`
+            let r : i128 = i128::decode(&mut &result[..]).map_err(|err| err.what())?;
             <Result>::put(r);
 
             Ok(())
