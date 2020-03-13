@@ -23,7 +23,7 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, P
 use frame_support::traits::{Get, ReservableCurrency};
 use sp_std::prelude::*;
 use sp_runtime::traits::Dispatchable;
-use frame_system::ensure_signed;
+use frame_system::{ensure_signed, RawOrigin};
 use frame_system as system;
 
 // A trait allowing to inject Operator results back into the specified Call
@@ -52,12 +52,14 @@ pub type DataVersion = u64;
 decl_storage! {
     trait Store for Module<T: Trait> as Chainlink {
 		// A set of all registered Operator
+		// TODO migrate to 'natural' hasher once migrated to 2.0
 		pub Operators get(fn operator): map hasher(blake2_256) T::AccountId => bool;
 
 		// A running counter used internally to identify the next request
 		pub NextRequestIdentifier get(fn request_identifier): RequestIdentifier;
 
 		// A map of details of each running request
+		// TODO migrate to 'natural' hasher once migrated to 2.0
 		pub Requests get(fn request): linked_map hasher(blake2_256) RequestIdentifier => (T::AccountId, Vec<T::Callback>, T::BlockNumber, u32);
     }
 }
@@ -111,7 +113,7 @@ decl_module! {
 
 			ensure!(!<Operators<T>>::exists(who.clone()), Error::<T>::OperatorAlreadyRegistered);
 
-			<Operators<T>>::insert(&who, true);
+			Operators::<T>::insert(&who, true);
 
 			Self::deposit_event(RawEvent::OperatorRegistered(who));
 
@@ -122,7 +124,7 @@ decl_module! {
 		pub fn unregister_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
 
-			if <Operators<T>>::take(who.clone()) {
+			if Operators::<T>::take(who.clone()) {
 				Self::deposit_event(RawEvent::OperatorUnregistered(who));
 				Ok(())
 			} else {
@@ -144,11 +146,11 @@ decl_module! {
 
 			T::Currency::reserve(&who, fee.into())?;
 
-			let request_id = <NextRequestIdentifier>::get();
-			<NextRequestIdentifier>::put(request_id + 1);
+			let request_id = NextRequestIdentifier::get();
+			NextRequestIdentifier::put(request_id + 1);
 
-			let now = <frame_system::Module<T>>::block_number();
-			<Requests<T>>::insert(request_id.clone(), (operator.clone(), vec![callback], now, fee));
+			let now = frame_system::Module::<T>::block_number();
+			Requests::<T>::insert(request_id.clone(), (operator.clone(), vec![callback], now, fee));
 
 			Self::deposit_event(RawEvent::OracleRequest(operator, spec_index, request_id, who, data_version, data, "Chainlink.callback".into(), fee));
 
@@ -180,10 +182,11 @@ decl_module! {
 		// Identify requests that are considered dead and remove them
 		fn on_finalize(n: T::BlockNumber) {
 			// Adding a request requires a fee, enumeration is safe
-			for (request_identifier, (_account_id, _data, block_number, _fee)) in <Requests<T>>::enumerate() {
+			// TODO replace 'enumerate' with 'iter' once available
+			for (request_identifier, (_account_id, _data, block_number, _fee)) in Requests::<T>::enumerate() {
 				if n > block_number + T::ValidityPeriod::get() {
 					// No result has been received in time
-					<Requests<T>>::remove(request_identifier);
+					Requests::<T>::remove(request_identifier);
 
 					Self::deposit_event(RawEvent::KillRequest(request_identifier));
 				}
