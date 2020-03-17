@@ -9,6 +9,8 @@ add_jobspec() {
 
   login_cl "$CL_URL"
 
+  ACCOUNT_ID=$2
+
   payload=$(
     cat <<EOF
 {
@@ -19,7 +21,7 @@ add_jobspec() {
         "name": "test-ei",
         "body": {
           "endpoint": "substrate-node",
-          "accountIds": ["0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d","0x8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"]
+          "accountIds": ["${ACCOUNT_ID}"]
         }
       }
     }
@@ -37,7 +39,7 @@ add_jobspec() {
     {
       "type": "substrate",
       "params": {
-        "type": "uint128"
+        "type": "int128"
       }
     }
   ]
