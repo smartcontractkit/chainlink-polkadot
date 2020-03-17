@@ -1,7 +1,7 @@
 version: "3.6"
 x-chainlink-def:
   &chainlink-def
-  image: smartcontract/chainlink:develop
+  image: smartcontract/chainlink:latest
   restart: on-failure
   secrets:
     - node_password
@@ -15,6 +15,7 @@ x-postgres-def:
   restart: on-failure
   environment:
     - "POSTGRES_MULTIPLE_DATABASES=chainlink,ei"
+    - "POSTGRES_HOST_AUTH_METHOD=trust"
 x-external-initiator-def:
   &external-initiator-def
   image: smartcontract/external-initiator

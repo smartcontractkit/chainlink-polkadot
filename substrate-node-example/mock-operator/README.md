@@ -1,0 +1,1 @@
+A mock of an operator setup. Allows to simply interact with a substrate based chain using the [pallet-chainlink](../pallet-chainlink) pallet.

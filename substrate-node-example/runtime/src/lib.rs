@@ -30,6 +30,7 @@ use sp_version::NativeVersion;
 pub use sp_runtime::BuildStorage;
 pub use timestamp::Call as TimestampCall;
 pub use balances::Call as BalancesCall;
+pub use example::Call as ExampleCall;
 pub use sp_runtime::{Permill, Perbill};
 pub use frame_support::{
 	StorageValue, construct_runtime, parameter_types,
@@ -233,10 +234,18 @@ impl sudo::Trait for Runtime {
 
 impl example::Trait for Runtime {
 	type Event = Event;
+	type Callback = ExampleCall<Runtime>;
 }
 
 impl chainlink::Trait for Runtime {
 	type Event = Event;
+	type Currency = balances::Module<Runtime>;
+	type Callback = ExampleCall<Runtime>;
+	type ValidityPeriod = ValidityPeriod;
+}
+
+parameter_types! {
+	pub const ValidityPeriod: u32 = 50;
 }
 
 construct_runtime!(

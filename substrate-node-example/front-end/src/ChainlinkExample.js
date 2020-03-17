@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Grid } from 'semantic-ui-react';
+import { Form, Grid, Input } from 'semantic-ui-react';
 
 import { useSubstrate } from './substrate-lib';
 import { TxButton } from './substrate-lib/components';
@@ -7,12 +7,24 @@ import { TxButton } from './substrate-lib/components';
 function Main (props) {
   const { api } = useSubstrate();
   const [status, setStatus] = useState(null);
+  const [formState, setFormState] = useState({ addressTo: null });
   const { accountPair } = props;
+
+  const onChange = (_, data) =>
+    setFormState(prevState => ({ ...formState, [data.state]: data.value }));
+
+  const { addressTo } = formState;
 
   return (
     <Grid.Column>
       <h1>Chainlink</h1>
       <Form>
+        <Form.Field>
+          <Input
+            fluid label='To' type='text' placeholder='address'
+            state='addressTo' onChange={onChange}
+          />
+        </Form.Field>
         <Form.Field>
           <TxButton
             accountPair={accountPair}
@@ -20,6 +32,7 @@ function Main (props) {
             setStatus={setStatus}
             type='TRANSACTION'
             attrs={{
+              params: [addressTo],
               tx: api.tx.example.sendRequest
             }}
           />
