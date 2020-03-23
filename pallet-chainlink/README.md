@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This pallet allows to interract with [chainlink](https://chain.link/).
+This pallet allows to interact with [chainlink](https://chain.link/).
 
 ## Installation
 
