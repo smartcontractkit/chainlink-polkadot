@@ -21,6 +21,7 @@ Add the following section:
 [dependencies.chainlink]
 default_features = false
 package = 'pallet-chainlink'
+git = 'https://github.com/smartcontractkit/chainlink-polkadot.git'
 ```
 
 And amend the `std` section so that it shows like this:
