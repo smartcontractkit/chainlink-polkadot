@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "1.0.0", default-features = false, features = ["derive"] }
+# REVIEW: Use version released on crates.io.
 sp-std = { version = "2.0.0", default-features = false, git = 'https://github.com/paritytech/substrate.git', rev = '3e651110aa06aa835790df63410a29676243fc54' }
 sp-runtime = { version = "2.0.0", default-features = false, git = 'https://github.com/paritytech/substrate.git', rev = '3e651110aa06aa835790df63410a29676243fc54' }
 frame-support = { version = "2.0.0", default-features = false, git = 'https://github.com/paritytech/substrate.git', rev = '3e651110aa06aa835790df63410a29676243fc54' }
