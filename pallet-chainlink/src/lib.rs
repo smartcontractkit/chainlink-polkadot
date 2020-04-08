@@ -43,7 +43,7 @@ pub trait Trait: frame_system::Trait {
 }
 
 // Uniquely identify a request's specification understood by an Operator
-pub type SpecIndex = u32;
+pub type SpecIndex = Vec<u8>;
 // Uniquely identify a request for a considered Operator
 pub type RequestIdentifier = u64;
 // The version of the serialized data format
@@ -348,16 +348,16 @@ mod tests {
 
 		new_test_ext().execute_with(|| {
 			assert!(<Module<Runtime>>::register_operator(Origin::signed(1)).is_ok());
-			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, 1, 1, vec![], 0, module2::Call::<Runtime>::callback(vec![]).into()).is_err());
+			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, vec![], 1, vec![], 0, module2::Call::<Runtime>::callback(vec![]).into()).is_err());
 		});
 
 		new_test_ext().execute_with(|| {
-			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, 1, 1, vec![], 1, module2::Call::<Runtime>::callback(vec![]).into()).is_err());
+			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, vec![], 1, vec![], 1, module2::Call::<Runtime>::callback(vec![]).into()).is_err());
 		});
 
 		new_test_ext().execute_with(|| {
 			assert!(<Module<Runtime>>::register_operator(Origin::signed(1)).is_ok());
-			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, 1, 1, vec![], 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
+			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, vec![], 1, vec![], 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
 			assert!(<Module<Runtime>>::callback(Origin::signed(3), 0, 10.encode()).is_err());
 		});
 
@@ -379,13 +379,13 @@ mod tests {
 
 			let parameters = ("a", "b");
 			let data = parameters.encode();
-			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, 1, 1, data.clone(), 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
+			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, vec![], 1, data.clone(), 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
 			
 			assert_eq!(
 				*System::events().last().unwrap(),
 				EventRecord {
 					phase: Phase::ApplyExtrinsic(0),
-					event: TestEvent::chainlink(RawEvent::OracleRequest(1, 1, 0, 2, 1, data.clone(), "Chainlink.callback".into(), 2)),
+					event: TestEvent::chainlink(RawEvent::OracleRequest(1, vec![], 0, 2, 1, data.clone(), "Chainlink.callback".into(), 2)),
 					topics: vec![],
 				}
 			);
@@ -405,7 +405,7 @@ mod tests {
 
 		new_test_ext().execute_with(|| {
 			assert!(<Module<Runtime>>::register_operator(Origin::signed(1)).is_ok());
-			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, 1, 1, vec![], 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
+			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, vec![], 1, vec![], 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
 			<Module<Runtime> as OnFinalize<u64>>::on_finalize(20);
 			// Request has been killed, too old
 			assert!(<Module<Runtime>>::callback(Origin::signed(1), 0, 10.encode()).is_err());

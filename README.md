@@ -41,7 +41,7 @@ console.log(`Submitted with hash ${txHash}`);
 Make sure you add the following additional to `Settings/Developer` section:
 
 ```json
-{"SpecIndex": "u32",
+{"SpecIndex": "Vec<u8>",
  "RequestIdentifier": "u64",
  "DataVersion": "u64"}
 ```

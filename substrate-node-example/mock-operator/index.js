@@ -46,7 +46,7 @@ async function main() {
     const api = await ApiPromise.create({
         provider: wsProvider,
         types: {
-            SpecIndex: "u32",
+            SpecIndex: "Vec<u8>",
             RequestIdentifier: "u64",
             DataVersion: "u64"
         }

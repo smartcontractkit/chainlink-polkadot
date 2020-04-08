@@ -23,7 +23,7 @@ decl_module! {
             let parameters = ("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "path", "RAW.ETH.USD.PRICE", "times", "100000000");
             let call: <T as Trait>::Callback = Call::callback(vec![]).into();
             
-            <chainlink::Module<T>>::initiate_request(origin, operator, 1, 0, parameters.encode(), 100, call.into())?;
+            <chainlink::Module<T>>::initiate_request(origin, operator, vec![], 0, parameters.encode(), 100, call.into())?;
 
             Ok(())
         }
