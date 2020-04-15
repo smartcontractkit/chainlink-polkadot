@@ -88,7 +88,7 @@ async function main() {
     await registerOperatorIfNeeded(api, operatorAccount);
 
     // Then simulate a call from alice
-    await api.tx.example.sendRequest(operatorAccount.address).signAndSend(aliceAccount);
+    await api.tx.example.sendRequest(operatorAccount.address, "").signAndSend(aliceAccount);
     console.log(`Request sent`);
 }
 

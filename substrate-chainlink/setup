@@ -32,6 +32,8 @@ run_setup() {
   add_bridge "2"
   add_bridge "3"
 
+  echo "" > jobids.txt
+
   source ./internal-scripts/add-jobspec.sh
 
   add_jobspec "1" "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c"
@@ -46,6 +48,7 @@ run_setup() {
   node ./operatorSetup.js "camp acid then kid between survey dentist delay actor fox ensure soccer"
 
   title "All operators are now ready"
+  echo "Jobids can be found in jobids.txt or their respective Chainlink GUIs"
 }
 
 run_setup "$1"

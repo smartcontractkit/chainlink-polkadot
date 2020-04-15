@@ -19,11 +19,11 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
-        pub fn send_request(origin, operator: T::AccountId) -> DispatchResult {
+        pub fn send_request(origin, operator: T::AccountId, specid: Vec<u8>) -> DispatchResult {
             let parameters = ("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "path", "RAW.ETH.USD.PRICE", "times", "100000000");
             let call: <T as Trait>::Callback = Call::callback(vec![]).into();
             
-            <chainlink::Module<T>>::initiate_request(origin, operator, vec![], 0, parameters.encode(), 100, call.into())?;
+            <chainlink::Module<T>>::initiate_request(origin, operator, specid, 0, parameters.encode(), 100, call.into())?;
 
             Ok(())
         }
