@@ -1,14 +1,14 @@
 //! # A pallet to interact with Chainlink nodes
 //!
 //! \## Overview
-//! 
+//!
 //! `pallet-chainlink` allows to request external data from chainlink operators. This is done by emiting a well-known event (`OracleEvent`)
 //! embedding all required data. This event is listened by operators that in turns call back the `callback` function with the associated data.
-//! 
+//!
 //! To initiate a request, users call `initiate_request` with the relevant details, the `operator` AccountId and the `fee` they agree to spend to get the result.
-//! 
+//!
 //! To be valid, an operator must register its AccountId first hand via `register_operator`.
-//! 
+//!
 //! \## Terminology
 //! Operator: a member of chainlink that provides result to requests, in exchange of a fee payment
 //! Request: details about what the user expects as result. Must match a Specification supported by an identified Operator
@@ -182,17 +182,14 @@ decl_module! {
         fn callback(origin, request_id: RequestIdentifier, result: Vec<u8>) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
-			ensure!(<Requests<T>>::exists(request_id.clone()), Error::<T>::UnknownRequest);
-			ensure!(<Requests<T>>::get(request_id.clone()).0 == who, Error::<T>::WrongOperator);
-
-			// REVIEW: `take` will do another `get` under the hood. Consider storing the result of
-			//         `get` above and then using `remove` to remove it from storage.
-			let (operator, callback, _, fee) = <Requests<T>>::take(request_id.clone());
+			ensure!(<Requests<T>>::exists(&request_id), Error::<T>::UnknownRequest);
+                        let (operator, callback, _, fee) = <Requests<T>>::get(&request_id);
+			ensure!(operator == who, Error::<T>::WrongOperator);
 
 			// REVIEW: This does not make sure that the fee is payed. `repatriate_reserved` removes
 			//         *up to* the amount passed. [See here](https://substrate.dev/rustdocs/master/frame_support/traits/trait.ReservableCurrency.html#tymethod.repatriate_reserved)
 			//         Check `reserved_balance()` to make sure that the fee is payable via this method.
-			//         Maybe use a different payment method and check `total_balance()`. I don't know 
+			//         Maybe use a different payment method and check `total_balance()`. I don't know
 			//         Substrate's Currency module well enough to tell.
 			// REVIEW: This happens *after* the request is `take`n from storage. Is that intended?
 			//         See ["verify first, write last"](https://substrate.dev/recipes/2-appetizers/1-hello-substrate.html#inside-a-dispatchable-call) motto.
@@ -308,7 +305,7 @@ mod tests {
 	}
 
 	type System = frame_system::Module<Runtime>;
-	
+
 	fn new_test_ext() -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
 		balances::GenesisConfig::<Runtime>{
@@ -321,9 +318,9 @@ mod tests {
 
 	mod module2 {
 		use super::*;
-	
+
 		pub trait Trait: frame_system::Trait {}
-	
+
 		frame_support::decl_module! {
 			pub struct Module<T: Trait> for enum Call
 				where origin: <T as frame_system::Trait>::Origin
@@ -350,7 +347,7 @@ mod tests {
 				}
 			}
 		}
-	
+
 	}
 
 	#[test]
@@ -407,7 +404,7 @@ mod tests {
 			let parameters = ("a", "b");
 			let data = parameters.encode();
 			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, 1, 1, data.clone(), 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
-			
+		
 			assert_eq!(
 				*System::events().last().unwrap(),
 				EventRecord {
