@@ -204,8 +204,6 @@ decl_module! {
 
 		// Identify requests that are considered dead and remove them
 		fn on_finalize(n: T::BlockNumber) {
-			// Adding a request requires a fee, enumeration is safe
-			// TODO replace 'enumerate' with 'iter' once available
 			for (request_identifier, (_account_id, _data, block_number, _fee)) in Requests::<T>::enumerate() {
 				if n > block_number + T::ValidityPeriod::get() {
 					// No result has been received in time
