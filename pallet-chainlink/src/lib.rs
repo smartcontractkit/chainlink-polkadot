@@ -117,7 +117,7 @@ decl_module! {
 		pub fn register_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
 
-			ensure!(!<Operators<T>>::exists(who.clone()), Error::<T>::OperatorAlreadyRegistered);
+			ensure!(!<Operators<T>>::exists(&who), Error::<T>::OperatorAlreadyRegistered);
 
 			Operators::<T>::insert(&who, true);
 
@@ -148,7 +148,6 @@ decl_module! {
 		pub fn initiate_request(origin, operator: T::AccountId, spec_index: SpecIndex, data_version: DataVersion, data: Vec<u8>, fee: BalanceOf<T>, callback: <T as Trait>::Callback) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
-			// REVIEW: This clone should not be necessary.
 			ensure!(<Operators<T>>::exists(&operator), Error::<T>::UnknownOperator);
 			// REVIEW: Should probably be at least `ExistentialDeposit`
 			ensure!(fee > BalanceOf::<T>::from(0), Error::<T>::InsufficientFee);
