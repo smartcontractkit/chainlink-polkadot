@@ -18,12 +18,12 @@
 
 use sp_std::if_std;
 #[warn(unused_imports)]
-use codec::{Codec, Decode, Encode};
+use codec::Codec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter, dispatch::DispatchResult};
 use frame_support::traits::{Get, ReservableCurrency, Currency};
 use sp_std::prelude::*;
 use sp_runtime::traits::Dispatchable;
-use frame_system::{ensure_signed, RawOrigin};
+use frame_system::ensure_signed;
 use frame_system as system;
 
 // A trait allowing to inject Operator results back into the specified Call
@@ -221,6 +221,7 @@ decl_module! {
 mod tests {
 	use super::*;
 
+	use codec::{Decode, Encode};
 	use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
 	use sp_core::H256;
 	// The testing primitives are very useful for avoiding having to work with signatures
