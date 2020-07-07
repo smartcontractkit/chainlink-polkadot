@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This pallet allows to interract with [chainlink](https://chain.link/).
+This pallet allows to interact with [chainlink](https://chain.link/).
 
 ## Installation
 
@@ -21,6 +21,7 @@ Add the following section:
 [dependencies.chainlink]
 default_features = false
 package = 'pallet-chainlink'
+git = 'https://github.com/smartcontractkit/chainlink-polkadot.git'
 ```
 
 And amend the `std` section so that it shows like this:
