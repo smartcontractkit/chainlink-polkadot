@@ -47,7 +47,6 @@ If you'd like to restart you will have to remove all the docker containers. You 
 ```
 docker-compose down
 
-docker system prune
 
 docker volume rm substrate-chainlink_cl1 substrate-chainlink_cl2 substrate-chainlink_cl3 substrate-chainlink_pg1 substrate-chainlink_pg2 substrate-chainlink_pg3
 ```
