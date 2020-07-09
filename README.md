@@ -45,7 +45,7 @@ _note_
 If you'd like to restart you will have to remove all the docker containers. You can do this by running:
 
 ```
-docker kill substrate-chainlink_external-initiator-node3_1 substrate-chainlink_external-initiator-node2_1 substrate-chainlink_external-initiator-node1_1 substrate-chainlink_chainlink-node1_1 substrate-chainlink_chainlink-node3_1 substrate-chainlink_chainlink-node2_1 substrate-chainlink_postgres-node1_1 substrate-chainlink_substrate-adapter1_1 substrate-chainlink_substrate-adapter3_1 substrate-chainlink_postgres-node2_1 substrate-chainlink_postgres-node3_1 substrate-chainlink_substrate-adapter2_1
+docker-compose down
 
 docker system prune
 
