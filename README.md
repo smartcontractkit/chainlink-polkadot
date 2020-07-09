@@ -39,6 +39,8 @@ To spin up some simple Chainlink nodes to intereact with the parachain you just 
 
 This will run a number of docker commands that will spin up your Chainlink node. You can access them by going to your browser at:
 `http://localhost:6691/`
+
+The password to this Chainlink node is `notreal@fakeemail.ch` and the password is `twochains`.
 You can see in the logs of `./setup` if the address has moved.
 
 _note_
@@ -46,9 +48,7 @@ If you'd like to restart you will have to remove all the docker containers. You 
 
 ```
 docker-compose down
-
-
-docker volume rm substrate-chainlink_cl1 substrate-chainlink_cl2 substrate-chainlink_cl3 substrate-chainlink_pg1 substrate-chainlink_pg2 substrate-chainlink_pg3
+docker-compose up
 ```
 
 You are now ready to send test requests and see the result being provided back by an Oracle. You can continue to follow the [demo youtube video](https://www.youtube.com/watch?v=0rZghy0TIOQ&feature=emb_title) to see how to interact with the GUIs.
