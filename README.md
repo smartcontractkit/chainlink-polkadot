@@ -32,6 +32,7 @@ rustup target add wasm32-unknown-unknown
 To test:
 
 - start the chain using `make run-chain`
+- install frontend dependencies `cd substrate-node-example/front-end && yarn install && cd ../..`
 - start the frontend using `make run-front-end`
 
 To spin up some simple Chainlink nodes to intereact with the parachain you just created, run the setupcommand:
