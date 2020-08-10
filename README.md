@@ -20,7 +20,7 @@ This is WIP and will evolve frequently.
 
 `rust-toolchain` is used to make sure the correct rust version is used. Make sure to install the WASM target using:
 
-```
+```bash
 rustup target add wasm32-unknown-unknown
 ```
 
@@ -36,11 +36,14 @@ To test:
 - start the frontend using `make run-front-end`
 
 To spin up some simple Chainlink nodes to intereact with the parachain you just created, run the setupcommand:
-`cd substrate-chainlink`
-`./setup`
+
+```bash
+cd substrate-chainlink
+./setup
+```
 
 This will run a number of docker commands that will spin up your Chainlink node. You can access them by going to your browser at:
-`http://localhost:6691/`
+[http://localhost:6691](http://localhost:6691/).
 
 The password to this Chainlink node is `notreal@fakeemail.ch` and the password is `twochains`.
 You can see in the logs of `./setup` if the address has moved.
@@ -48,7 +51,7 @@ You can see in the logs of `./setup` if the address has moved.
 _note_
 If you'd like to restart you will have to remove all the docker containers. You can do this by running:
 
-```
+```bash
 docker-compose down
 docker-compose up
 ```
