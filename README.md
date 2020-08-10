@@ -13,9 +13,10 @@ This is WIP and will evolve frequently.
 
 ### Requirements
 
-[Rust](https://www.rust-lang.org/tools/install)
-[Docker](https://docs.docker.com/get-docker/)
-[jq](https://stedolan.github.io/jq/download/)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/) version >1.26
+- [jq](https://stedolan.github.io/jq/download/)
 
 `rust-toolchain` is used to make sure the correct rust version is used. Make sure to install the WASM target using:
 
