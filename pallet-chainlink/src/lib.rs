@@ -203,7 +203,9 @@ decl_module! {
 			T::Currency::repatriate_reserved(&who, &operator, fee.into(), BalanceStatus::Free)?;
 
 			// Dispatch the result to the original callback registered by the caller
-			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into())?;
+			// TODO fix the "?" - not sure how to proceed there
+			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into());
+			// callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into())?;
 
 			Self::deposit_event(RawEvent::OracleAnswer(operator, request_id, who, result, fee));
 
