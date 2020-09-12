@@ -128,6 +128,7 @@ decl_module! {
 		}
 
 		// Unregisters an existing Operator
+		// TODO check weight
 		#[weight = 10_000]
 		pub fn unregister_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
@@ -147,6 +148,7 @@ decl_module! {
 		// The fee is `reserved` and only actually transferred when the result is provided in the callback.
 		// Operators are expected to listen to `OracleRequest` events. This event contains all the required information to perform the request and provide back the result.
 		// REVIEW: Use a `BalanceOf` type for the fee instead of `u32` as shown here: https://substrate.dev/recipes/3-entrees/currency.html
+		// TODO check weight
 		#[weight = 10_000]
 		pub fn initiate_request(origin, operator: T::AccountId, spec_index: SpecIndex, data_version: DataVersion, data: Vec<u8>, fee: BalanceOf<T>, callback: <T as Trait>::Callback) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
@@ -181,12 +183,13 @@ decl_module! {
 		// Only the Operator responsible for an identified request can notify back the result.
 		// Result is then dispatched back to the originator's callback.
 		// The fee reserved during `initiate_request` is transferred as soon as this callback is called.
+		// TODO check weight
 		#[weight = 10_000]
         fn callback(origin, request_id: RequestIdentifier, result: Vec<u8>) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
-			ensure!(<Requests<T>>::get(&request_id), Error::<T>::UnknownRequest);
-                        let (operator, callback, _, fee) = <Requests<T>>::get(&request_id);
+			ensure!(<Requests<T>>::contains_key(&request_id), Error::<T>::UnknownRequest);
+			let (operator, callback, _, fee) = <Requests<T>>::get(&request_id);
 			ensure!(operator == who, Error::<T>::WrongOperator);
 
 			// REVIEW: This does not make sure that the fee is payed. `repatriate_reserved` removes
@@ -196,6 +199,7 @@ decl_module! {
 			//         Substrate's Currency module well enough to tell.
 			// REVIEW: This happens *after* the request is `take`n from storage. Is that intended?
 			//         See ["verify first, write last"](https://substrate.dev/recipes/2-appetizers/1-hello-substrate.html#inside-a-dispatchable-call) motto.
+			// TODO chec whether to use BalanceStatus::Reserved or Free?
 			T::Currency::repatriate_reserved(&who, &operator, fee.into(), BalanceStatus::Free)?;
 
 			// Dispatch the result to the original callback registered by the caller
