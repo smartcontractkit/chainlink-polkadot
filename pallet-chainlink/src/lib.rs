@@ -20,7 +20,7 @@ use sp_std::if_std;
 #[warn(unused_imports)]
 use codec::Codec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter, dispatch::DispatchResult};
-use frame_support::traits::{Get, ReservableCurrency, Currency};
+use frame_support::traits::{Get, ReservableCurrency, Currency, BalanceStatus};
 use sp_std::prelude::*;
 use sp_runtime::traits::Dispatchable;
 use frame_system::ensure_signed;
@@ -56,7 +56,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Chainlink {
 		// A set of all registered Operator
 		// TODO migrate to 'natural' hasher once migrated to 2.0
-		pub Operators get(fn operator): map hasher(blake2_256) T::AccountId => bool;
+		pub Operators get(fn operator): map hasher(blake2_128_concat) T::AccountId => bool;
 
 		// A running counter used internally to identify the next request
 		pub NextRequestIdentifier get(fn request_identifier): RequestIdentifier;
@@ -65,7 +65,7 @@ decl_storage! {
 		// TODO migrate to 'natural' hasher once migrated to 2.0
 		// REVIEW: Consider using a struct for the Requests instead of a tuple to increase
 		//         readability.
-		pub Requests get(fn request): linked_map hasher(blake2_256) RequestIdentifier => (T::AccountId, Vec<T::Callback>, T::BlockNumber, BalanceOf<T>);
+		pub Requests get(fn request): map hasher(blake2_128_concat) RequestIdentifier => (T::AccountId, Vec<T::Callback>, T::BlockNumber, BalanceOf<T>);
     }
 }
 
@@ -114,10 +114,11 @@ decl_module! {
 		// REVIEW: Use `///` instead of `//` to make these doc comments that are part of the crate documentation.
 		// Register a new Operator.
 		// Fails with `OperatorAlreadyRegistered` if this Operator (identified by `origin`) has already been registered.
+		#[weight = 10_000]
 		pub fn register_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
 
-			ensure!(!<Operators<T>>::exists(&who), Error::<T>::OperatorAlreadyRegistered);
+			ensure!(!<Operators<T>>::get(&who), Error::<T>::OperatorAlreadyRegistered);
 
 			Operators::<T>::insert(&who, true);
 
@@ -127,6 +128,7 @@ decl_module! {
 		}
 
 		// Unregisters an existing Operator
+		#[weight = 10_000]
 		pub fn unregister_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
 
@@ -145,10 +147,11 @@ decl_module! {
 		// The fee is `reserved` and only actually transferred when the result is provided in the callback.
 		// Operators are expected to listen to `OracleRequest` events. This event contains all the required information to perform the request and provide back the result.
 		// REVIEW: Use a `BalanceOf` type for the fee instead of `u32` as shown here: https://substrate.dev/recipes/3-entrees/currency.html
+		#[weight = 10_000]
 		pub fn initiate_request(origin, operator: T::AccountId, spec_index: SpecIndex, data_version: DataVersion, data: Vec<u8>, fee: BalanceOf<T>, callback: <T as Trait>::Callback) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
-			ensure!(<Operators<T>>::exists(&operator), Error::<T>::UnknownOperator);
+			ensure!(<Operators<T>>::get(&operator), Error::<T>::UnknownOperator);
 			// REVIEW: Should probably be at least `ExistentialDeposit`
 			ensure!(fee > BalanceOf::<T>::from(0), Error::<T>::InsufficientFee);
 
@@ -178,10 +181,11 @@ decl_module! {
 		// Only the Operator responsible for an identified request can notify back the result.
 		// Result is then dispatched back to the originator's callback.
 		// The fee reserved during `initiate_request` is transferred as soon as this callback is called.
+		#[weight = 10_000]
         fn callback(origin, request_id: RequestIdentifier, result: Vec<u8>) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
-			ensure!(<Requests<T>>::exists(&request_id), Error::<T>::UnknownRequest);
+			ensure!(<Requests<T>>::get(&request_id), Error::<T>::UnknownRequest);
                         let (operator, callback, _, fee) = <Requests<T>>::get(&request_id);
 			ensure!(operator == who, Error::<T>::WrongOperator);
 
@@ -192,7 +196,7 @@ decl_module! {
 			//         Substrate's Currency module well enough to tell.
 			// REVIEW: This happens *after* the request is `take`n from storage. Is that intended?
 			//         See ["verify first, write last"](https://substrate.dev/recipes/2-appetizers/1-hello-substrate.html#inside-a-dispatchable-call) motto.
-			T::Currency::repatriate_reserved(&who, &operator, fee.into())?;
+			T::Currency::repatriate_reserved(&who, &operator, fee.into(), BalanceStatus::Free)?;
 
 			// Dispatch the result to the original callback registered by the caller
 			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into())?;
@@ -204,7 +208,7 @@ decl_module! {
 
 		// Identify requests that are considered dead and remove them
 		fn on_finalize(n: T::BlockNumber) {
-			for (request_identifier, (_account_id, _data, block_number, _fee)) in Requests::<T>::enumerate() {
+			for (request_identifier, (_account_id, _data, block_number, _fee)) in Requests::<T>::iter() {
 				if n > block_number + T::ValidityPeriod::get() {
 					// No result has been received in time
 					Requests::<T>::remove(request_identifier);
@@ -351,16 +355,16 @@ mod tests {
 	#[test]
 	fn operators_can_be_registered() {
 		new_test_ext().execute_with(|| {
-			assert!(!<Operators<Runtime>>::exists(1));
+			assert!(!<Operators<Runtime>>::get(1));
 			assert!(<Module<Runtime>>::register_operator(Origin::signed(1)).is_ok());
-			assert!(<Operators<Runtime>>::exists(1));
+			assert!(<Operators<Runtime>>::get(1));
 			assert!(<Module<Runtime>>::unregister_operator(Origin::signed(1)).is_ok());
-			assert!(!<Operators<Runtime>>::exists(1));
+			assert!(!<Operators<Runtime>>::get(1));
 		});
 
 		new_test_ext().execute_with(|| {
 			assert!(<Module<Runtime>>::unregister_operator(Origin::signed(1)).is_err());
-			assert!(!<Operators<Runtime>>::exists(1));
+			assert!(!<Operators<Runtime>>::get(1));
 		});
 
 	}
