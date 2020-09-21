@@ -1,17 +1,23 @@
 const {ApiPromise, Keyring, WsProvider} = require('@polkadot/api');
 const {cryptoWaitReady} = require('@polkadot/util-crypto');
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function fundOperatorAccountIfNeeded(api, aliceAccount, operatorAccount) {
-    // TODO migrate to 'system.account' ? See https://github.com/paritytech/substrate/pull/4820
     return new Promise(async (resolve) => {
-        const balance = await api.query.balances.freeBalance(operatorAccount.address);
-        if (balance.isZero()) {
-            await api.tx.balances.transfer(operatorAccount.address, 123456666).signAndSend(aliceAccount, async ({status}) => {
+        const balance = await api.query.system.account(operatorAccount.address);
+        console.log(`Free balance is: ${balance.data.free}`);
+        if (parseInt(balance.data.free) === 0) {
+            await api.tx.balances.transfer(operatorAccount.address, 123456666000).signAndSend(aliceAccount, async ({status}) => {
                 if (status.isFinalized) {
                     resolve();
                 }
             });
-            // TODO make sure we wait for block being included
+            // TODO rather than waiting arbitrarily, find a more proactive approach to
+            //  the block being included
+            await sleep(6000);
             console.log('Operator funded');
         } else {
             resolve();
@@ -21,6 +27,7 @@ async function fundOperatorAccountIfNeeded(api, aliceAccount, operatorAccount) {
 
 async function registerOperatorIfNeeded(api, operatorAccount) {
     // Register the operator, this is supposed to be initiated once by the operator itself
+    console.log(`Registering operator ${operatorAccount.address}`);
     return new Promise(async (resolve) => {
         const operator = await api.query.chainlink.operators(operatorAccount.address);
         if (operator.isFalse) {
@@ -47,7 +54,9 @@ async function main() {
         types: {
             SpecIndex: "Vec<u8>",
             RequestIdentifier: "u64",
-            DataVersion: "u64"
+            DataVersion: "u64",
+            Address: "AccountId",
+            LookupSource: "AccountId"
         }
     });
 
