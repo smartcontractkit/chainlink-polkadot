@@ -24,7 +24,6 @@ use frame_support::traits::{Get, ReservableCurrency, Currency, BalanceStatus};
 use sp_std::prelude::*;
 use sp_runtime::traits::Dispatchable;
 use frame_system::ensure_signed;
-use frame_system as system;
 
 // A trait allowing to inject Operator results back into the specified Call
 pub trait CallbackWithParameter {
@@ -43,7 +42,7 @@ pub trait Trait: frame_system::Trait {
 }
 
 // REVIEW: Use this for transfering currency.
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 // Uniquely identify a request's specification understood by an Operator
 pub type SpecIndex = Vec<u8>;
