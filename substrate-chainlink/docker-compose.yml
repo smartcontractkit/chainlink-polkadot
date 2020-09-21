@@ -18,11 +18,11 @@ x-postgres-def:
     - "POSTGRES_HOST_AUTH_METHOD=trust"
 x-external-initiator-def:
   &external-initiator-def
-  image: smartcontract/external-initiator
+  image: laurenttrk/external-initiator:2.0.0-alpha.6.4
   command: '{\"name\":\"substrate-node\",\"type\":\"substrate\",\"url\":\"${SA_ENDPOINT}\"}'
 x-substrate-adapter-def:
   &substrate-adapter-def
-  image: smartcontract/substrate-adapter
+  image: laurenttrk/substrate-adapter:2.0.0-alpha.6.4
   restart: on-failure
   env_file:
     - ./adapter.env
