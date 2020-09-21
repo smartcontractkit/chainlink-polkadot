@@ -2,6 +2,6 @@
   "name": "substrate-chainlink",
   "version": "1.0.0",
   "dependencies": {
-    "@polkadot/api": "1.5.1"
+    "@polkadot/api": "1.33.1"
   }
 }
