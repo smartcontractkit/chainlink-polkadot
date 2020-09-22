@@ -26,6 +26,9 @@ run_setup() {
   add_ei "2"
   add_ei "3"
 
+#  We should wait till the external initiator is up and running before creating jobs
+  sleep 3
+
   source ./internal-scripts/add-bridge.sh
 
   add_bridge "1"
