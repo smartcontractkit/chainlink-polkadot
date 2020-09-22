@@ -51,3 +51,24 @@ docker-compose up
 
 The env var `SA_ENDPOINT` needs to be set before bringing the services up.
 `./setup` will default to `ws://host.docker.internal:9944/`, but you need to set this again if it is unset.
+
+## Troubleshooting
+
+### Stuck at "waiting for localhost:669X"
+
+Check the logs of your docker container running the chainlink node:
+`docker logs -f substrate-chainlink_chainlink-node1_1`
+
+You need to make sure you followed the setup section
+
+### cat jobids.txt is null
+
+The external initiator needs to be up and running before you can create jobs.
+
+It might be the case that it wasn't operational yet, in this case simply re-execute the
+part of job creation from setup:
+```bash
+source ./internal-scripts/add-jobspec.sh
+
+add_jobspec ...
+```
