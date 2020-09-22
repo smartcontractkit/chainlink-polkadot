@@ -1,12 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{decl_module, decl_storage, decl_error, dispatch, traits::Get};
-use frame_system::{ensure_signed, ensure_root, Trait as SystemTrait, Origin};
+use frame_system::{ensure_signed, ensure_root, Trait as SystemTrait};
 use pallet_chainlink::{CallbackWithParameter, Event, Trait as ChainlinkTrait, BalanceOf};
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
-use sp_runtime::traits::{Dispatchable, DispatchInfoOf as Info};
-use sp_runtime::DispatchResultWithInfo;
 
 
 #[cfg(test)]
@@ -49,6 +47,7 @@ decl_module! {
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		pub fn send_request(origin, operator: T::AccountId, specid: Vec<u8>) -> dispatch::DispatchResult {
 			ensure_signed(origin.clone())?;
+            println!("Sending request!");
 
 			let parameters = ("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "path", "RAW.ETH.USD.PRICE", "times", "100000000");
 			// Update storage.
@@ -60,6 +59,7 @@ decl_module! {
 
 		#[weight = 10_000 + T::DbWeight::get().reads_writes(1,1)]
 		pub fn callback(origin, result: Vec<u8>) -> dispatch::DispatchResult {
+            println!("entering callback function");
 			ensure_root(origin)?;
 
             let r : i128 = i128::decode(&mut &result[..]).map_err(|err| err.what())?;
@@ -70,22 +70,13 @@ decl_module! {
 	}
 }
 
-impl <T:Trait> Dispatchable for Call<T> {
-    type Origin = T::Origin;
-    type Trait = ();
-    type Info = ();
-    type PostInfo = ();
-
-    fn dispatch(self, _origin: Self::Origin) -> DispatchResultWithInfo<Self::PostInfo> {
-        Ok(())
-        // unimplemented!()
-    }
-}
-
 impl <T: Trait> CallbackWithParameter for Call<T> {
     fn with_result(&self, result: Vec<u8>) -> Option<Self> {
         match *self {
-            Call::callback(_) => Some(Call::callback(result)),
+            Call::callback(_) => {
+                println!("entering with_result function");
+                Some(Call::callback(result))
+            },
             _ => None
         }
     }

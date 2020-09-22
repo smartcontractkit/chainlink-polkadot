@@ -16,13 +16,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::if_std;
 #[warn(unused_imports)]
 use codec::Codec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter, dispatch::DispatchResult};
-use frame_support::traits::{Get, ReservableCurrency, Currency, BalanceStatus};
+use frame_support::traits::{Get, ReservableCurrency, Currency, BalanceStatus, UnfilteredDispatchable};
 use sp_std::prelude::*;
-use sp_runtime::traits::Dispatchable;
 use frame_system::ensure_signed;
 
 // A trait allowing to inject Operator results back into the specified Call
@@ -35,7 +33,7 @@ pub trait Trait: frame_system::Trait {
 	type Currency: ReservableCurrency<Self::AccountId>;
 
 	// A reference to an Extrinsic that can have a result injected. Used as Chainlink callback
-	type Callback: Parameter + Dispatchable<Origin = Self::Origin> + Codec + Eq + CallbackWithParameter;
+	type Callback: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + Codec + Eq + CallbackWithParameter;
 
 	// Period during which a request is valid
 	type ValidityPeriod: Get<Self::BlockNumber>;
@@ -203,7 +201,7 @@ decl_module! {
 
 			// Dispatch the result to the original callback registered by the caller
 			// TODO fix the "?" - not sure how to proceed there
-			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into());
+			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch_bypass_filter(frame_system::RawOrigin::Root.into()).ok();
 			// callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into())?;
 
 			Self::deposit_event(RawEvent::OracleAnswer(operator, request_id, who, result, fee));
