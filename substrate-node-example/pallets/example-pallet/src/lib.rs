@@ -47,7 +47,6 @@ decl_module! {
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		pub fn send_request(origin, operator: T::AccountId, specid: Vec<u8>) -> dispatch::DispatchResult {
 			ensure_signed(origin.clone())?;
-            println!("Sending request!");
 
 			let parameters = ("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "path", "RAW.ETH.USD.PRICE", "times", "100000000");
 			// Update storage.
@@ -59,7 +58,6 @@ decl_module! {
 
 		#[weight = 10_000 + T::DbWeight::get().reads_writes(1,1)]
 		pub fn callback(origin, result: Vec<u8>) -> dispatch::DispatchResult {
-            println!("entering callback function");
 			ensure_root(origin)?;
 
             let r : i128 = i128::decode(&mut &result[..]).map_err(|err| err.what())?;
@@ -74,7 +72,6 @@ impl <T: Trait> CallbackWithParameter for Call<T> {
     fn with_result(&self, result: Vec<u8>) -> Option<Self> {
         match *self {
             Call::callback(_) => {
-                println!("entering with_result function");
                 Some(Call::callback(result))
             },
             _ => None
