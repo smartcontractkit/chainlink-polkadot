@@ -37,7 +37,7 @@ pub use frame_support::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 	},
 };
-pub use chainlink_example_pallet::Call as ExampleCall;
+pub use example_pallet::Call as ExampleCall;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -262,7 +262,7 @@ impl pallet_chainlink::Trait for Runtime {
 	type ValidityPeriod = ValidityPeriod;
 }
 
-impl chainlink_example_pallet::Trait for Runtime {
+impl example_pallet::Trait for Runtime {
 	type Event = Event;
 	type Callback = ExampleCall<Runtime>;
 }
@@ -289,7 +289,7 @@ construct_runtime!(
 
 		// Declare the chainlink pallet
 		Chainlink: pallet_chainlink::{Module, Call, Storage, Event<T>},
-		Example: chainlink_example_pallet::{Module, Call, Storage},
+		Example: example_pallet::{Module, Call, Storage},
 	}
 );
 

@@ -188,7 +188,7 @@ std = [
     'sp-std/std',
     'sp-transaction-pool/std',
     'sp-version/std',
-    'chainlink-example-pallet/std',
+    'example-pallet/std',
 ]
 
 [build-dependencies.wasm-builder-runner]
@@ -203,8 +203,8 @@ package = 'pallet-chainlink'
 git = 'https://github.com/mmagician/chainlink-polkadot.git'
 version = '2.0.0'
 
-[dependencies.chainlink-example-pallet]
+[dependencies.example-pallet]
 default-features = false
-package = 'chainlink-example-pallet'
-path = '../pallets/chainlink-example-pallet'
+package = 'example-pallet'
+path = '../pallets/example-pallet'
 version = '2.0.0-rc6'

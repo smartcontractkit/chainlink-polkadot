@@ -2,7 +2,7 @@
 authors = ['LAPO']
 description = 'FRAME pallet for custom chainlink logic.'
 license = 'Unlicense'
-name = 'chainlink-example-pallet'
+name = 'example-pallet'
 edition = '2018'
 version = '2.0.0-rc6'
 
