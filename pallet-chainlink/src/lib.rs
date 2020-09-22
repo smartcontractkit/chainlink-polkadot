@@ -1,14 +1,14 @@
 //! # A pallet to interact with Chainlink nodes
 //!
 //! \## Overview
-//! 
+//!
 //! `pallet-chainlink` allows to request external data from chainlink operators. This is done by emiting a well-known event (`OracleEvent`)
 //! embedding all required data. This event is listened by operators that in turns call back the `callback` function with the associated data.
-//! 
+//!
 //! To initiate a request, users call `initiate_request` with the relevant details, the `operator` AccountId and the `fee` they agree to spend to get the result.
-//! 
+//!
 //! To be valid, an operator must register its AccountId first hand via `register_operator`.
-//! 
+//!
 //! \## Terminology
 //! Operator: a member of chainlink that provides result to requests, in exchange of a fee payment
 //! Request: details about what the user expects as result. Must match a Specification supported by an identified Operator
@@ -16,15 +16,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::if_std;
 #[warn(unused_imports)]
-use codec::{Codec, Decode, Encode};
+use codec::Codec;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter, dispatch::DispatchResult};
-use frame_support::traits::{Get, ReservableCurrency};
+use frame_support::traits::{Get, ReservableCurrency, BalanceStatus, UnfilteredDispatchable};
 use sp_std::prelude::*;
-use sp_runtime::traits::Dispatchable;
-use frame_system::{ensure_signed, RawOrigin};
-use frame_system as system;
+use frame_system::ensure_signed;
 
 // A trait allowing to inject Operator results back into the specified Call
 pub trait CallbackWithParameter {
@@ -36,7 +33,7 @@ pub trait Trait: frame_system::Trait {
 	type Currency: ReservableCurrency<Self::AccountId>;
 
 	// A reference to an Extrinsic that can have a result injected. Used as Chainlink callback
-	type Callback: Parameter + Dispatchable<Origin = Self::Origin> + Codec + Eq + CallbackWithParameter;
+	type Callback: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + Codec + Eq + CallbackWithParameter;
 
 	// Period during which a request is valid
 	type ValidityPeriod: Get<Self::BlockNumber>;
@@ -52,15 +49,13 @@ pub type DataVersion = u64;
 decl_storage! {
     trait Store for Module<T: Trait> as Chainlink {
 		// A set of all registered Operator
-		// TODO migrate to 'natural' hasher once migrated to 2.0
-		pub Operators get(fn operator): map hasher(blake2_256) T::AccountId => bool;
+		pub Operators get(fn operator): map hasher(twox_64_concat) T::AccountId => bool;
 
 		// A running counter used internally to identify the next request
 		pub NextRequestIdentifier get(fn request_identifier): RequestIdentifier;
 
 		// A map of details of each running request
-		// TODO migrate to 'natural' hasher once migrated to 2.0
-		pub Requests get(fn request): linked_map hasher(blake2_256) RequestIdentifier => (T::AccountId, Vec<T::Callback>, T::BlockNumber, u32);
+		pub Requests get(fn request): map hasher(twox_64_concat) RequestIdentifier => (T::AccountId, Vec<T::Callback>, T::BlockNumber, u32);
     }
 }
 
@@ -108,10 +103,11 @@ decl_module! {
 
 		// Register a new Operator.
 		// Fails with `OperatorAlreadyRegistered` if this Operator (identified by `origin`) has already been registered.
+		#[weight = 0]
 		pub fn register_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
 
-			ensure!(!<Operators<T>>::exists(who.clone()), Error::<T>::OperatorAlreadyRegistered);
+			ensure!(!<Operators<T>>::contains_key(who.clone()), Error::<T>::OperatorAlreadyRegistered);
 
 			Operators::<T>::insert(&who, true);
 
@@ -121,6 +117,7 @@ decl_module! {
 		}
 
 		// Unregisters an existing Operator
+		#[weight = 0]
 		pub fn unregister_operator(origin) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin)?;
 
@@ -138,10 +135,11 @@ decl_module! {
 		// If provided fee is sufficient, Operator must send back the request result in `callback` Extrinsic which then will dispatch back to the request originator callback identified by `callback`.
 		// The fee is `reserved` and only actually transferred when the result is provided in the callback.
 		// Operators are expected to listen to `OracleRequest` events. This event contains all the required information to perform the request and provide back the result.
+		#[weight = 0]
 		pub fn initiate_request(origin, operator: T::AccountId, spec_index: SpecIndex, data_version: DataVersion, data: Vec<u8>, fee: u32, callback: <T as Trait>::Callback) -> DispatchResult {
 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
-			ensure!(<Operators<T>>::exists(operator.clone()), Error::<T>::UnknownOperator);
+			ensure!(<Operators<T>>::contains_key(operator.clone()), Error::<T>::UnknownOperator);
 			ensure!(fee > 0, Error::<T>::InsufficientFee);
 
 			T::Currency::reserve(&who, fee.into())?;
@@ -153,37 +151,37 @@ decl_module! {
 			Requests::<T>::insert(request_id.clone(), (operator.clone(), vec![callback], now, fee));
 
 			Self::deposit_event(RawEvent::OracleRequest(operator, spec_index, request_id, who, data_version, data, "Chainlink.callback".into(), fee));
-
 			Ok(())
+
 		}
 
 		// The callback used to be notified of all Operators results.
 		// Only the Operator responsible for an identified request can notify back the result.
 		// Result is then dispatched back to the originator's callback.
 		// The fee reserved during `initiate_request` is transferred as soon as this callback is called.
+        #[weight = 0]
         fn callback(origin, request_id: RequestIdentifier, result: Vec<u8>) -> DispatchResult {
-			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
 
-			ensure!(<Requests<T>>::exists(request_id.clone()), Error::<T>::UnknownRequest);
+ 			let who : <T as frame_system::Trait>::AccountId = ensure_signed(origin.clone())?;
+
+			ensure!(<Requests<T>>::contains_key(request_id.clone()), Error::<T>::UnknownRequest);
 			ensure!(<Requests<T>>::get(request_id.clone()).0 == who, Error::<T>::WrongOperator);
 
 			let (operator, callback, _, fee) = <Requests<T>>::take(request_id.clone());
 
-			T::Currency::repatriate_reserved(&who, &operator, fee.into())?;
+			T::Currency::repatriate_reserved(&who, &operator, fee.into(), BalanceStatus::Free)?;
 
 			// Dispatch the result to the original callback registered by the caller
-			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch(frame_system::RawOrigin::Root.into())?;
+			callback[0].with_result(result.clone()).ok_or(Error::<T>::UnknownCallback)?.dispatch_bypass_filter(frame_system::RawOrigin::Root.into()).ok();
 
 			Self::deposit_event(RawEvent::OracleAnswer(operator, request_id, who, result, fee));
-
             Ok(())
 		}
 
 		// Identify requests that are considered dead and remove them
 		fn on_finalize(n: T::BlockNumber) {
 			// Adding a request requires a fee, enumeration is safe
-			// TODO replace 'enumerate' with 'iter' once available
-			for (request_identifier, (_account_id, _data, block_number, _fee)) in Requests::<T>::enumerate() {
+			for (request_identifier, (_account_id, _data, block_number, _fee)) in Requests::<T>::iter() {
 				if n > block_number + T::ValidityPeriod::get() {
 					// No result has been received in time
 					Requests::<T>::remove(request_identifier);
@@ -281,7 +279,7 @@ mod tests {
 	}
 
 	type System = frame_system::Module<Runtime>;
-	
+
 	fn new_test_ext() -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
 		balances::GenesisConfig::<Runtime>{
@@ -294,9 +292,9 @@ mod tests {
 
 	mod module2 {
 		use super::*;
-	
+
 		pub trait Trait: frame_system::Trait {}
-	
+
 		frame_support::decl_module! {
 			pub struct Module<T: Trait> for enum Call
 				where origin: <T as frame_system::Trait>::Origin
@@ -323,7 +321,7 @@ mod tests {
 				}
 			}
 		}
-	
+
 	}
 
 	#[test]
@@ -380,7 +378,7 @@ mod tests {
 			let parameters = ("a", "b");
 			let data = parameters.encode();
 			assert!(<Module<Runtime>>::initiate_request(Origin::signed(2), 1, vec![], 1, data.clone(), 2, module2::Call::<Runtime>::callback(vec![]).into()).is_ok());
-			
+
 			assert_eq!(
 				*System::events().last().unwrap(),
 				EventRecord {
