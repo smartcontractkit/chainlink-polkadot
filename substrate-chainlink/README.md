@@ -4,9 +4,14 @@ This tool automates the setup and running of Chainlink components to read/write 
 
 ## Prerequisites
 
+### Substrate node
 The Chainlink components assume that you already have a Substrate node running with the Chainlink pallet.
 
 _See the directory above for more instructions on how to run this._
+
+### Chainlink environment
+
+Fill in `chainlink.env` with the correct project ID, as specifed [here](https://github.com/smartcontractkit/chainlink-polkadot/issues/36#issuecomment-694701872)
 
 ## Running
 
