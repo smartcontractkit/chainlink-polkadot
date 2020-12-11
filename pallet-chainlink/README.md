@@ -6,6 +6,7 @@ This pallet allows your substrate built parachain/blockchain to interract with [
 
 Essentially, a pallet is a lego piece you can add to another blockchain built on the Substrate/Polkadot infrastructure.
 
+
 ## Installation
 
 Using `pallet-chainlink` is fairly straightforward and requires a couple easy steps:
@@ -23,6 +24,7 @@ Add the following section:
 [dependencies.chainlink]
 default_features = false
 package = 'pallet-chainlink'
+git = 'https://github.com/smartcontractkit/chainlink-polkadot.git'
 ```
 
 And amend the `std` section so that it shows like this:
