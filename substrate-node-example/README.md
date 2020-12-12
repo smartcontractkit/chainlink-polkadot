@@ -2,54 +2,73 @@
 
 A new FRAME-based Substrate node, ready for hacking :rocket:
 
-## Local Development
+## Getting Started
 
-Follow these steps to prepare a local Substrate development environment :hammer_and_wrench:
+This project contains some configuration files to help get started :hammer_and_wrench:
 
-### Simple Setup
+### Rust Setup
 
-Install all the required dependencies with a single command (be patient, this can take up to 30
-minutes).
+Setup instructions for working with the [Rust](https://www.rust-lang.org/) programming language can
+be found at the
+[Substrate Developer Hub](https://substrate.dev/docs/en/knowledgebase/getting-started). Follow those
+steps to install [`rustup`](https://rustup.rs/) and configure the Rust toolchain to default to the
+latest stable version.
 
-```bash
-curl https://getsubstrate.io -sSf | bash -s -- --fast
-```
+### Makefile
 
-### Manual Setup
+This project uses a [Makefile](Makefile) to document helpful commands and make it easier to execute
+them. Get started by running these [`make`](https://www.gnu.org/software/make/manual/make.html)
+targets:
 
-Find manual setup instructions at the
-[Substrate Developer Hub](https://substrate.dev/docs/en/knowledgebase/getting-started/#manual-installation).
+1. `make init` - Run the [init script](scripts/init.sh) to configure the Rust toolchain for
+   [WebAssembly compilation](https://substrate.dev/docs/en/knowledgebase/getting-started/#webassembly-compilation).
+1. `make run` - Build and launch this project in development mode.
+
+The init script and Makefile both specify the version of the
+[Rust nightly compiler](https://substrate.dev/docs/en/knowledgebase/getting-started/#rust-nightly-toolchain)
+that this project depends on.
 
 ### Build
 
-Once the development environment is set up, build the node template. This command will build the
-[Wasm](https://substrate.dev/docs/en/knowledgebase/advanced/executor#wasm-execution) and
-[native](https://substrate.dev/docs/en/knowledgebase/advanced/executor#native-execution) code:
+The `make run` command will perform an initial build. Use the following command to build the node
+without launching it:
 
-```bash
-cargo build --release
+```sh
+make build
+```
+
+### Embedded Docs
+
+Once the project has been built, the following command can be used to explore all parameters and
+subcommands:
+
+```sh
+./target/release/node-template -h
 ```
 
 ## Run
 
-### Single Node Development Chain
+The `make run` command will launch a temporary node and its state will be discarded after you
+terminate the process. After the project has been built, there are other ways to launch the node.
 
-Purge any existing dev chain state:
+### Single-Node Development Chain
+
+This command will start the single-node development chain with persistent state:
 
 ```bash
-./target/release/substrate-chainlink-node purge-chain --dev
+./target/release/node-template --dev
 ```
 
-Start a dev chain:
+Purge the development chain's state:
 
 ```bash
-./target/release/substrate-chainlink-node --dev
+./target/release/node-template purge-chain --dev
 ```
 
-Or, start a dev chain with detailed logging:
+Start the development chain with detailed logging:
 
 ```bash
-RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/substrate-chainlink-node -lruntime=debug --dev
+RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/node-template -lruntime=debug --dev
 ```
 
 ### Multi-Node Local Testnet
@@ -132,7 +151,7 @@ the following:
 
 The runtime in this project is constructed using many FRAME pallets that ship with the
 [core Substrate repository](https://github.com/paritytech/substrate/tree/master/frame) and a
-template pallet that is [defined in the `pallets`](pallets/example-pallet/src/lib.rs) directory.
+template pallet that is [defined in the `pallets`](./pallets/template/src/lib.rs) directory.
 
 A FRAME pallet is compromised of a number of blockchain primitives:
 
@@ -165,10 +184,10 @@ by appending your own. A few useful ones are as follow.
 
 ```bash
 # Run Substrate node without re-compiling
-./scripts/docker_run.sh ./target/release/substrate-chainlink-node --dev --ws-external
+./scripts/docker_run.sh ./target/release/node-template --dev --ws-external
 
 # Purge the local dev chain
-./scripts/docker_run.sh ./target/release/substrate-chainlink-node purge-chain --dev
+./scripts/docker_run.sh ./target/release/node-template purge-chain --dev
 
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check
