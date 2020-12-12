@@ -6,7 +6,7 @@ help:
 
 # Run the example chain
 run-chain:
-	cd substrate-node-example; cargo run --release -- --dev
+	cd substrate-node-example; cargo run --release -- --dev --ws-external --rpc-external
 
 purge-chain:
 	cd substrate-node-example; cargo run --release -- purge-chain --dev
