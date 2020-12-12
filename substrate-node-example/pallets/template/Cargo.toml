@@ -21,6 +21,8 @@ version = '1.3.4'
 [dependencies]
 frame-support = { default-features = false, version = '2.0.0' }
 frame-system = { default-features = false, version = '2.0.0' }
+# local dependencies
+pallet-chainlink = { path = '../../../pallet-chainlink', default-features = false, version = '2.0.0', package  = 'pallet-chainlink'}
 
 [dev-dependencies]
 sp-core = { default-features = false, version = '2.0.0' }
@@ -33,4 +35,5 @@ std = [
     'codec/std',
     'frame-support/std',
     'frame-system/std',
+    'pallet-chainlink/std',
 ]
