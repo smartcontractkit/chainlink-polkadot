@@ -34,6 +34,9 @@ run_setup() {
 
   echo "" > jobids.txt
 
+  echo "Waiting a bit for the external initiators to be ready"
+  sleep 10
+
   source ./internal-scripts/add-jobspec.sh
 
   add_jobspec "1" "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c"
