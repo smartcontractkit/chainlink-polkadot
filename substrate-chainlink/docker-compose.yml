@@ -1,7 +1,7 @@
 version: "3.6"
 x-chainlink-def:
   &chainlink-def
-  image: smartcontract/chainlink:latest
+  image: smartcontract/chainlink:0.9.6
   restart: on-failure
   secrets:
     - node_password
