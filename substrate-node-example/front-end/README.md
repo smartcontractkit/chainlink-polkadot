@@ -15,15 +15,12 @@ this template was built, visit the
 
 ### Installation
 
-The code can be installed using [git](https://git-scm.com/) and [yarn](https://yarnpkg.com/).
+The codebase is installed using [git](https://git-scm.com/) and [yarn](https://yarnpkg.com/). This tutorial assumes you have installed yarn globally prior to installing it within the subdirectories. For the most recent version and how to install yarn, please refer to [yarn](https://yarnpkg.com/) documentation and installation guides. 
 
 ```bash
 # Clone the repository
-git clone https://substrate-developer-hub/substrate-front-end-template.git
+git clone https://github.com/substrate-developer-hub/substrate-front-end-template.git
 cd ./substrate-front-end-template
-```
-
-```bash
 yarn install
 ```
 
@@ -69,6 +66,13 @@ When writing and deploying your own front end, you should configure:
   deployed node.
 * `DEVELOPMENT_KEYRING` in `src/config/common.json` be set to `false`.
   See [Keyring](https://polkadot.js.org/api/start/keyring.html).
+
+### Specifying Connecting Node
+
+There are two ways to specify it:
+
+* With `PROVIDER_SOCKET` in `{common, development, production}.json`.
+* With `rpc=<ws or wss connection>` query paramter after the URL. This overrides the above setting.
 
 ## Reusable Components
 
