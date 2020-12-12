@@ -38,8 +38,10 @@ pub use frame_support::{
 	},
 };
 
-/// Import the template pallet.
-pub use pallet_template;
+/// Import the example pallet.
+pub use example_pallet;
+
+pub use example_pallet::Call as ExampleCall;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -261,9 +263,20 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
-/// Configure the template pallet in pallets/template.
-impl pallet_template::Trait for Runtime {
+impl example_pallet::Trait for Runtime {
 	type Event = Event;
+	type Callback = ExampleCall<Runtime>;
+}
+
+impl pallet_chainlink::Trait for Runtime {
+	type Event = Event;
+	type Currency = Balances;
+	type Callback = ExampleCall<Runtime>;
+	type ValidityPeriod = ValidityPeriod;
+}
+
+parameter_types! {
+	pub const ValidityPeriod: u32 = 50;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -282,7 +295,8 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		// Include the custom logic from the template pallet in the runtime.
-		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
+		Chainlink: pallet_chainlink::{Module, Call, Storage, Event<T>},
+		Example: example_pallet::{Module, Call, Storage},
 	}
 );
 

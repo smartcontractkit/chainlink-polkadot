@@ -25,7 +25,7 @@ hex-literal = { optional = true, version = '0.3.1' }
 serde = { features = ['derive'], optional = true, version = '1.0.101' }
 
 # local dependencies
-pallet-template = { path = '../pallets/template', default-features = false, version = '2.0.0' }
+example-pallet = { path = '../pallets/example-pallet', default-features = false, version = '2.0.0' }
 pallet-chainlink = { path = '../../pallet-chainlink', default-features = false, version = '2.0.0', package  = 'pallet-chainlink'}
 
 # Substrate dependencies
@@ -77,10 +77,10 @@ std = [
     'pallet-aura/std',
     'pallet-balances/std',
     'pallet-chainlink/std',
+    'example-pallet/std',
     'pallet-grandpa/std',
     'pallet-randomness-collective-flip/std',
     'pallet-sudo/std',
-    'pallet-template/std',
     'pallet-timestamp/std',
     'pallet-transaction-payment/std',
     'pallet-transaction-payment-rpc-runtime-api/std',
