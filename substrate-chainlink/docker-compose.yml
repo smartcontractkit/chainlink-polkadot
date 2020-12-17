@@ -22,7 +22,7 @@ x-external-initiator-def:
   command: '{\"name\":\"substrate-node\",\"type\":\"substrate\",\"url\":\"${SA_ENDPOINT}\"}'
 x-substrate-adapter-def:
   &substrate-adapter-def
-  image: laurenttrk/substrate-adapter:2.0.0
+  image: smartcontract/substrate-adapter:substrate-2.0.0
   restart: on-failure
   env_file:
     - ./adapter.env
