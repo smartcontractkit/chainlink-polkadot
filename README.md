@@ -42,9 +42,6 @@ cd substrate-chainlink
 ./setup
 ```
 
-> Before running the setup, you need to change the `ETH_URL` in the **substrate-chainlink/chainlink.env** file.  
-> Replace `YOUR_PROJECT_KEY_FROM_INFURA` by your project key from https://infura.io/  
-
 This will run a number of docker commands that will spin up your Chainlink node. You can access them by going to your browser at:
 [http://localhost:6691](http://localhost:6691/).
 
