@@ -36,10 +36,12 @@ function Main (props) {
             accountPair={accountPair}
             label='Initiate Request'
             setStatus={setStatus}
-            type='TRANSACTION'
+            type='SIGNED-TX'
             attrs={{
-              params: [addressTo, specId],
-              tx: api.tx.example.sendRequest
+              palletRpc: 'example',
+              callable: 'sendRequest',
+              inputParams: [addressTo, specId],
+              paramFields: [true, true]
             }}
           />
         </Form.Field>
