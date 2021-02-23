@@ -1,0 +1,107 @@
+use super::*;
+use crate as pallet_chainlink_feed;
+
+use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_noop, parameter_types};
+use frame_support::weights::Weight;
+use sp_core::H256;
+
+use sp_runtime::{
+	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
+};
+use frame_system as system;
+
+impl_outer_origin! {
+	pub enum Origin for Test {}
+}
+
+// Configure a mock runtime to test the pallet.
+
+#[derive(Clone, Eq, PartialEq)]
+pub struct Test;
+parameter_types! {
+	pub const BlockHashCount: u64 = 250;
+	pub const MaximumBlockWeight: Weight = 1024;
+	pub const MaximumBlockLength: u32 = 2 * 1024;
+	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+}
+
+impl system::Trait for Test {
+	type BaseCallFilter = ();
+	type Origin = Origin;
+	type Call = ();
+	type Index = u64;
+	type BlockNumber = u64;
+	type Hash = H256;
+	type Hashing = BlakeTwo256;
+	type AccountId = u64;
+	type Lookup = IdentityLookup<Self::AccountId>;
+	type Header = Header;
+	type Event = ();
+	type BlockHashCount = BlockHashCount;
+	type MaximumBlockWeight = MaximumBlockWeight;
+	type DbWeight = ();
+	type BlockExecutionWeight = ();
+	type ExtrinsicBaseWeight = ();
+	type MaximumExtrinsicWeight = MaximumBlockWeight;
+	type MaximumBlockLength = MaximumBlockLength;
+	type AvailableBlockRatio = AvailableBlockRatio;
+	type Version = ();
+	type PalletInfo = ();
+	type AccountData = pallet_balances::AccountData<u64>;
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
+	type SystemWeightInfo = ();
+}
+type System = frame_system::Module<Test>;
+
+parameter_types! {
+	pub const ExistentialDeposit: u64 = 1;
+}
+
+impl pallet_balances::Trait for Test {
+	type MaxLocks = ();
+	type Balance = u64;
+	type Event = ();
+	type DustRemoval = ();
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
+	type WeightInfo = ();
+}
+type Balances = pallet_balances::Module<Test>;
+
+pub struct MockWeightInfo;
+impl WeightInfo for MockWeightInfo {
+	fn create_feed() -> Weight { 42 }
+	fn submit() -> Weight { 42 }
+}
+
+impl Trait for Test {
+	type Currency = Balances;
+	type Event = ();
+	type Balance = u64;
+	type FeedId = u32;
+	type RoundId = u32;
+	type Value = u64;
+	type WeightInfo = MockWeightInfo;
+}
+type ChainlinkFeed = crate::Module<Test>;
+
+pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
+	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+}
+
+#[test]
+fn feed_creation_should_work() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(ChainlinkFeed::create_feed(Origin::signed(1),
+		20,
+		10,
+		10,
+		1_000,
+		5,
+		b"desc".to_vec(),
+		2,
+		vec![1,2,3]
+	));
+	});
+}
