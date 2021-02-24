@@ -75,6 +75,10 @@ impl WeightInfo for MockWeightInfo {
 	fn submit() -> Weight { 42 }
 }
 
+parameter_types! {
+	pub const StringLimit: u32 = 30;
+}
+
 impl Trait for Test {
 	type Currency = Balances;
 	type Event = ();
@@ -82,6 +86,7 @@ impl Trait for Test {
 	type FeedId = u32;
 	type RoundId = u32;
 	type Value = u64;
+	type StringLimit = StringLimit;
 	type WeightInfo = MockWeightInfo;
 }
 type ChainlinkFeed = crate::Module<Test>;
@@ -91,17 +96,47 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[test]
+fn median_works() {
+	let mut values = vec![4u32, 6, 2, 7];
+	assert_eq!(median(&mut values), 5);
+	let mut values = vec![4u32, 6, 2, 7, 9];
+	assert_eq!(median(&mut values), 6);
+}
+
+#[test]
 fn feed_creation_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(ChainlinkFeed::create_feed(Origin::signed(1),
-		20,
-		10,
-		10,
-		1_000,
-		5,
-		b"desc".to_vec(),
-		2,
-		vec![1,2,3]
-	));
+			20,
+			10,
+			(10, 1_000),
+			(3, 8),
+			5,
+			b"desc".to_vec(),
+			2,
+			vec![1,2,3]
+		));
+	});
+}
+
+#[test]
+fn submit_should_work() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(ChainlinkFeed::create_feed(Origin::signed(1),
+			20,
+			10,
+			(10, 1_000),
+			(2, 3),
+			5,
+			b"desc".to_vec(),
+			2,
+			vec![1,2,3]
+		));
+
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 0, 42));
+		let round = ChainlinkFeed::round(0, 0).expect("first round should be present");
+		dbg!(round);
+		let details = ChainlinkFeed::round_details(0, 0).expect("details for first round should be present");
+		dbg!(details);
 	});
 }

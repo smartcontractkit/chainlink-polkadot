@@ -46,6 +46,17 @@ pub fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result
 	})
 }
 
+/// Determine the median of a slice of values.
+pub(crate) fn median<T: Copy + BaseArithmetic>(numbers: &mut [T]) -> T {
+    numbers.sort_unstable();
+
+    let mid = numbers.len() / 2;
+    if numbers.len() % 2 == 0 {
+        numbers[mid - 1].saturating_add(numbers[mid]) / 2.into()
+    } else {
+        numbers[mid]
+    }
+}
 
 pub trait WeightInfo {
 	fn create_feed() -> Weight;
@@ -62,9 +73,12 @@ pub trait Trait: frame_system::Trait {
 
 	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
 
-	type Value: Member + Parameter + Default + Copy + HasCompact + PartialEq + PartialOrd;
+	type Value: Member + Parameter + Default + Copy + HasCompact + PartialEq + BaseArithmetic;
 
 	type Currency: ReservableCurrency<Self::AccountId>;
+
+	/// Maximum allowed string length.
+	type StringLimit: Get<u32>;
 
 	/// Weight information for extrinsics in this pallet.
 	type WeightInfo: WeightInfo;
@@ -77,10 +91,10 @@ pub struct FeedConfig<
 	RoundId: Parameter,
 	Value: Parameter,
 > {
+	submission_value_bounds: (Value, Value),
+	submission_count_bounds: (u32, u32),
 	payment_amount: Balance,
 	timeout: BlockNumber,
-	min_submission: Value,
-	max_submission: Value,
 	decimals: u8,
 	description: Vec<u8>,
 	restart_delay: RoundId,
@@ -95,16 +109,16 @@ type FeedConfigOf<T> = FeedConfig<
 	<T as Trait>::Value
 >;
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct Round<
 	BlockNumber: Parameter,
 	RoundId: Parameter,
 	Value: Parameter,
 > {
-	answer: Value,
 	started_at: BlockNumber,
-	updated_at: BlockNumber,
-	answered_in_round: RoundId,
+	answer: Option<Value>,
+	updated_at: Option<BlockNumber>,
+	answered_in_round: Option<RoundId>,
 }
 type RoundOf<T> = Round<
 	<T as frame_system::Trait>::BlockNumber,
@@ -119,10 +133,9 @@ pub struct RoundDetails<
 	Value: Parameter,
 > {
 	submissions: Vec<Value>,
-	max_submissions: u32,
-	min_submissions: u32,
-	timeout: BlockNumber,
+	submission_count_bounds: (u32, u32),
 	payment_amount: Balance,
+	timeout: BlockNumber,
 }
 type RoundDetailsOf<T> = RoundDetails<
 	<T as Trait>::Balance,
@@ -173,9 +186,21 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId, FeedId = <T as Trait>::FeedId {
+	pub enum Event<T> where
+		AccountId = <T as frame_system::Trait>::AccountId,
+		BlockNumber = <T as frame_system::Trait>::BlockNumber,
+		FeedId = <T as Trait>::FeedId,
+		RoundId = <T as Trait>::RoundId,
+		Value = <T as Trait>::Value,
+	{
 		/// A new oracle feed was created. \[feed_id, creator\]
 		FeedCreated(FeedId, AccountId),
+		/// A new round was started. \[new_round_id, initiator, started_at\]
+		NewRound(FeedId, RoundId, AccountId, BlockNumber),
+		/// A submission was recorded. \[feed_id, round_id, submission, oracle\]
+		SubmissionReceived(FeedId, RoundId, Value, AccountId),
+		/// The answer for the round was updated. \[feed_id, round_id, new_answer, updated_at_block\]
+		AnswerUpdated(FeedId, RoundId, Value, BlockNumber),
 	}
 );
 
@@ -195,10 +220,13 @@ decl_error! {
 		FeedNotFound,
 		/// Requested round not present.
 		RoundNotFound,
+		NotAcceptingSubmissions,
 		/// Oracle submission is below the minimum value.
 		SubmissionBelowMinimum,
 		/// Oracle submission is above the maximum value.
 		SubmissionAboveMaximum,
+		/// The description string is too long.
+		DescriptionTooLong,
 	}
 }
 
@@ -213,14 +241,16 @@ decl_module! {
 			origin,
 			payment_amount: T::Balance,
 			timeout: T::BlockNumber,
-			min_submission: T::Value,
-			max_submission: T::Value,
+			submission_value_bounds: (T::Value, T::Value),
+			submission_count_bounds: (u32, u32),
 			decimals: u8,
 			description: Vec<u8>,
 			restart_delay: T::RoundId,
 			oracles: Vec<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
+
+			ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
 
 			let id: T::FeedId = FeedCounter::<T>::get();
 			let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
@@ -229,8 +259,8 @@ decl_module! {
 			FeedConfigs::<T>::insert(id, FeedConfig {
 				payment_amount,
 				timeout,
-				min_submission,
-				max_submission,
+				submission_value_bounds,
+				submission_count_bounds,
 				decimals,
 				description,
 				restart_delay,
@@ -255,8 +285,9 @@ decl_module! {
 			Self::ensure_round_valid_for(feed_id, &oracle, round_id)?;
 
 			let feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(submission >= feed.min_submission, Error::<T>::SubmissionBelowMinimum);
-			ensure!(submission <= feed.max_submission, Error::<T>::SubmissionAboveMaximum);
+			let (min_val, max_val) = feed.submission_value_bounds;
+			ensure!(submission >= min_val, Error::<T>::SubmissionBelowMinimum);
+			ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
 
 			let new_round_id = feed.reporting_round_id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
 			let mut oracle_status = Self::oracle(&oracle).ok_or(Error::<T>::NotOracle)?;
@@ -266,15 +297,56 @@ decl_module! {
 				.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
+				// initialize the round if conditions are met
 				if round_id == new_round_id
 					&& oracle_status.last_started_round.is_some()
 					&& round_id >= next_eligible_round {
 
-					Self::initialize_round(feed_id, round_id)?;
+					let started_at = Self::initialize_round(feed_id, &feed, round_id)?;
+
+					Self::deposit_event(RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
 
 					oracle_status.last_started_round = Some(round_id);
-					Oracles::<T>::insert(&oracle, oracle_status);
 				}
+
+				// record submission
+				let mut details = Details::<T>::take(feed_id, round_id).ok_or(Error::<T>::NotAcceptingSubmissions)?;
+				details.submissions.push(submission);
+
+				oracle_status.last_reported_round = Some(round_id);
+				// TODO store latest submission?
+				Oracles::<T>::insert(&oracle, oracle_status);
+				Self::deposit_event(RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle));
+
+				// update round answer
+				let (min_count, max_count) = details.submission_count_bounds;
+				if details.submissions.len() >= min_count as usize {
+					let new_answer = median(&mut details.submissions);
+					let mut round = Self::round(feed_id, round_id).ok_or(Error::<T>::RoundNotFound)?;
+					round.answer = Some(new_answer);
+					let updated_at = frame_system::Module::<T>::block_number();
+					round.updated_at = Some(updated_at);
+					round.answered_in_round = Some(round_id);
+
+					Self::deposit_event(RawEvent::AnswerUpdated(feed_id, round_id, new_answer, updated_at));
+				}
+
+				// pay oracle
+				// uint128 payment = details[_roundId].paymentAmount;
+				// Funds memory funds = recordedFunds;
+				// funds.available = funds.available.sub(payment);
+				// funds.allocated = funds.allocated.add(payment);
+				// recordedFunds = funds;
+				// oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
+
+				// emit AvailableFundsUpdated(funds.available);
+
+				// delete the details if the maximum count has been reached
+				if details.submissions.len() < max_count as usize {
+					Details::<T>::insert(feed_id, round_id, details);
+				}
+
+				// TODO: answer validation
 
 				Ok(().into())
 			})
@@ -298,14 +370,25 @@ impl<T: Trait> Module<T> {
 	/// Initialize a new round.
 	///
 	/// **Warning:** Fallible function that changes storage.
-	fn initialize_round(feed: T::FeedId, new_round: T::RoundId) -> DispatchResult {
+	fn initialize_round(feed_id: T::FeedId, feed: &FeedConfigOf<T>, new_round_id: T::RoundId) -> Result<T::BlockNumber, DispatchError> {
 
-		let prev_round = new_round.saturating_sub(One::one());
-		if Self::timed_out(feed, prev_round) {
-			Self::close_timed_out_round(feed, prev_round)?;
+		let prev_round_id = new_round_id.saturating_sub(One::one());
+		if Self::timed_out(feed_id, prev_round_id) {
+			Self::close_timed_out_round(feed_id, prev_round_id)?;
 		}
 
-		Ok(())
+		// reportingRoundId = _roundId;
+		Details::<T>::insert(feed_id, new_round_id, RoundDetails {
+			submissions: Vec::new(),
+			submission_count_bounds: feed.submission_count_bounds,
+			payment_amount: feed.payment_amount,
+			timeout: feed.timeout,
+		});
+		let started_at = frame_system::Module::<T>::block_number();
+		let round = Round { started_at, ..Default::default() };
+		Rounds::<T>::insert(feed_id, new_round_id, round);
+
+		Ok(started_at)
 	}
 
 	/// Check whether a round is timed out. Returns `false` for
@@ -331,7 +414,8 @@ impl<T: Trait> Module<T> {
 		let mut timed_out_round = Self::round(feed, timed_out).ok_or(Error::<T>::RoundNotFound)?;
 		timed_out_round.answer = prev_round.answer;
 		timed_out_round.answered_in_round = prev_round.answered_in_round;
-		timed_out_round.updated_at = frame_system::Module::<T>::block_number();
+		let updated_at = frame_system::Module::<T>::block_number();
+		timed_out_round.updated_at = Some(updated_at);
 
 		Details::<T>::remove(feed, timed_out);
 
