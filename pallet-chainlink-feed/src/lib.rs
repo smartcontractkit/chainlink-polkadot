@@ -48,14 +48,14 @@ pub fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result
 
 /// Determine the median of a slice of values.
 pub(crate) fn median<T: Copy + BaseArithmetic>(numbers: &mut [T]) -> T {
-    numbers.sort_unstable();
+	numbers.sort_unstable();
 
-    let mid = numbers.len() / 2;
-    if numbers.len() % 2 == 0 {
-        numbers[mid - 1].saturating_add(numbers[mid]) / 2.into()
-    } else {
-        numbers[mid]
-    }
+	let mid = numbers.len() / 2;
+	if numbers.len() % 2 == 0 {
+		numbers[mid - 1].saturating_add(numbers[mid]) / 2.into()
+	} else {
+		numbers[mid]
+	}
 }
 
 pub trait WeightInfo {
@@ -80,11 +80,13 @@ pub trait Trait: frame_system::Trait {
 	/// Maximum allowed string length.
 	type StringLimit: Get<u32>;
 
+	type OracleCountLimit: Get<u32>;
+
 	/// Weight information for extrinsics in this pallet.
 	type WeightInfo: WeightInfo;
 }
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct FeedConfig<
 	Balance: Parameter,
 	BlockNumber: Parameter,
@@ -98,9 +100,9 @@ pub struct FeedConfig<
 	decimals: u8,
 	description: Vec<u8>,
 	restart_delay: RoundId,
-	reporting_round_id: RoundId,
-	latest_round_id: RoundId,
-	oracle_count: u16
+	reporting_round: RoundId,
+	latest_round: RoundId,
+	oracle_count: u32
 }
 type FeedConfigOf<T> = FeedConfig<
 	<T as Trait>::Balance,
@@ -126,7 +128,7 @@ type RoundOf<T> = Round<
 	<T as Trait>::Value,
 >;
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct RoundDetails<
 	Balance: Parameter,
 	BlockNumber: Parameter,
@@ -143,27 +145,38 @@ type RoundDetailsOf<T> = RoundDetails<
 	<T as Trait>::Value,
 >;
 
-#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
-pub struct OracleStatus<
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+pub struct OracleMeta<
 	AccountId: Parameter,
 	Balance: Parameter,
-	RoundId: Parameter,
 > {
-    withdrawable: Balance,
-    starting_round: RoundId,
-    ending_round: Option<RoundId>,
-    last_reported_round: Option<RoundId>,
-    last_started_round: Option<RoundId>,
-    admin: AccountId,
+	withdrawable: Balance,
+	admin: AccountId,
+	pending_admin: Option<AccountId>,
 }
-type OracleStatusOf<T> = OracleStatus<
+type OracleMetaOf<T> = OracleMeta<
 	<T as frame_system::Trait>::AccountId,
 	<T as Trait>::Balance,
+>;
+
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+pub struct OracleStatus<
+	RoundId: Parameter,
+	Value: Parameter
+> {
+	starting_round: RoundId,
+	ending_round: Option<RoundId>,
+	last_reported_round: Option<RoundId>,
+	last_started_round: Option<RoundId>,
+	latest_submission: Option<Value>,
+}
+type OracleStatusOf<T> = OracleStatus<
 	<T as Trait>::RoundId,
+	<T as Trait>::Value,
 >;
 
 decl_storage! {
-    trait Store for Module<T: Trait> as ChainlinkFeed {
+	trait Store for Module<T: Trait> as ChainlinkFeed {
 		/// A running counter used internally to determine the next feed id
 		pub FeedCounter get(fn feed_counter): T::FeedId;
 
@@ -176,12 +189,9 @@ decl_storage! {
 		/// Operator-facing round data.
 		pub Details get(fn round_details): double_map hasher(twox_64_concat) T::FeedId, hasher(twox_64_concat) T::RoundId => Option<RoundDetailsOf<T>>;
 
-		pub Oracles get(fn oracle): map hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
+		pub Oracles get(fn oracle): map hasher(blake2_128_concat) T::AccountId => Option<OracleMetaOf<T>>;
 
-		// TODO store latest submission per feed?
-		// latest_submission: Option<Value>,
-
-		pub PendingAdmin get(fn pending_admin): map hasher(blake2_128_concat) T::AccountId => Option<T::AccountId>;
+		pub OracleStati get(fn oracle_status): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
 	}
 }
 
@@ -220,6 +230,7 @@ decl_error! {
 		FeedNotFound,
 		/// Requested round not present.
 		RoundNotFound,
+		OracleNotFound,
 		NotAcceptingSubmissions,
 		/// Oracle submission is below the minimum value.
 		SubmissionBelowMinimum,
@@ -227,6 +238,12 @@ decl_error! {
 		SubmissionAboveMaximum,
 		/// The description string is too long.
 		DescriptionTooLong,
+		/// Tried to add too many oracles.
+		OraclesLimitExceeded,
+		/// The oracle was already enabled.
+		AlreadyEnabled,
+		/// The oracle address cannot change its associated admin.
+		OwnerCannotChangeAdmin,
 	}
 }
 
@@ -246,30 +263,33 @@ decl_module! {
 			decimals: u8,
 			description: Vec<u8>,
 			restart_delay: T::RoundId,
-			oracles: Vec<T::AccountId>,
+			oracles: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
+			let creator = ensure_signed(origin)?;
+			// ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
 
-			ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
+			with_transaction_result(|| -> DispatchResultWithPostInfo {
+				// let id: T::FeedId = FeedCounter::<T>::get();
+				// let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+				// FeedCounter::<T>::put(new_id);
 
-			let id: T::FeedId = FeedCounter::<T>::get();
-			let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-			FeedCounter::<T>::put(new_id);
-
-			FeedConfigs::<T>::insert(id, FeedConfig {
-				payment_amount,
-				timeout,
-				submission_value_bounds,
-				submission_count_bounds,
-				decimals,
-				description,
-				restart_delay,
-				latest_round_id: T::RoundId::zero(),
-				reporting_round_id: T::RoundId::zero(),
-				oracle_count: oracles.len() as u16
-			});
-			Self::deposit_event(RawEvent::FeedCreated(id, owner));
-			Ok(().into())
+				// let mut new_feed = FeedConfig {
+				// 	payment_amount,
+				// 	timeout,
+				// 	submission_value_bounds,
+				// 	submission_count_bounds,
+				// 	decimals,
+				// 	description,
+				// 	restart_delay,
+				// 	latest_round: Zero::zero(),
+				// 	reporting_round: Zero::zero(),
+				// 	oracle_count: Zero::zero(),
+				// };
+				// Self::add_oracles(&mut new_feed, id, oracles)?;
+				// FeedConfigs::<T>::insert(id, new_feed);
+				// Self::deposit_event(RawEvent::FeedCreated(id, creator));
+				Ok(().into())
+			})
 		}
 
 		// TODO: unfinished
@@ -289,8 +309,8 @@ decl_module! {
 			ensure!(submission >= min_val, Error::<T>::SubmissionBelowMinimum);
 			ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
 
-			let new_round_id = feed.reporting_round_id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-			let mut oracle_status = Self::oracle(&oracle).ok_or(Error::<T>::NotOracle)?;
+			let new_round_id = feed.reporting_round.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+			let mut oracle_status = Self::oracle_status(feed_id, &oracle).ok_or(Error::<T>::NotOracle)?;
 			let next_eligible_round = oracle_status.last_started_round
 				.unwrap_or(Zero::zero())
 				.checked_add(&feed.restart_delay).ok_or(Error::<T>::Overflow)?
@@ -315,7 +335,7 @@ decl_module! {
 
 				oracle_status.last_reported_round = Some(round_id);
 				// TODO store latest submission?
-				Oracles::<T>::insert(&oracle, oracle_status);
+				OracleStati::<T>::insert(feed_id, &oracle, oracle_status);
 				Self::deposit_event(RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle));
 
 				// update round answer
@@ -351,12 +371,43 @@ decl_module! {
 				Ok(().into())
 			})
 		}
+
+		#[weight = 100]
+		pub fn change_oracles(
+			origin,
+			feed_id: T::FeedId,
+			to_disable: Vec<T::AccountId>,
+			added: Vec<(T::AccountId, T::AccountId)>,
+		) -> DispatchResultWithPostInfo {
+			let mut feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			with_transaction_result(|| -> DispatchResultWithPostInfo {
+				let disabled_count = to_disable.len() as u32;
+				// this should be fine as we assert on every oracle
+				// in the loop that it should exist
+				debug_assert!(feed.oracle_count >= disabled_count);
+				feed.oracle_count = feed.oracle_count.saturating_sub(disabled_count);
+				for d in to_disable {
+					// disable
+					let mut status = Self::oracle_status(feed_id, &d).ok_or(Error::<T>::OracleNotFound)?;
+					// Is this check necessary?
+					// ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);
+					status.ending_round = Some(feed.reporting_round);
+					OracleStati::<T>::insert(feed_id, &d, status);
+					// TODO: maintain oracle count
+					// emit OraclePermissionsUpdated(_oracle, false);
+				}
+
+				Self::add_oracles(&mut feed, feed_id, added)?;
+
+				Ok(().into())
+			})
+		}
 	}
 }
 
 impl<T: Trait> Module<T> {
-	fn ensure_round_valid_for(_feed: T::FeedId, acc: &T::AccountId, round_id: T::RoundId) -> DispatchResult {
-		let o = Self::oracle(acc).ok_or(Error::<T>::NotOracle)?;
+	fn ensure_round_valid_for(feed: T::FeedId, acc: &T::AccountId, round_id: T::RoundId) -> DispatchResult {
+		let o = Self::oracle_status(feed, acc).ok_or(Error::<T>::NotOracle)?;
 
 		ensure!(o.starting_round > round_id, Error::<T>::OracleNotEnabled);
 		ensure!(o.ending_round.map(|e| e < round_id).unwrap_or(true), Error::<T>::OracleDisabled);
@@ -418,6 +469,44 @@ impl<T: Trait> Module<T> {
 		timed_out_round.updated_at = Some(updated_at);
 
 		Details::<T>::remove(feed, timed_out);
+
+		Ok(())
+	}
+
+	/// Add the given oracles to the given feed.
+	///
+	/// **Warning:** Fallible function that changes storage.
+	fn add_oracles(
+		feed: &mut FeedConfigOf<T>,
+		feed_id: T::FeedId,
+		added: Vec<(T::AccountId, T::AccountId)>,
+	) -> DispatchResult {
+		let new_count = feed.oracle_count.checked_add(added.len() as u32).ok_or(Error::<T>::Overflow)?;
+		ensure!(new_count <= T::OracleCountLimit::get(), Error::<T>::OraclesLimitExceeded);
+		feed.oracle_count = new_count;
+		for (oracle, admin) in added {
+			Oracles::<T>::try_mutate(&oracle, |maybe_meta| -> DispatchResult {
+				match maybe_meta {
+					None => {
+						*maybe_meta = Some(OracleMeta {
+							withdrawable: Zero::zero(),
+							admin,
+							..Default::default()
+						});
+					},
+					Some(meta) => ensure!(meta.admin == admin, Error::<T>::OwnerCannotChangeAdmin)
+				}
+				Ok(())
+			})?;
+			OracleStati::<T>::try_mutate(feed_id, &oracle, |maybe_status| -> DispatchResult {
+				ensure!(maybe_status.as_ref().map(|s| s.ending_round.is_some()).unwrap_or(true), Error::<T>::AlreadyEnabled);
+				*maybe_status = Some(OracleStatus {
+					starting_round: feed.reporting_round,
+					..Default::default()
+				});
+				Ok(())
+			})?;
+		}
 
 		Ok(())
 	}

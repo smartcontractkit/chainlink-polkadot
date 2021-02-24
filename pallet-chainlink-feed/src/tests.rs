@@ -77,6 +77,7 @@ impl WeightInfo for MockWeightInfo {
 
 parameter_types! {
 	pub const StringLimit: u32 = 30;
+	pub const OracleLimit: u32 = 10;
 }
 
 impl Trait for Test {
@@ -87,6 +88,7 @@ impl Trait for Test {
 	type RoundId = u32;
 	type Value = u64;
 	type StringLimit = StringLimit;
+	type OracleCountLimit = OracleLimit;
 	type WeightInfo = MockWeightInfo;
 }
 type ChainlinkFeed = crate::Module<Test>;
@@ -114,7 +116,7 @@ fn feed_creation_should_work() {
 			5,
 			b"desc".to_vec(),
 			2,
-			vec![1,2,3]
+			vec![(1,4),(2,4),(3,4)]
 		));
 	});
 }
@@ -130,7 +132,7 @@ fn submit_should_work() {
 			5,
 			b"desc".to_vec(),
 			2,
-			vec![1,2,3]
+			vec![(1,4),(2,4),(3,4)]
 		));
 
 		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 0, 42));
