@@ -1,14 +1,16 @@
 use super::*;
 use crate as pallet_chainlink_feed;
 
-use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_noop, parameter_types};
 use frame_support::weights::Weight;
+use frame_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
 use sp_core::H256;
 
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
-};
 use frame_system as system;
+use sp_runtime::{
+	testing::Header,
+	traits::{BlakeTwo256, IdentityLookup},
+	Perbill,
+};
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -71,8 +73,12 @@ type Balances = pallet_balances::Module<Test>;
 
 pub struct MockWeightInfo;
 impl WeightInfo for MockWeightInfo {
-	fn create_feed() -> Weight { 42 }
-	fn submit() -> Weight { 42 }
+	fn create_feed() -> Weight {
+		42
+	}
+	fn submit() -> Weight {
+		42
+	}
 }
 
 parameter_types! {
@@ -94,7 +100,10 @@ impl Trait for Test {
 type ChainlinkFeed = crate::Module<Test>;
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	frame_system::GenesisConfig::default()
+		.build_storage::<Test>()
+		.unwrap()
+		.into()
 }
 
 #[test]
@@ -108,15 +117,17 @@ fn median_works() {
 #[test]
 fn feed_creation_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(ChainlinkFeed::create_feed(Origin::signed(1),
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(1),
 			20,
 			10,
-			(10, 1_000),
+			10,
+			1_000,
 			(3, 8),
 			5,
 			b"desc".to_vec(),
 			2,
-			vec![(1,4),(2,4),(3,4)]
+			vec![(1, 4), (2, 4), (3, 4)]
 		));
 	});
 }
@@ -124,21 +135,42 @@ fn feed_creation_should_work() {
 #[test]
 fn submit_should_work() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(ChainlinkFeed::create_feed(Origin::signed(1),
-			20,
+		let payment_amount = 20;
+		let timeout = 10;
+		let submission_count_bounds = (2, 3);
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(1),
+			payment_amount,
+			timeout,
 			10,
-			(10, 1_000),
-			(2, 3),
+			1_000,
+			submission_count_bounds,
 			5,
 			b"desc".to_vec(),
-			2,
-			vec![(1,4),(2,4),(3,4)]
+			0,
+			vec![(1, 4), (2, 4), (3, 4)]
 		));
 
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 0, 42));
-		let round = ChainlinkFeed::round(0, 0).expect("first round should be present");
-		dbg!(round);
-		let details = ChainlinkFeed::round_details(0, 0).expect("details for first round should be present");
-		dbg!(details);
+		let submission = 42;
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 1, submission));
+		let round = ChainlinkFeed::round(0, 1).expect("first round should be present");
+		assert_eq!(
+			round,
+			Round {
+				started_at: 0,
+				..Default::default()
+			}
+		);
+		let details =
+			ChainlinkFeed::round_details(0, 1).expect("details for first round should be present");
+		assert_eq!(
+			details,
+			RoundDetails {
+				submissions: vec![submission],
+				submission_count_bounds,
+				payment_amount,
+				timeout
+			}
+		);
 	});
 }

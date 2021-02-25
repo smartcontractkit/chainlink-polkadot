@@ -9,17 +9,15 @@ mod tests;
 
 use sp_std::prelude::*;
 
-#[warn(unused_imports)]
-use codec::{Codec, Decode, Encode};
+use codec::{Decode, Encode};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter, RuntimeDebug, dispatch::{DispatchResult, DispatchError}};
 use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::dispatch::HasCompact;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::traits::{Get, ReservableCurrency};
 use frame_support::weights::Weight;
-use frame_system::{ensure_signed, RawOrigin};
+use frame_system::ensure_signed;
 use sp_arithmetic::traits::BaseArithmetic;
-use sp_runtime::traits::Dispatchable;
 use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::traits::Member;
 use sp_runtime::traits::One;
@@ -258,7 +256,11 @@ decl_module! {
 			origin,
 			payment_amount: T::Balance,
 			timeout: T::BlockNumber,
-			submission_value_bounds: (T::Value, T::Value),
+			// TODO: turn back to tuple once the equivalent of
+			// https://github.com/paritytech/parity-scale-codec/pull/254
+			// is released for parity scale 1.3
+			submission_value_min: T::Value,
+			submission_value_max: T::Value,
 			submission_count_bounds: (u32, u32),
 			decimals: u8,
 			description: Vec<u8>,
@@ -266,28 +268,29 @@ decl_module! {
 			oracles: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
 			let creator = ensure_signed(origin)?;
-			// ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
+			ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
-				// let id: T::FeedId = FeedCounter::<T>::get();
-				// let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-				// FeedCounter::<T>::put(new_id);
+				let id: T::FeedId = FeedCounter::<T>::get();
+				let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+				FeedCounter::<T>::put(new_id);
 
-				// let mut new_feed = FeedConfig {
-				// 	payment_amount,
-				// 	timeout,
-				// 	submission_value_bounds,
-				// 	submission_count_bounds,
-				// 	decimals,
-				// 	description,
-				// 	restart_delay,
-				// 	latest_round: Zero::zero(),
-				// 	reporting_round: Zero::zero(),
-				// 	oracle_count: Zero::zero(),
-				// };
-				// Self::add_oracles(&mut new_feed, id, oracles)?;
-				// FeedConfigs::<T>::insert(id, new_feed);
-				// Self::deposit_event(RawEvent::FeedCreated(id, creator));
+				let submission_value_bounds = (submission_value_min, submission_value_max);
+				let mut new_feed = FeedConfig {
+					payment_amount,
+					timeout,
+					submission_value_bounds,
+					submission_count_bounds,
+					decimals,
+					description,
+					restart_delay,
+					latest_round: Zero::zero(),
+					reporting_round: Zero::zero(),
+					oracle_count: Zero::zero(),
+				};
+				Self::add_oracles(&mut new_feed, id, oracles)?;
+				FeedConfigs::<T>::insert(id, new_feed);
+				Self::deposit_event(RawEvent::FeedCreated(id, creator));
 				Ok(().into())
 			})
 		}
@@ -315,13 +318,11 @@ decl_module! {
 				.unwrap_or(Zero::zero())
 				.checked_add(&feed.restart_delay).ok_or(Error::<T>::Overflow)?
 				.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-
+			let eligible_to_start = round_id >= next_eligible_round
+				|| oracle_status.last_started_round.is_none();
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				// initialize the round if conditions are met
-				if round_id == new_round_id
-					&& oracle_status.last_started_round.is_some()
-					&& round_id >= next_eligible_round {
-
+				if round_id == new_round_id && eligible_to_start {
 					let started_at = Self::initialize_round(feed_id, &feed, round_id)?;
 
 					Self::deposit_event(RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
@@ -409,9 +410,9 @@ impl<T: Trait> Module<T> {
 	fn ensure_round_valid_for(feed: T::FeedId, acc: &T::AccountId, round_id: T::RoundId) -> DispatchResult {
 		let o = Self::oracle_status(feed, acc).ok_or(Error::<T>::NotOracle)?;
 
-		ensure!(o.starting_round > round_id, Error::<T>::OracleNotEnabled);
-		ensure!(o.ending_round.map(|e| e < round_id).unwrap_or(true), Error::<T>::OracleDisabled);
-		ensure!(o.last_reported_round.map(|l| l > round_id).unwrap_or(false), Error::<T>::ReportingOrder);
+		ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);
+		ensure!(o.ending_round.map(|e| e >= round_id).unwrap_or(true), Error::<T>::OracleDisabled);
+		ensure!(o.last_reported_round.map(|l| l < round_id).unwrap_or(true), Error::<T>::ReportingOrder);
 		// TODO: port solidity
 		// 	if (_roundId != rrId && _roundId != rrId.add(1) && !previousAndCurrentUnanswered(_roundId, rrId)) return "invalid round to report";
 		// if (_roundId != 1 && !supersedable(_roundId.sub(1))) return "previous round not supersedable";
