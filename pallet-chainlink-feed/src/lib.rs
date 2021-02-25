@@ -69,7 +69,7 @@ pub trait Trait: frame_system::Trait {
 
 	type FeedId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
 
-	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
+	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic + Into<u64>;
 
 	type Value: Member + Parameter + Default + Copy + HasCompact + PartialEq + BaseArithmetic;
 
@@ -86,11 +86,13 @@ pub trait Trait: frame_system::Trait {
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct FeedConfig<
+	AccountId: Parameter,
 	Balance: Parameter,
 	BlockNumber: Parameter,
 	RoundId: Parameter,
 	Value: Parameter,
 > {
+	owner: AccountId,
 	submission_value_bounds: (Value, Value),
 	submission_count_bounds: (u32, u32),
 	payment_amount: Balance,
@@ -103,6 +105,7 @@ pub struct FeedConfig<
 	oracle_count: u32
 }
 type FeedConfigOf<T> = FeedConfig<
+	<T as frame_system::Trait>::AccountId,
 	<T as Trait>::Balance,
 	<T as frame_system::Trait>::BlockNumber,
 	<T as Trait>::RoundId,
@@ -242,6 +245,15 @@ decl_error! {
 		AlreadyEnabled,
 		/// The oracle address cannot change its associated admin.
 		OwnerCannotChangeAdmin,
+		/// Only the owner of a feed can change the configuration.
+		NotFeedOwner,
+		/// The specified min/max pair was invalid.
+		WrongBounds,
+		/// The maximum number of oracles cannot exceed the amount of available oracles.
+		MaxExceededTotal,
+		/// The round initiation delay cannot be equal to or greater
+		/// than the number of oracles.
+		DelayExceededTotal,
 	}
 }
 
@@ -267,7 +279,7 @@ decl_module! {
 			restart_delay: T::RoundId,
 			oracles: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
-			let creator = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?;
 			ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
@@ -277,6 +289,7 @@ decl_module! {
 
 				let submission_value_bounds = (submission_value_min, submission_value_max);
 				let mut new_feed = FeedConfig {
+					owner: owner.clone(),
 					payment_amount,
 					timeout,
 					submission_value_bounds,
@@ -290,7 +303,7 @@ decl_module! {
 				};
 				Self::add_oracles(&mut new_feed, id, oracles)?;
 				FeedConfigs::<T>::insert(id, new_feed);
-				Self::deposit_event(RawEvent::FeedCreated(id, creator));
+				Self::deposit_event(RawEvent::FeedCreated(id, owner));
 				Ok(().into())
 			})
 		}
@@ -378,9 +391,11 @@ decl_module! {
 			origin,
 			feed_id: T::FeedId,
 			to_disable: Vec<T::AccountId>,
-			added: Vec<(T::AccountId, T::AccountId)>,
+			to_add: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
+			let sender = ensure_signed(origin)?;
 			let mut feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == sender, Error::<T>::NotFeedOwner);
 			let mut to_disable = to_disable;
 			to_disable.sort();
 			to_disable.dedup();
@@ -400,12 +415,56 @@ decl_module! {
 					// emit OraclePermissionsUpdated(_oracle, false);
 				}
 
-				Self::add_oracles(&mut feed, feed_id, added)?;
+				Self::add_oracles(&mut feed, feed_id, to_add)?;
 
 				FeedConfigs::<T>::insert(feed_id, feed);
 
 				Ok(().into())
 			})
+		}
+
+		#[weight = 100]
+		pub fn update_future_rounds(
+			origin,
+			feed_id: T::FeedId,
+			payment_amount: T::Balance,
+			submission_count_bounds: (u32, u32),
+			restart_delay: T::RoundId,
+			timeout: T::BlockNumber,
+		) -> DispatchResultWithPostInfo {
+			let sender = ensure_signed(origin)?;
+
+			let (min, max) = submission_count_bounds;
+			ensure!(max >= min, Error::<T>::WrongBounds);
+			let mut feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == sender, Error::<T>::NotFeedOwner);
+			// Make sure that both the min and max of submissions is
+			// less or equal to the number of oracles.
+			ensure!(feed.oracle_count >= max, Error::<T>::MaxExceededTotal);
+			// Make sure that at least one oracle can request a new
+			// round.
+			ensure!(feed.oracle_count as u64 > restart_delay.into(), Error::<T>::DelayExceededTotal);
+			// require(recordedFunds.available >= requiredReserve(_paymentAmount), "insufficient funds for payment");
+			// if (oracleCount() > 0) {
+			// 	require(_minSubmissions > 0, "min must be greater than 0");
+			// }
+
+			feed.payment_amount = payment_amount;
+			feed.submission_count_bounds = submission_count_bounds;
+			feed.restart_delay = restart_delay;
+			feed.timeout = timeout;
+
+			FeedConfigs::<T>::insert(feed_id, feed);
+
+			// emit RoundDetailsUpdated(
+			// 	paymentAmount,
+			// 	_minSubmissions,
+			// 	_maxSubmissions,
+			// 	_restartDelay,
+			// 	_timeout
+			// );
+
+			Ok(().into())
 		}
 	}
 }
@@ -484,12 +543,12 @@ impl<T: Trait> Module<T> {
 	fn add_oracles(
 		feed: &mut FeedConfigOf<T>,
 		feed_id: T::FeedId,
-		added: Vec<(T::AccountId, T::AccountId)>,
+		to_add: Vec<(T::AccountId, T::AccountId)>,
 	) -> DispatchResult {
-		let new_count = feed.oracle_count.checked_add(added.len() as u32).ok_or(Error::<T>::Overflow)?;
+		let new_count = feed.oracle_count.checked_add(to_add.len() as u32).ok_or(Error::<T>::Overflow)?;
 		ensure!(new_count <= T::OracleCountLimit::get(), Error::<T>::OraclesLimitExceeded);
 		feed.oracle_count = new_count;
-		for (oracle, admin) in added {
+		for (oracle, admin) in to_add {
 			Oracles::<T>::try_mutate(&oracle, |maybe_meta| -> DispatchResult {
 				match maybe_meta {
 					None => {

@@ -155,7 +155,12 @@ fn submit_should_work() {
 		let round_id = 1;
 		let oracle = 2;
 		let submission = 42;
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), 0, 1, submission));
+		assert_ok!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			0,
+			1,
+			submission
+		));
 		let round = ChainlinkFeed::round(feed_id, round_id).expect("first round should be present");
 		assert_eq!(
 			round,
@@ -164,8 +169,8 @@ fn submit_should_work() {
 				..Default::default()
 			}
 		);
-		let details =
-			ChainlinkFeed::round_details(feed_id, round_id).expect("details for first round should be present");
+		let details = ChainlinkFeed::round_details(feed_id, round_id)
+			.expect("details for first round should be present");
 		assert_eq!(
 			details,
 			RoundDetails {
@@ -175,7 +180,8 @@ fn submit_should_work() {
 				timeout,
 			}
 		);
-		let oracle_status = ChainlinkFeed::oracle_status(feed_id, oracle).expect("oracle status should be present");
+		let oracle_status =
+			ChainlinkFeed::oracle_status(feed_id, oracle).expect("oracle status should be present");
 		assert_eq!(oracle_status.latest_submission, Some(submission));
 	});
 }
@@ -278,5 +284,47 @@ fn oracle_deduplication() {
 		}
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.oracle_count, 1);
+	});
+}
+
+#[test]
+fn update_future_rounds_should_work() {
+	new_test_ext().execute_with(|| {
+		let old_payment = 20;
+		let old_timeout = 10;
+		let old_min_max = (3, 8);
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(1),
+			old_payment,
+			old_timeout,
+			10,
+			1_000,
+			old_min_max,
+			5,
+			b"desc".to_vec(),
+			2,
+			vec![(1, 4), (2, 4), (3, 4)],
+		));
+		let feed_id = 0;
+		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
+		assert_eq!(feed.payment_amount, old_payment);
+
+		let new_payment = 30;
+		let new_min = 3;
+		let new_max = 3;
+		let new_delay = 1;
+		let new_timeout = 5;
+		assert_ok!(ChainlinkFeed::update_future_rounds(
+			Origin::signed(1),
+			feed_id,
+			new_payment,
+			(new_min, new_max),
+			new_delay,
+			new_timeout,
+		));
+
+		let feed_id = 0;
+		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
+		assert_eq!(feed.payment_amount, new_payment);
 	});
 }
