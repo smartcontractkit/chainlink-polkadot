@@ -192,13 +192,20 @@ fn change_oracles_should_work() {
 			initial_oracles.clone(),
 		));
 		for (o, _a) in initial_oracles.iter() {
-			assert!(ChainlinkFeed::oracle(o).is_some(), "oracle should be present");
+			assert!(
+				ChainlinkFeed::oracle(o).is_some(),
+				"oracle should be present"
+			);
 		}
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.oracle_count, 3);
 
-		let to_disable: Vec<u64> = initial_oracles.into_iter().take(2).map(|(o, _a)| o).collect();
+		let to_disable: Vec<u64> = initial_oracles
+			.into_iter()
+			.take(2)
+			.map(|(o, _a)| o)
+			.collect();
 		let to_add = vec![(6, 9), (7, 9), (8, 9)];
 		assert_ok!(ChainlinkFeed::change_oracles(
 			Origin::signed(1),
@@ -211,10 +218,60 @@ fn change_oracles_should_work() {
 		assert_eq!(Oracles::<Test>::iter().count(), 6);
 		assert_eq!(OracleStati::<Test>::iter().count(), 6);
 		for o in to_disable.iter() {
-			assert!(ChainlinkFeed::oracle_status(feed_id, o).unwrap().ending_round.is_some(), "oracle should be disabled");
+			assert!(
+				ChainlinkFeed::oracle_status(feed_id, o)
+					.unwrap()
+					.ending_round
+					.is_some(),
+				"oracle should be disabled"
+			);
 		}
 		for (o, _a) in to_add.iter() {
-			assert!(ChainlinkFeed::oracle(o).is_some(), "oracle should be present");
+			assert!(
+				ChainlinkFeed::oracle(o).is_some(),
+				"oracle should be present"
+			);
 		}
+	});
+}
+
+#[test]
+fn oracle_deduplication() {
+	new_test_ext().execute_with(|| {
+		let initial_oracles = vec![(1, 4), (2, 4), (3, 4)];
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(1),
+			20,
+			10,
+			10,
+			1_000,
+			(3, 8),
+			5,
+			b"desc".to_vec(),
+			2,
+			initial_oracles.clone(),
+		));
+		let feed_id = 0;
+		let mut to_disable = vec![1, 2, 1];
+		let to_add = vec![];
+		assert_ok!(ChainlinkFeed::change_oracles(
+			Origin::signed(1),
+			feed_id,
+			to_disable.clone(),
+			to_add.clone(),
+		));
+		to_disable.sort();
+		to_disable.dedup();
+		for o in to_disable.iter() {
+			assert!(
+				ChainlinkFeed::oracle_status(feed_id, o)
+					.unwrap()
+					.ending_round
+					.is_some(),
+				"oracle should be disabled"
+			);
+		}
+		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
+		assert_eq!(feed.oracle_count, 1);
 	});
 }

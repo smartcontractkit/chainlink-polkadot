@@ -381,11 +381,14 @@ decl_module! {
 			added: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
 			let mut feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			let mut to_disable = to_disable;
+			to_disable.sort();
+			to_disable.dedup();
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				let disabled_count = to_disable.len() as u32;
-				// this should be fine as we assert on every oracle
-				// in the loop that it should exist
 				debug_assert!(feed.oracle_count >= disabled_count);
+				// This should be fine as we assert on every oracle
+				// in the loop that it exists and we deduplicate.
 				feed.oracle_count = feed.oracle_count.saturating_sub(disabled_count);
 				for d in to_disable {
 					// disable
@@ -394,7 +397,6 @@ decl_module! {
 					// ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);
 					status.ending_round = Some(feed.reporting_round);
 					OracleStati::<T>::insert(feed_id, &d, status);
-					// TODO: maintain oracle count
 					// emit OraclePermissionsUpdated(_oracle, false);
 				}
 
