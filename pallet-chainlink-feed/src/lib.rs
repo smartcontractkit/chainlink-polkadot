@@ -400,6 +400,8 @@ decl_module! {
 
 				Self::add_oracles(&mut feed, feed_id, added)?;
 
+				FeedConfigs::<T>::insert(feed_id, feed);
+
 				Ok(().into())
 			})
 		}
