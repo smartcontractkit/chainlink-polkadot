@@ -151,9 +151,12 @@ fn submit_should_work() {
 			vec![(1, 4), (2, 4), (3, 4)],
 		));
 
+		let feed_id = 0;
+		let round_id = 1;
+		let oracle = 2;
 		let submission = 42;
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 1, submission));
-		let round = ChainlinkFeed::round(0, 1).expect("first round should be present");
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), 0, 1, submission));
+		let round = ChainlinkFeed::round(feed_id, round_id).expect("first round should be present");
 		assert_eq!(
 			round,
 			Round {
@@ -162,7 +165,7 @@ fn submit_should_work() {
 			}
 		);
 		let details =
-			ChainlinkFeed::round_details(0, 1).expect("details for first round should be present");
+			ChainlinkFeed::round_details(feed_id, round_id).expect("details for first round should be present");
 		assert_eq!(
 			details,
 			RoundDetails {
@@ -172,6 +175,8 @@ fn submit_should_work() {
 				timeout,
 			}
 		);
+		let oracle_status = ChainlinkFeed::oracle_status(feed_id, oracle).expect("oracle status should be present");
+		assert_eq!(oracle_status.latest_submission, Some(submission));
 	});
 }
 

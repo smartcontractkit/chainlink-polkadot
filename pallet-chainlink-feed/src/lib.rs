@@ -335,7 +335,7 @@ decl_module! {
 				details.submissions.push(submission);
 
 				oracle_status.last_reported_round = Some(round_id);
-				// TODO store latest submission?
+				oracle_status.latest_submission = Some(submission);
 				OracleStati::<T>::insert(feed_id, &oracle, oracle_status);
 				Self::deposit_event(RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle));
 
