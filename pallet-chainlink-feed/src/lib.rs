@@ -226,10 +226,10 @@ decl_event!(
 		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
 		/// The admin change was executed. \[oracle, new_admin\]
 		OracleAdminUpdated(AccountId, AccountId),
-		/// The requester permissions have been updated. \[feed_id, requester, delay\]
-		RequesterSet(FeedId, AccountId, RoundId),
-		/// The requester permissions have been removed. \[feed_id, requester\]
-		RequesterRemoved(FeedId, AccountId),
+		/// The submission permissions for the given feed and oralce have been updated. \[feed, oracle, enabled\]
+		OraclePermissionsUpdated(FeedId, AccountId, bool),
+		/// The requester permissions have been updated (set or removed). \[feed, requester, authorized, delays\]
+		RequesterPermissionsSet(FeedId, AccountId, bool, RoundId),
 		/// \[feed, old_owner, new_owner\]
 		OwnerUpdateRequested(FeedId, AccountId, AccountId),
 		/// \[feed, new_owner\]
@@ -253,6 +253,7 @@ decl_error! {
 		FeedNotFound,
 		/// Requested round not present.
 		RoundNotFound,
+		RequesterNotFound,
 		/// New round cannot be requested to supersede current round.
 		RoundNotSupersedable,
 		/// No oracle meta data found for the given account.
@@ -437,10 +438,10 @@ decl_module! {
 					// disable
 					let mut status = Self::oracle_status(feed_id, &d).ok_or(Error::<T>::OracleNotFound)?;
 					// Is this check necessary?
-					// ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);
+					ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);
 					status.ending_round = Some(feed.reporting_round);
 					OracleStati::<T>::insert(feed_id, &d, status);
-					// emit OraclePermissionsUpdated(_oracle, false);
+					Self::deposit_event(RawEvent::OraclePermissionsUpdated(feed_id, d, false));
 				}
 
 				Self::add_oracles(&mut feed, feed_id, to_add)?;
@@ -585,7 +586,7 @@ decl_module! {
 			requester_meta.delay = delay;
 			Requesters::<T>::insert(feed_id, &requester, requester_meta);
 
-			Self::deposit_event(RawEvent::RequesterSet(feed_id, requester, delay));
+			Self::deposit_event(RawEvent::RequesterPermissionsSet(feed_id, requester, true, delay));
 
 			Ok(().into())
 		}
@@ -600,9 +601,9 @@ decl_module! {
 			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 
-			Requesters::<T>::remove(feed_id, &requester);
+			let requester_meta = Requesters::<T>::take(feed_id, &requester).ok_or(Error::<T>::RequesterNotFound)?;
 
-			Self::deposit_event(RawEvent::RequesterRemoved(feed_id, requester));
+			Self::deposit_event(RawEvent::RequesterPermissionsSet(feed_id, requester, false, requester_meta.delay));
 
 			Ok(().into())
 		}
