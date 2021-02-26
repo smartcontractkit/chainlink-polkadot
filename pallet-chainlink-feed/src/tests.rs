@@ -336,3 +336,55 @@ fn admin_transfer_should_work() {
 		assert_eq!(oracle_meta.admin, new_admin);
 	});
 }
+
+#[test]
+fn request_new_round_should_work() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		let payment_amount = 20;
+		let timeout = 10;
+		let submission_count_bounds = (2, 3);
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(owner),
+			payment_amount,
+			timeout,
+			(10, 1_000),
+			submission_count_bounds,
+			5,
+			b"desc".to_vec(),
+			2,
+			vec![(2, 3)],
+		));
+
+		let feed_id = 0;
+		let requester = 22;
+		let delay = 4;
+		ChainlinkFeed::set_requester(Origin::signed(owner), feed_id, requester, delay);
+		let requester_meta = ChainlinkFeed::requester(feed_id, requester).expect("requester should be present");
+		assert_eq!(requester_meta, Requester {
+			delay,
+			last_started_round: None
+		});
+		assert_ok!(ChainlinkFeed::request_new_round(Origin::signed(requester), feed_id));
+		let round_id = 1;
+		let round = ChainlinkFeed::round(feed_id, round_id).expect("first round should be present");
+		assert_eq!(
+			round,
+			Round {
+				started_at: 0,
+				..Default::default()
+			}
+		);
+		let details = ChainlinkFeed::round_details(feed_id, round_id)
+			.expect("details for first round should be present");
+		assert_eq!(
+			details,
+			RoundDetails {
+				submissions: Vec::new(),
+				submission_count_bounds,
+				payment_amount,
+				timeout,
+			}
+		);
+	});
+}

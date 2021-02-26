@@ -176,6 +176,13 @@ type OracleStatusOf<T> = OracleStatus<
 	<T as Trait>::Value,
 >;
 
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+pub struct Requester<RoundId: Parameter> {
+	delay: RoundId,
+	last_started_round: Option<RoundId>,
+}
+type RequesterOf<T> = Requester<<T as Trait>::RoundId>;
+
 decl_storage! {
 	trait Store for Module<T: Trait> as ChainlinkFeed {
 		/// A running counter used internally to determine the next feed id
@@ -193,6 +200,8 @@ decl_storage! {
 		pub Oracles get(fn oracle): map hasher(blake2_128_concat) T::AccountId => Option<OracleMetaOf<T>>;
 
 		pub OracleStati get(fn oracle_status): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
+
+		pub Requesters get(fn requester): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<RequesterOf<T>>;
 	}
 }
 
@@ -216,6 +225,10 @@ decl_event!(
 		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
 		/// The admin change was executed. \[oracle, new_admin\]
 		OracleAdminUpdated(AccountId, AccountId),
+		/// The requester permissions have been updated. \[feed_id, requester, delay\]
+		RequesterSet(FeedId, AccountId, RoundId),
+		/// The requester permissions have been removed. \[feed_id, requester\]
+		RequesterRemoved(FeedId, AccountId),
 	}
 );
 
@@ -235,6 +248,9 @@ decl_error! {
 		FeedNotFound,
 		/// Requested round not present.
 		RoundNotFound,
+		/// New round cannot be requested to supersede current round.
+		RoundNotSupersedable,
+		/// No oracle meta data found for the given account.
 		OracleNotFound,
 		NotAcceptingSubmissions,
 		/// Oracle submission is below the minimum value.
@@ -262,6 +278,8 @@ decl_error! {
 		NotAdmin,
 		/// Only the pending admin can accept the transfer.
 		NotPendingAdmin,
+		CannotRequestRoundYet,
+		NotAuthorizedRequester,
 	}
 }
 
@@ -339,11 +357,11 @@ decl_module! {
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				// initialize the round if conditions are met
 				if round_id == new_round_id && eligible_to_start {
-					let started_at = Self::initialize_round(feed_id, &feed, round_id)?;
+					let started_at = Self::initialize_round(feed_id, &feed, new_round_id)?;
 
 					Self::deposit_event(RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
 
-					oracle_status.last_started_round = Some(round_id);
+					oracle_status.last_started_round = Some(new_round_id);
 				}
 
 				// record submission
@@ -506,6 +524,78 @@ decl_module! {
 			Oracles::<T>::insert(&oracle, oracle_meta);
 
 			Self::deposit_event(RawEvent::OracleAdminUpdated(oracle, new_admin));
+
+			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn request_new_round(
+			origin,
+			feed_id: T::FeedId,
+		) -> DispatchResultWithPostInfo {
+			let sender = ensure_signed(origin)?;
+
+			let mut requester = Self::requester(feed_id, &sender).ok_or(Error::<T>::NotAuthorizedRequester)?;
+			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			let is_first_round_or_updated = if feed.reporting_round == Zero::zero() {
+				true
+			} else {
+				let round = Self::round(feed_id, feed.reporting_round).ok_or(Error::<T>::RoundNotFound)?;
+				round.updated_at.is_some()
+			};
+
+			ensure!(is_first_round_or_updated || Self::timed_out(feed_id, feed.reporting_round), Error::<T>::RoundNotSupersedable);
+
+			let new_round = feed.reporting_round.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+			let last_started = requester.last_started_round.unwrap_or(Zero::zero());
+			let next_allowed_round = last_started.checked_add(&requester.delay).ok_or(Error::<T>::Overflow)?;
+			ensure!(requester.last_started_round.is_none() || new_round > next_allowed_round, Error::<T>::CannotRequestRoundYet);
+
+			with_transaction_result(|| -> DispatchResultWithPostInfo {
+				let started_at = Self::initialize_round(feed_id, &feed, new_round)?;
+
+				requester.last_started_round = Some(new_round);
+				Requesters::<T>::insert(feed_id, &sender, requester);
+
+				Self::deposit_event(RawEvent::NewRound(feed_id, new_round, sender, started_at));
+
+				Ok(().into())
+			})
+		}
+
+		#[weight = 100]
+		pub fn set_requester(
+			origin,
+			feed_id: T::FeedId,
+			requester: T::AccountId,
+			delay: T::RoundId,
+		) -> DispatchResultWithPostInfo {
+			let owner = ensure_signed(origin)?;
+			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
+
+			let mut requester_meta = Self::requester(feed_id, &requester).unwrap_or_default();
+			requester_meta.delay = delay;
+			Requesters::<T>::insert(feed_id, &requester, requester_meta);
+
+			Self::deposit_event(RawEvent::RequesterSet(feed_id, requester, delay));
+
+			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn remove_requester(
+			origin,
+			feed_id: T::FeedId,
+			requester: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let owner = ensure_signed(origin)?;
+			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
+
+			Requesters::<T>::remove(feed_id, &requester);
+
+			Self::deposit_event(RawEvent::RequesterRemoved(feed_id, requester));
 
 			Ok(().into())
 		}
