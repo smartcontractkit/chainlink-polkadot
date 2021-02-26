@@ -470,6 +470,7 @@ decl_module! {
 			Ok(().into())
 		}
 
+		/// Initiate an admin transfer for the given oracle.
 		#[weight = 100]
 		pub fn transfer_admin(
 			origin,
@@ -489,6 +490,7 @@ decl_module! {
 			Ok(().into())
 		}
 
+		/// Complete an admin transfer for the given oracle.
 		#[weight = 100]
 		pub fn accept_admin(
 			origin,
