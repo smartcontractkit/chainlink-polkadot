@@ -212,6 +212,10 @@ decl_event!(
 		SubmissionReceived(FeedId, RoundId, Value, AccountId),
 		/// The answer for the round was updated. \[feed_id, round_id, new_answer, updated_at_block\]
 		AnswerUpdated(FeedId, RoundId, Value, BlockNumber),
+		/// An admin change was requested for the given oracle. \[oracle, admin, pending_admin\]
+		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
+		/// The admin change was executed. \[oracle, new_admin\]
+		OracleAdminUpdated(AccountId, AccountId),
 	}
 );
 
@@ -254,6 +258,10 @@ decl_error! {
 		/// The round initiation delay cannot be equal to or greater
 		/// than the number of oracles.
 		DelayExceededTotal,
+		/// Sender is not admin. Admin privilege can only be transfered by the admin.
+		NotAdmin,
+		/// Only the pending admin can accept the transfer.
+		NotPendingAdmin,
 	}
 }
 
@@ -458,6 +466,44 @@ decl_module! {
 			// 	_restartDelay,
 			// 	_timeout
 			// );
+
+			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn transfer_admin(
+			origin,
+			oracle: T::AccountId,
+			new_admin: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let old_admin = ensure_signed(origin)?;
+			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
+
+			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
+
+			oracle_meta.pending_admin = Some(new_admin.clone());
+			Oracles::<T>::insert(&oracle, oracle_meta);
+
+			Self::deposit_event(RawEvent::OracleAdminUpdateRequested(oracle, old_admin, new_admin));
+
+			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn accept_admin(
+			origin,
+			oracle: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let new_admin = ensure_signed(origin)?;
+			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
+
+			ensure!(oracle_meta.pending_admin.filter(|p| p == &new_admin).is_some(), Error::<T>::NotPendingAdmin);
+
+			oracle_meta.pending_admin = None;
+			oracle_meta.admin = new_admin.clone();
+			Oracles::<T>::insert(&oracle, oracle_meta);
+
+			Self::deposit_event(RawEvent::OracleAdminUpdated(oracle, new_admin));
 
 			Ok(().into())
 		}
