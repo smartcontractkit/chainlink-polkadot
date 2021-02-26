@@ -749,6 +749,7 @@ impl<T: Trait> Module<T> {
 				});
 				Ok(())
 			})?;
+			Self::deposit_event(RawEvent::OraclePermissionsUpdated(feed_id, oracle, true));
 		}
 
 		Ok(())
