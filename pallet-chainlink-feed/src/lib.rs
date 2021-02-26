@@ -268,11 +268,7 @@ decl_module! {
 			origin,
 			payment_amount: T::Balance,
 			timeout: T::BlockNumber,
-			// TODO: turn back to tuple once the equivalent of
-			// https://github.com/paritytech/parity-scale-codec/pull/254
-			// is released for parity scale 1.3
-			submission_value_min: T::Value,
-			submission_value_max: T::Value,
+			submission_value_bounds: (T::Value, T::Value),
 			submission_count_bounds: (u32, u32),
 			decimals: u8,
 			description: Vec<u8>,
@@ -287,7 +283,6 @@ decl_module! {
 				let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
 				FeedCounter::<T>::put(new_id);
 
-				let submission_value_bounds = (submission_value_min, submission_value_max);
 				let mut new_feed = FeedConfig {
 					owner: owner.clone(),
 					payment_amount,
