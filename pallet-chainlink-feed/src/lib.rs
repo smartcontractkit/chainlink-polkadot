@@ -93,6 +93,7 @@ pub struct FeedConfig<
 	Value: Parameter,
 > {
 	owner: AccountId,
+	pending_owner: Option<AccountId>,
 	submission_value_bounds: (Value, Value),
 	submission_count_bounds: (u32, u32),
 	payment_amount: Balance,
@@ -229,6 +230,10 @@ decl_event!(
 		RequesterSet(FeedId, AccountId, RoundId),
 		/// The requester permissions have been removed. \[feed_id, requester\]
 		RequesterRemoved(FeedId, AccountId),
+		/// \[feed, old_owner, new_owner\]
+		OwnerUpdateRequested(FeedId, AccountId, AccountId),
+		/// \[feed, new_owner\]
+		OwnerUpdated(FeedId, AccountId),
 	}
 );
 
@@ -267,6 +272,7 @@ decl_error! {
 		OwnerCannotChangeAdmin,
 		/// Only the owner of a feed can change the configuration.
 		NotFeedOwner,
+		NotPendingOwner,
 		/// The specified min/max pair was invalid.
 		WrongBounds,
 		/// The maximum number of oracles cannot exceed the amount of available oracles.
@@ -311,6 +317,7 @@ decl_module! {
 
 				let mut new_feed = FeedConfig {
 					owner: owner.clone(),
+					pending_owner: None,
 					payment_amount,
 					timeout,
 					submission_value_bounds,
@@ -596,6 +603,44 @@ decl_module! {
 			Requesters::<T>::remove(feed_id, &requester);
 
 			Self::deposit_event(RawEvent::RequesterRemoved(feed_id, requester));
+
+			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn transfer_ownership(
+			origin,
+			feed_id: T::FeedId,
+			new_owner: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let old_owner = ensure_signed(origin)?;
+			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+
+			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
+
+			feed.pending_owner = Some(new_owner.clone());
+			FeedConfigs::<T>::insert(feed_id, feed);
+
+			Self::deposit_event(RawEvent::OwnerUpdateRequested(feed_id, old_owner, new_owner));
+
+			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn accept_ownership(
+			origin,
+			feed_id: T::FeedId,
+		) -> DispatchResultWithPostInfo {
+			let new_owner = ensure_signed(origin)?;
+			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+
+			ensure!(feed.pending_owner.filter(|p| p == &new_owner).is_some(), Error::<T>::NotPendingOwner);
+
+			feed.pending_owner = None;
+			feed.owner = new_owner.clone();
+			FeedConfigs::<T>::insert(feed_id, feed);
+
+			Self::deposit_event(RawEvent::OwnerUpdated(feed_id, new_owner));
 
 			Ok(().into())
 		}

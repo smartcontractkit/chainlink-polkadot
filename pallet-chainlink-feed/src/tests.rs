@@ -327,7 +327,11 @@ fn admin_transfer_should_work() {
 		));
 
 		let new_admin = 42;
-		assert_ok!(ChainlinkFeed::transfer_admin(Origin::signed(old_admin), oracle, new_admin));
+		assert_ok!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			oracle,
+			new_admin
+		));
 		let oracle_meta = ChainlinkFeed::oracle(oracle).expect("oracle should be present");
 		assert_eq!(oracle_meta.pending_admin, Some(new_admin));
 		assert_ok!(ChainlinkFeed::accept_admin(Origin::signed(new_admin), oracle));
@@ -359,13 +363,20 @@ fn request_new_round_should_work() {
 		let feed_id = 0;
 		let requester = 22;
 		let delay = 4;
-		ChainlinkFeed::set_requester(Origin::signed(owner), feed_id, requester, delay);
-		let requester_meta = ChainlinkFeed::requester(feed_id, requester).expect("requester should be present");
-		assert_eq!(requester_meta, Requester {
-			delay,
-			last_started_round: None
-		});
-		assert_ok!(ChainlinkFeed::request_new_round(Origin::signed(requester), feed_id));
+		assert_ok!(ChainlinkFeed::set_requester(Origin::signed(owner), feed_id, requester, delay));
+		let requester_meta =
+			ChainlinkFeed::requester(feed_id, requester).expect("requester should be present");
+		assert_eq!(
+			requester_meta,
+			Requester {
+				delay,
+				last_started_round: None
+			}
+		);
+		assert_ok!(ChainlinkFeed::request_new_round(
+			Origin::signed(requester),
+			feed_id
+		));
 		let round_id = 1;
 		let round = ChainlinkFeed::round(feed_id, round_id).expect("first round should be present");
 		assert_eq!(
@@ -386,5 +397,33 @@ fn request_new_round_should_work() {
 				timeout,
 			}
 		);
+	});
+}
+
+#[test]
+fn transfer_ownership_should_work() {
+	new_test_ext().execute_with(|| {
+		let old_owner = 1;
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(old_owner),
+			20,
+			10,
+			(10, 1_000),
+			(3, 8),
+			5,
+			b"desc".to_vec(),
+			2,
+			vec![(1, 4), (2, 4), (3, 4)],
+		));
+
+		let feed_id = 0;
+		let new_owner = 42;
+		assert_ok!(ChainlinkFeed::transfer_ownership(Origin::signed(old_owner), feed_id, new_owner));
+		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
+		assert_eq!(feed.pending_owner, Some(new_owner));
+		assert_ok!(ChainlinkFeed::accept_ownership(Origin::signed(new_owner), feed_id));
+		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
+		assert_eq!(feed.pending_owner, None);
+		assert_eq!(feed.owner, new_owner);
 	});
 }
