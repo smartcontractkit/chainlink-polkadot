@@ -190,7 +190,7 @@ decl_storage! {
 		pub FeedCounter get(fn feed_counter): T::FeedId;
 
 		/// Configuration for a feed.
-		pub FeedConfigs get(fn feed_config): map hasher(twox_64_concat) T::FeedId => Option<FeedConfigOf<T>>;
+		pub Feeds get(fn feed_config): map hasher(twox_64_concat) T::FeedId => Option<FeedConfigOf<T>>;
 
 		/// User-facing round data.
 		pub Rounds get(fn round): double_map hasher(twox_64_concat) T::FeedId, hasher(twox_64_concat) T::RoundId => Option<RoundOf<T>>;
@@ -330,8 +330,18 @@ decl_module! {
 					reporting_round: Zero::zero(),
 					oracle_count: Zero::zero(),
 				};
+				let started_at = frame_system::Module::<T>::block_number();
+				let updated_at = Some(started_at);
+				// Store a dummy value for round 0 because we will not get useful data for it, but need some
+				// seed data that future rounds can carry over.
+				Rounds::<T>::insert(id, T::RoundId::zero(), Round {
+					started_at,
+					answer: Some(Zero::zero()),
+					updated_at,
+					answered_in_round: Some(Zero::zero())
+				});
 				Self::add_oracles(&mut new_feed, id, oracles)?;
-				FeedConfigs::<T>::insert(id, new_feed);
+				Feeds::<T>::insert(id, new_feed);
 				Self::deposit_event(RawEvent::FeedCreated(id, owner));
 				Ok(().into())
 			})
@@ -349,7 +359,7 @@ decl_module! {
 
 			Self::ensure_round_valid_for(feed_id, &oracle, round_id)?;
 
-			let feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			let (min_val, max_val) = feed.submission_value_bounds;
 			ensure!(submission >= min_val, Error::<T>::SubmissionBelowMinimum);
 			ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
@@ -365,6 +375,7 @@ decl_module! {
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				// initialize the round if conditions are met
 				if round_id == new_round_id && eligible_to_start {
+					feed.reporting_round = new_round_id;
 					let started_at = Self::initialize_round(feed_id, &feed, new_round_id)?;
 
 					Self::deposit_event(RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
@@ -390,6 +401,9 @@ decl_module! {
 					let updated_at = frame_system::Module::<T>::block_number();
 					round.updated_at = Some(updated_at);
 					round.answered_in_round = Some(round_id);
+					Rounds::<T>::insert(feed_id, round_id, round);
+
+					feed.latest_round = round_id;
 
 					Self::deposit_event(RawEvent::AnswerUpdated(feed_id, round_id, new_answer, updated_at));
 				}
@@ -404,13 +418,14 @@ decl_module! {
 
 				// emit AvailableFundsUpdated(funds.available);
 
+				Feeds::<T>::insert(feed_id, feed);
+
 				// delete the details if the maximum count has been reached
 				if details.submissions.len() < max_count as usize {
 					Details::<T>::insert(feed_id, round_id, details);
 				}
 
 				// TODO: answer validation
-
 				Ok(().into())
 			})
 		}
@@ -423,7 +438,7 @@ decl_module! {
 			to_add: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let mut feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == sender, Error::<T>::NotFeedOwner);
 			let mut to_disable = to_disable;
 			to_disable.sort();
@@ -446,7 +461,7 @@ decl_module! {
 
 				Self::add_oracles(&mut feed, feed_id, to_add)?;
 
-				FeedConfigs::<T>::insert(feed_id, feed);
+				Feeds::<T>::insert(feed_id, feed);
 
 				Ok(().into())
 			})
@@ -465,7 +480,7 @@ decl_module! {
 
 			let (min, max) = submission_count_bounds;
 			ensure!(max >= min, Error::<T>::WrongBounds);
-			let mut feed = FeedConfigs::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == sender, Error::<T>::NotFeedOwner);
 			// Make sure that both the min and max of submissions is
 			// less or equal to the number of oracles.
@@ -483,7 +498,7 @@ decl_module! {
 			feed.restart_delay = restart_delay;
 			feed.timeout = timeout;
 
-			FeedConfigs::<T>::insert(feed_id, feed);
+			Feeds::<T>::insert(feed_id, feed);
 
 			// emit RoundDetailsUpdated(
 			// 	paymentAmount,
@@ -620,7 +635,7 @@ decl_module! {
 			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
 
 			feed.pending_owner = Some(new_owner.clone());
-			FeedConfigs::<T>::insert(feed_id, feed);
+			Feeds::<T>::insert(feed_id, feed);
 
 			Self::deposit_event(RawEvent::OwnerUpdateRequested(feed_id, old_owner, new_owner));
 
@@ -639,7 +654,7 @@ decl_module! {
 
 			feed.pending_owner = None;
 			feed.owner = new_owner.clone();
-			FeedConfigs::<T>::insert(feed_id, feed);
+			Feeds::<T>::insert(feed_id, feed);
 
 			Self::deposit_event(RawEvent::OwnerUpdated(feed_id, new_owner));
 

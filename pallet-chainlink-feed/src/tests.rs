@@ -153,13 +153,17 @@ fn submit_should_work() {
 		let round_id = 1;
 		let oracle = 2;
 		let submission = 42;
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), 0, 1, submission));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, submission));
+		let second_oracle = 3;
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(second_oracle), feed_id, round_id, submission));
 		let round = ChainlinkFeed::round(feed_id, round_id).expect("first round should be present");
 		assert_eq!(
 			round,
 			Round {
 				started_at: 0,
-				..Default::default()
+				answer: Some(submission),
+				updated_at: Some(0),
+				answered_in_round: Some(1),
 			}
 		);
 		let details = ChainlinkFeed::round_details(feed_id, round_id)
@@ -167,7 +171,7 @@ fn submit_should_work() {
 		assert_eq!(
 			details,
 			RoundDetails {
-				submissions: vec![submission],
+				submissions: vec![submission, submission],
 				submission_count_bounds,
 				payment_amount,
 				timeout,
