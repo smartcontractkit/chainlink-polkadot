@@ -24,6 +24,7 @@ use sp_runtime::traits::One;
 use sp_runtime::traits::Zero;
 use sp_runtime::traits::CheckedAdd;
 use sp_runtime::traits::Saturating;
+use sp_std::convert::{TryFrom, TryInto};
 
 /// Execute the supplied function in a new storage transaction.
 ///
@@ -103,6 +104,7 @@ pub struct FeedConfig<
 	restart_delay: RoundId,
 	reporting_round: RoundId,
 	latest_round: RoundId,
+	first_valid_round: Option<RoundId>,
 	oracle_count: u32
 }
 type FeedConfigOf<T> = FeedConfig<
@@ -183,6 +185,66 @@ pub struct Requester<RoundId: Parameter> {
 	last_started_round: Option<RoundId>,
 }
 type RequesterOf<T> = Requester<<T as Trait>::RoundId>;
+
+#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+pub struct RoundData<
+	BlockNumber: Parameter,
+	RoundId: Parameter,
+	Value: Parameter,
+> {
+	started_at: BlockNumber,
+	answer: Value,
+	updated_at: BlockNumber,
+	answered_in_round: RoundId,
+}
+type RoundDataOf<T> = RoundData<
+	<T as frame_system::Trait>::BlockNumber,
+	<T as Trait>::RoundId,
+	<T as Trait>::Value,
+>;
+
+#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+pub enum RoundConversionError {
+	MissingField
+}
+
+impl<BlockNumber,
+RoundId,
+Value> TryFrom<Round<BlockNumber,
+RoundId,
+Value>> for RoundData<BlockNumber,
+RoundId,
+Value> where BlockNumber: Parameter,
+RoundId: Parameter,
+Value: Parameter, {
+	type Error = RoundConversionError;
+
+    fn try_from(r: Round<BlockNumber,
+		RoundId,
+		Value>) -> Result<Self, Self::Error> {
+		if r.answered_in_round.is_none() || r.answer.is_none() || r.updated_at.is_none() {
+			return Err(RoundConversionError::MissingField);
+		}
+		Ok(Self {
+			started_at: r.started_at,
+			answer: r.answer.unwrap(),
+			updated_at: r.updated_at.unwrap(),
+			answered_in_round: r.answered_in_round.unwrap(),
+		})
+    }
+}
+
+pub trait FeedOracle {
+	type FeedId;
+	type RoundId;
+	type Feed;
+
+	fn feed(id: Self::FeedId) -> Option<Self::Feed>;
+
+	/// Requests a new round be started. Returns `Ok` in case
+	/// of success, `Err(reason)` in case of failure.
+	fn request_new_round(feed_id: Self::FeedId) -> DispatchResult;
+}
 
 decl_storage! {
 	trait Store for Module<T: Trait> as ChainlinkFeed {
@@ -328,6 +390,7 @@ decl_module! {
 					restart_delay,
 					latest_round: Zero::zero(),
 					reporting_round: Zero::zero(),
+					first_valid_round: None,
 					oracle_count: Zero::zero(),
 				};
 				let started_at = frame_system::Module::<T>::block_number();
@@ -404,6 +467,9 @@ decl_module! {
 					Rounds::<T>::insert(feed_id, round_id, round);
 
 					feed.latest_round = round_id;
+					if feed.first_valid_round.is_none() {
+						feed.first_valid_round = Some(round_id);
+					}
 
 					Self::deposit_event(RawEvent::AnswerUpdated(feed_id, round_id, new_answer, updated_at));
 				}
@@ -767,6 +833,69 @@ impl<T: Trait> Module<T> {
 			Self::deposit_event(RawEvent::OraclePermissionsUpdated(feed_id, oracle, true));
 		}
 
+		Ok(())
+	}
+}
+
+pub struct Feed<
+	T: Trait
+> {
+	id: T::FeedId,
+	config: FeedConfigOf<T>,
+}
+
+impl<T: Trait> Feed<T>
+ {
+	/// Create a new feed object by reading from storage.
+	pub fn get(id: T::FeedId) -> Option<Feed<T>> {
+		let config = Feeds::<T>::get(id)?;
+		Some(Feed { id, config })
+	}
+
+	pub fn reload(&mut self) {
+		self.config = Feeds::<T>::get(self.id).expect("feed config should be present");
+	}
+
+	/// Returns the id of the first round that contains non-default data.
+	pub fn first_valid_round(&self) -> Option<T::RoundId> {
+		self.config.first_valid_round
+	}
+
+	/// Returns the id of the latest oracle round.
+	pub fn latest_round(&self) -> T::RoundId {
+		self.config.latest_round
+	}
+
+	/// Returns the data for a given round.
+	pub fn data_at(&self, round: T::RoundId) -> Option<RoundDataOf<T>> {
+		let r = Rounds::<T>::get(self.id, round)?;
+		r.try_into().ok()
+	}
+
+	/// Returns the latest data for the feed.
+	pub fn latest_data(&self) -> RoundDataOf<T> {
+		let latest_round = self.latest_round();
+		self.data_at(latest_round).unwrap_or_else(|| {
+			debug_assert!(false, "The latest round data should always be available.");
+			frame_support::debug::error!("Latest round data missing at which should never happen. (Latest round id: {:?})", latest_round);
+			RoundDataOf::<T>::default()
+		})
+	}
+}
+
+impl<T: Trait> FeedOracle for Module<T> {
+	type FeedId = T::FeedId;
+	type RoundId = T::RoundId;
+	type Feed = Feed<T>;
+
+	/// Return a transient feed proxy object for interacting with the feed given by the id.
+	fn feed(id: Self::FeedId) -> Option<Self::Feed> {
+		Feed::<T>::get(id)
+	}
+
+	/// Requests a new round be started. Returns `Ok` in case
+	/// of success, `Err(reason)` in case of failure.
+	fn request_new_round(_feed_id: Self::FeedId) -> DispatchResult {
 		Ok(())
 	}
 }

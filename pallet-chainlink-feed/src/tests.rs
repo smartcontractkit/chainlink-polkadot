@@ -431,3 +431,42 @@ fn transfer_ownership_should_work() {
 		assert_eq!(feed.owner, new_owner);
 	});
 }
+
+#[test]
+fn feed_oracle_trait_should_work() {
+	new_test_ext().execute_with(|| {
+		let old_owner = 1;
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(old_owner),
+			20,
+			10,
+			(10, 1_000),
+			(2, 3),
+			5,
+			b"desc".to_vec(),
+			2,
+			vec![(1, 4), (2, 4), (3, 4)],
+		));
+
+		let feed_id = 0;
+		let mut feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+		assert_eq!(feed.first_valid_round(), None);
+		assert_eq!(feed.latest_round(), 0);
+		assert_eq!(feed.latest_data(), RoundDataOf::<Test>::default());
+		let round_id = 1;
+		let oracle = 2;
+		let submission = 42;
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, submission));
+		let second_oracle = 3;
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(second_oracle), feed_id, round_id, submission));
+		feed.reload();
+		assert_eq!(feed.first_valid_round(), Some(1));
+		assert_eq!(feed.latest_round(), 1);
+		assert_eq!(feed.latest_data(), RoundData {
+			answer: 42,
+			started_at: 0,
+			updated_at: 0,
+			answered_in_round: 1,
+		});
+	});
+}
