@@ -99,7 +99,7 @@ pub struct FeedConfig<
 	reporting_round: RoundId,
 	latest_round: RoundId,
 	first_valid_round: Option<RoundId>,
-	oracle_count: u32
+	oracle_count: u32,
 }
 type FeedConfigOf<T> = FeedConfig<
 	<T as frame_system::Trait>::AccountId,
