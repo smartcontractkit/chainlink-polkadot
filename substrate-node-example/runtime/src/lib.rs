@@ -261,6 +261,22 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
+parameter_types! {
+	pub const StringLimit: u32 = 30;
+	pub const OracleCountLimit: u32 = 50;
+}
+
+impl pallet_chainlink_feed::Trait for Runtime {
+	type Event = Event;
+	type Balance = u128;
+	type FeedId = u32;
+	type RoundId = u32;
+	type Value = u128;
+	type Currency = Balances;
+	type StringLimit = StringLimit;
+	type OracleCountLimit = OracleCountLimit;
+}
+
 /// Configure the template pallet in pallets/template.
 impl pallet_template::Trait for Runtime {
 	type Event = Event;
@@ -282,6 +298,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		// Include the custom logic from the template pallet in the runtime.
+		ChainlinkFeed: pallet_chainlink_feed::{Module, Call, Storage, Event<T>},
 		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
 	}
 );

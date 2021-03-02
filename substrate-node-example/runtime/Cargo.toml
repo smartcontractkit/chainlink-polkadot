@@ -27,6 +27,8 @@ serde = { features = ['derive'], optional = true, version = '1.0.119' }
 # local dependencies
 pallet-template = { path = '../pallets/template', default-features = false, version = '2.0.1' }
 
+pallet-chainlink-feed = { path = '../../pallet-chainlink-feed', default-features = false }
+
 # Substrate dependencies
 frame-benchmarking = { default-features = false, optional = true, version = '2.0.1' }
 frame-executive = { default-features = false, version = '2.0.1' }
