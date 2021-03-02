@@ -837,15 +837,12 @@ impl<T: Trait> Module<T> {
 	}
 }
 
-pub struct Feed<
-	T: Trait
-> {
+pub struct Feed<T: Trait> {
 	id: T::FeedId,
 	config: FeedConfigOf<T>,
 }
 
-impl<T: Trait> Feed<T>
- {
+impl<T: Trait> Feed<T> {
 	/// Create a new feed object by reading from storage.
 	pub fn get(id: T::FeedId) -> Option<Feed<T>> {
 		let config = Feeds::<T>::get(id)?;
@@ -895,7 +892,23 @@ impl<T: Trait> FeedOracle for Module<T> {
 
 	/// Requests a new round be started. Returns `Ok` in case
 	/// of success, `Err(reason)` in case of failure.
-	fn request_new_round(_feed_id: Self::FeedId) -> DispatchResult {
-		Ok(())
+	fn request_new_round(feed_id: Self::FeedId) -> DispatchResult {
+		let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+		let is_first_round_or_updated = if feed.reporting_round == Zero::zero() {
+			true
+		} else {
+			let round = Self::round(feed_id, feed.reporting_round).ok_or(Error::<T>::RoundNotFound)?;
+			round.updated_at.is_some()
+		};
+		let new_round = feed.reporting_round.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+
+		ensure!(is_first_round_or_updated || Self::timed_out(feed_id, feed.reporting_round), Error::<T>::RoundNotSupersedable);
+		with_transaction_result(|| -> DispatchResult {
+			let started_at = Self::initialize_round(feed_id, &feed, new_round)?;
+
+			Self::deposit_event(RawEvent::NewRound(feed_id, new_round, T::AccountId::default(), started_at));
+
+			Ok(())
+		})
 	}
 }

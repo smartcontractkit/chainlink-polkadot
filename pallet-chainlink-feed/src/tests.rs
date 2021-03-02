@@ -468,5 +468,16 @@ fn feed_oracle_trait_should_work() {
 			updated_at: 0,
 			answered_in_round: 1,
 		});
+
+		assert_ok!(<ChainlinkFeed as FeedOracle>::request_new_round(feed_id));
+		let round_id = 2;
+		let round = ChainlinkFeed::round(feed_id, round_id).expect("second round should be present");
+		assert_eq!(
+			round,
+			Round {
+				started_at: 0,
+				..Default::default()
+			}
+		);
 	});
 }
