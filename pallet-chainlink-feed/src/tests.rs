@@ -71,16 +71,6 @@ impl pallet_balances::Trait for Test {
 }
 type Balances = pallet_balances::Module<Test>;
 
-pub struct MockWeightInfo;
-impl WeightInfo for MockWeightInfo {
-	fn create_feed() -> Weight {
-		42
-	}
-	fn submit() -> Weight {
-		42
-	}
-}
-
 parameter_types! {
 	pub const StringLimit: u32 = 30;
 	pub const OracleLimit: u32 = 10;
@@ -95,7 +85,6 @@ impl Trait for Test {
 	type Value = u64;
 	type StringLimit = StringLimit;
 	type OracleCountLimit = OracleLimit;
-	type WeightInfo = MockWeightInfo;
 }
 type ChainlinkFeed = crate::Module<Test>;
 

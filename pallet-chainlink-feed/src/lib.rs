@@ -57,11 +57,6 @@ pub(crate) fn median<T: Copy + BaseArithmetic>(numbers: &mut [T]) -> T {
 	}
 }
 
-pub trait WeightInfo {
-	fn create_feed() -> Weight;
-	fn submit() -> Weight;
-}
-
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -81,8 +76,7 @@ pub trait Trait: frame_system::Trait {
 
 	type OracleCountLimit: Get<u32>;
 
-	/// Weight information for extrinsics in this pallet.
-	type WeightInfo: WeightInfo;
+	// type WeightInfo: WeightInfo;
 }
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
