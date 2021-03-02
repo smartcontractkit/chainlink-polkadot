@@ -186,10 +186,10 @@ pub struct RoundData<
 	RoundId: Parameter,
 	Value: Parameter,
 > {
-	started_at: BlockNumber,
-	answer: Value,
-	updated_at: BlockNumber,
-	answered_in_round: RoundId,
+	pub started_at: BlockNumber,
+	pub answer: Value,
+	pub updated_at: BlockNumber,
+	pub answered_in_round: RoundId,
 }
 type RoundDataOf<T> = RoundData<
 	<T as frame_system::Trait>::BlockNumber,
@@ -229,9 +229,10 @@ Value: Parameter, {
 }
 
 pub trait FeedOracle {
-	type FeedId;
-	type RoundId;
-	type Feed;
+	type FeedId: Parameter + BaseArithmetic;
+	type RoundId: Parameter + BaseArithmetic;
+	type Value: Parameter + BaseArithmetic;
+	type Feed: FeedInterface;
 
 	fn feed(id: Self::FeedId) -> Option<Self::Feed>;
 
@@ -831,45 +832,85 @@ impl<T: Trait> Module<T> {
 	}
 }
 
+pub trait FeedInterface {
+	type BlockNumber: Parameter;
+	type FeedId: Parameter + BaseArithmetic;
+	type RoundId: Parameter + BaseArithmetic;
+	type Value: Parameter + BaseArithmetic;
+
+	fn reload(&mut self);
+
+	/// Returns the id of the first round that contains non-default data.
+	fn first_valid_round(&self) -> Option<Self::RoundId>;
+
+	/// Returns the id of the latest oracle round.
+	fn latest_round(&self) -> Self::RoundId;
+
+	/// Returns the data for a given round.
+	fn data_at(&self, round: Self::RoundId) -> Option<RoundData<
+	Self::BlockNumber,
+	Self::RoundId,
+	Self::Value,
+>>;
+
+	/// Returns the latest data for the feed.
+	fn latest_data(&self) -> RoundData<
+	Self::BlockNumber,
+	Self::RoundId,
+	Self::Value,
+>;
+}
+
 pub struct Feed<T: Trait> {
 	id: T::FeedId,
 	config: FeedConfigOf<T>,
 }
 
-impl<T: Trait> Feed<T> {
-	/// Create a new feed object by reading from storage.
-	pub fn get(id: T::FeedId) -> Option<Feed<T>> {
-		let config = Feeds::<T>::get(id)?;
-		Some(Feed { id, config })
-	}
+impl<T: Trait> FeedInterface for Feed<T> {
+	type BlockNumber = T::BlockNumber;
+	type FeedId = T::FeedId;
+	type RoundId = T::RoundId;
+	type Value = T::Value;
 
-	pub fn reload(&mut self) {
+	fn reload(&mut self) {
 		self.config = Feeds::<T>::get(self.id).expect("feed config should be present");
 	}
 
 	/// Returns the id of the first round that contains non-default data.
-	pub fn first_valid_round(&self) -> Option<T::RoundId> {
+	fn first_valid_round(&self) -> Option<T::RoundId> {
 		self.config.first_valid_round
 	}
 
 	/// Returns the id of the latest oracle round.
-	pub fn latest_round(&self) -> T::RoundId {
+	fn latest_round(&self) -> T::RoundId {
 		self.config.latest_round
 	}
 
 	/// Returns the data for a given round.
-	pub fn data_at(&self, round: T::RoundId) -> Option<RoundDataOf<T>> {
+	fn data_at(&self, round: T::RoundId) -> Option<RoundData<
+		Self::BlockNumber,
+		Self::RoundId,
+		Self::Value,
+	>> {
 		let r = Rounds::<T>::get(self.id, round)?;
 		r.try_into().ok()
 	}
 
 	/// Returns the latest data for the feed.
-	pub fn latest_data(&self) -> RoundDataOf<T> {
+	fn latest_data(&self) -> RoundData<
+		Self::BlockNumber,
+		Self::RoundId,
+		Self::Value,
+	> {
 		let latest_round = self.latest_round();
 		self.data_at(latest_round).unwrap_or_else(|| {
 			debug_assert!(false, "The latest round data should always be available.");
 			frame_support::debug::error!("Latest round data missing at which should never happen. (Latest round id: {:?})", latest_round);
-			RoundDataOf::<T>::default()
+			RoundData::<
+				Self::BlockNumber,
+				Self::RoundId,
+				Self::Value,
+			>::default()
 		})
 	}
 }
@@ -877,11 +918,13 @@ impl<T: Trait> Feed<T> {
 impl<T: Trait> FeedOracle for Module<T> {
 	type FeedId = T::FeedId;
 	type RoundId = T::RoundId;
+	type Value = T::Value;
 	type Feed = Feed<T>;
 
 	/// Return a transient feed proxy object for interacting with the feed given by the id.
 	fn feed(id: Self::FeedId) -> Option<Self::Feed> {
-		Feed::<T>::get(id)
+		let config = Feeds::<T>::get(id)?;
+		Some(Feed { id, config })
 	}
 
 	/// Requests a new round be started. Returns `Ok` in case

@@ -7,6 +7,8 @@
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, traits::Get};
 use frame_system::ensure_signed;
 
+use pallet_chainlink_feed::{FeedInterface, FeedOracle, RoundData};
+
 #[cfg(test)]
 mod mock;
 
@@ -17,6 +19,8 @@ mod tests;
 pub trait Trait: frame_system::Trait {
 	/// Because this pallet emits events, it depends on the runtime's definition of an event.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+	type Oracle: FeedOracle;
 }
 
 // The pallet's runtime storage items.
@@ -35,10 +39,15 @@ decl_storage! {
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
 decl_event!(
-	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
+	pub enum Event<T>
+	where
+		AccountId = <T as frame_system::Trait>::AccountId,
+		Value = <<<T as Trait>::Oracle as FeedOracle>::Feed as FeedInterface>::Value,
+	{
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		SomethingStored(u32, AccountId),
+		NewData(Value),
 	}
 );
 
@@ -49,6 +58,7 @@ decl_error! {
 		NoneValue,
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
+		FeedMissing,
 	}
 }
 
@@ -62,6 +72,17 @@ decl_module! {
 
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
+
+		#[weight = 100]
+		fn read_value(origin) {
+			let feed = T::Oracle::feed(0.into()).ok_or(Error::<T>::FeedMissing)?;
+
+			let RoundData {
+				answer, ..
+			} = feed.latest_data();
+
+			Self::deposit_event(RawEvent::NewData(answer));
+		}
 
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
