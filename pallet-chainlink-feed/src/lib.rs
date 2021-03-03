@@ -63,17 +63,22 @@ pub trait Trait: frame_system::Trait {
 	/// The units in which we record balances.
 	type Balance: Member + Parameter + AtLeast32BitUnsigned + Default + Copy;
 
+	/// Type for feed indexing.
 	type FeedId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
 
+	/// Type for round indexing.
 	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic + Into<u64>;
 
+	/// Oracle feed values.
 	type Value: Member + Parameter + Default + Copy + HasCompact + PartialEq + BaseArithmetic;
 
+	/// Interface used for balance transfers.
 	type Currency: ReservableCurrency<Self::AccountId>;
 
 	/// Maximum allowed string length.
 	type StringLimit: Get<u32>;
 
+	/// Maximum number of oracles per feed.
 	type OracleCountLimit: Get<u32>;
 
 	// type WeightInfo: WeightInfo;
@@ -255,17 +260,23 @@ decl_storage! {
 		/// Operator-facing round data.
 		pub Details get(fn round_details): double_map hasher(twox_64_concat) T::FeedId, hasher(twox_64_concat) T::RoundId => Option<RoundDetailsOf<T>>;
 
+		/// Global oracle meta data including admin and withdrawable funds.
 		pub Oracles get(fn oracle): map hasher(blake2_128_concat) T::AccountId => Option<OracleMetaOf<T>>;
 
+		/// Feed local oracle status data.
 		pub OracleStati get(fn oracle_status): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
 
+		/// Per-feed permissioning for starting new rounds.
 		pub Requesters get(fn requester): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<RequesterOf<T>>;
 	}
 }
 
+pub type SubmissionBounds = (u32, u32);
+
 decl_event!(
 	pub enum Event<T> where
 		AccountId = <T as frame_system::Trait>::AccountId,
+		Balance = <T as Trait>::Balance,
 		BlockNumber = <T as frame_system::Trait>::BlockNumber,
 		FeedId = <T as Trait>::FeedId,
 		RoundId = <T as Trait>::RoundId,
@@ -279,6 +290,8 @@ decl_event!(
 		SubmissionReceived(FeedId, RoundId, Value, AccountId),
 		/// The answer for the round was updated. \[feed_id, round_id, new_answer, updated_at_block\]
 		AnswerUpdated(FeedId, RoundId, Value, BlockNumber),
+		/// The round details were updated. \[payment_amount, submission_count_bounds, restart_delay, timeout\]
+		RoundDetailsUpdated(Balance, SubmissionBounds, RoundId, BlockNumber),
 		/// An admin change was requested for the given oracle. \[oracle, admin, pending_admin\]
 		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
 		/// The admin change was executed. \[oracle, new_admin\]
@@ -287,9 +300,9 @@ decl_event!(
 		OraclePermissionsUpdated(FeedId, AccountId, bool),
 		/// The requester permissions have been updated (set or removed). \[feed, requester, authorized, delays\]
 		RequesterPermissionsSet(FeedId, AccountId, bool, RoundId),
-		/// \[feed, old_owner, new_owner\]
+		/// An owner change was requested for the given feed. \[feed, old_owner, new_owner\]
 		OwnerUpdateRequested(FeedId, AccountId, AccountId),
-		/// \[feed, new_owner\]
+		/// The owner change was executed. \[feed, new_owner\]
 		OwnerUpdated(FeedId, AccountId),
 	}
 );
@@ -310,11 +323,13 @@ decl_error! {
 		FeedNotFound,
 		/// Requested round not present.
 		RoundNotFound,
+		/// The specified account does not have requester permissions stored.
 		RequesterNotFound,
 		/// New round cannot be requested to supersede current round.
 		RoundNotSupersedable,
 		/// No oracle meta data found for the given account.
 		OracleNotFound,
+		/// Submissions are not accepted for the specified round.
 		NotAcceptingSubmissions,
 		/// Oracle submission is below the minimum value.
 		SubmissionBelowMinimum,
@@ -330,6 +345,7 @@ decl_error! {
 		OwnerCannotChangeAdmin,
 		/// Only the owner of a feed can change the configuration.
 		NotFeedOwner,
+		/// Only the pending owner of a feed can accept the transfer invitation.
 		NotPendingOwner,
 		/// The specified min/max pair was invalid.
 		WrongBounds,
@@ -342,7 +358,9 @@ decl_error! {
 		NotAdmin,
 		/// Only the pending admin can accept the transfer.
 		NotPendingAdmin,
+		/// The requester cannot request a new round, yet.
 		CannotRequestRoundYet,
+		/// No requester permissions associated with the given account.
 		NotAuthorizedRequester,
 	}
 }
@@ -561,13 +579,7 @@ decl_module! {
 
 			Feeds::<T>::insert(feed_id, feed);
 
-			// emit RoundDetailsUpdated(
-			// 	paymentAmount,
-			// 	_minSubmissions,
-			// 	_maxSubmissions,
-			// 	_restartDelay,
-			// 	_timeout
-			// );
+			Self::deposit_event(RawEvent::RoundDetailsUpdated(payment_amount, submission_count_bounds, restart_delay, timeout));
 
 			Ok(().into())
 		}
