@@ -1,5 +1,4 @@
 use super::*;
-use crate as pallet_chainlink_feed;
 
 use frame_support::weights::Weight;
 use frame_support::{assert_noop, assert_ok, impl_outer_origin, parameter_types};
@@ -71,28 +70,37 @@ impl pallet_balances::Trait for Test {
 }
 type Balances = pallet_balances::Module<Test>;
 
+const MIN_RESERVE: u64 = 100;
 parameter_types! {
+	pub const FeedModuleId: ModuleId = ModuleId(*b"linkfeed");
+	pub const MinimumReserve: u64 = MIN_RESERVE;
 	pub const StringLimit: u32 = 30;
 	pub const OracleLimit: u32 = 10;
 }
 
 impl Trait for Test {
-	type Currency = Balances;
 	type Event = ();
-	type Balance = u64;
 	type FeedId = u32;
 	type RoundId = u32;
 	type Value = u64;
+	type Currency = Balances;
+	type ModuleId = FeedModuleId;
+	type MinimumReserve = MinimumReserve;
 	type StringLimit = StringLimit;
 	type OracleCountLimit = OracleLimit;
 }
 type ChainlinkFeed = crate::Module<Test>;
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default()
+	let mut t = frame_system::GenesisConfig::default()
 		.build_storage::<Test>()
-		.unwrap()
-		.into()
+		.unwrap();
+
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(FeedModuleId::get().into_account(), 100 * MIN_RESERVE)],
+	}.assimilate_storage(&mut t).unwrap();
+
+	t.into()
 }
 
 #[test]
@@ -468,5 +476,46 @@ fn feed_oracle_trait_should_work() {
 				..Default::default()
 			}
 		);
+	});
+}
+
+#[test]
+fn payment_withdrawal_should_work() {
+	new_test_ext().execute_with(|| {
+		let amount = 50;
+		let oracle = 3;
+		let admin = 4;
+		let recipient = 5;
+		Oracles::<Test>::insert(oracle, OracleMeta {
+			withdrawable: amount,
+			admin,
+			..Default::default()
+		});
+		assert_noop!(ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, 2 * amount), Error::<Test>::InsufficientFunds);
+		assert_ok!(ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, amount));
+	});
+}
+
+#[test]
+fn funds_withdrawal_should_work() {
+	new_test_ext().execute_with(|| {
+		let amount = 50;
+		let recipient = 5;
+		let fund = FeedModuleId::get().into_account();
+		assert_noop!(ChainlinkFeed::withdraw_funds(Origin::signed(fund), recipient, 100 * MIN_RESERVE), Error::<Test>::InsufficientReserve);
+		assert_ok!(ChainlinkFeed::withdraw_funds(Origin::signed(fund),recipient, amount));
+	});
+}
+
+#[test]
+fn transfer_pallet_admin_should_work() {
+	new_test_ext().execute_with(|| {
+		let new_admin = 23;
+		let fund = FeedModuleId::get().into_account();
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(Origin::signed(fund), new_admin));
+		assert_eq!(PendingPalletAdmin::<Test>::get(), Some(new_admin));
+		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)));
+		assert_eq!(PalletAdmin::<Test>::get(), new_admin);
+		assert_eq!(PendingPalletAdmin::<Test>::get(), None);
 	});
 }

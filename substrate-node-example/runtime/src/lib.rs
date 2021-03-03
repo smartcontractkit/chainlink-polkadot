@@ -28,7 +28,7 @@ use sp_version::NativeVersion;
 pub use sp_runtime::BuildStorage;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use pallet_balances::Call as BalancesCall;
-pub use sp_runtime::{Permill, Perbill};
+pub use sp_runtime::{ModuleId, Permill, Perbill};
 pub use frame_support::{
 	construct_runtime, parameter_types, StorageValue,
 	traits::{KeyOwnerProofSystem, Randomness},
@@ -262,17 +262,20 @@ impl pallet_sudo::Trait for Runtime {
 }
 
 parameter_types! {
+	pub const FeedModule: ModuleId = ModuleId(*b"linkfeed");
+	pub const MinimumReserve: Balance = ExistentialDeposit::get() * 1000;
 	pub const StringLimit: u32 = 30;
 	pub const OracleCountLimit: u32 = 50;
 }
 
 impl pallet_chainlink_feed::Trait for Runtime {
 	type Event = Event;
-	type Balance = u128;
 	type FeedId = u32;
 	type RoundId = u32;
 	type Value = u128;
 	type Currency = Balances;
+	type ModuleId = FeedModule;
+	type MinimumReserve = MinimumReserve;
 	type StringLimit = StringLimit;
 	type OracleCountLimit = OracleCountLimit;
 }

@@ -14,16 +14,17 @@ use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, P
 use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::dispatch::HasCompact;
 use frame_support::dispatch::DispatchResultWithPostInfo;
-use frame_support::traits::{Get, ReservableCurrency};
-use frame_support::weights::Weight;
+use frame_support::traits::{Currency, ExistenceRequirement, Get, ReservableCurrency};
 use frame_system::ensure_signed;
 use sp_arithmetic::traits::BaseArithmetic;
-use sp_runtime::traits::AtLeast32BitUnsigned;
 use sp_runtime::traits::Member;
 use sp_runtime::traits::One;
 use sp_runtime::traits::Zero;
 use sp_runtime::traits::CheckedAdd;
+use sp_runtime::traits::CheckedSub;
 use sp_runtime::traits::Saturating;
+use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::ModuleId;
 use sp_std::convert::{TryFrom, TryInto};
 
 /// Execute the supplied function in a new storage transaction.
@@ -57,11 +58,10 @@ pub(crate) fn median<T: Copy + BaseArithmetic>(numbers: &mut [T]) -> T {
 	}
 }
 
+pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-
-	/// The units in which we record balances.
-	type Balance: Member + Parameter + AtLeast32BitUnsigned + Default + Copy;
 
 	/// Type for feed indexing.
 	type FeedId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
@@ -74,6 +74,12 @@ pub trait Trait: frame_system::Trait {
 
 	/// Interface used for balance transfers.
 	type Currency: ReservableCurrency<Self::AccountId>;
+
+	/// The module id used to determine the account for storing the funds used to pay the oracles.
+	type ModuleId: Get<ModuleId>;
+
+	/// The minimum amount of funds that need to be present in the fund account.
+	type MinimumReserve: Get<BalanceOf<Self>>;
 
 	/// Maximum allowed string length.
 	type StringLimit: Get<u32>;
@@ -108,7 +114,7 @@ pub struct FeedConfig<
 }
 type FeedConfigOf<T> = FeedConfig<
 	<T as frame_system::Trait>::AccountId,
-	<T as Trait>::Balance,
+	BalanceOf<T>,
 	<T as frame_system::Trait>::BlockNumber,
 	<T as Trait>::RoundId,
 	<T as Trait>::Value
@@ -143,7 +149,7 @@ pub struct RoundDetails<
 	timeout: BlockNumber,
 }
 type RoundDetailsOf<T> = RoundDetails<
-	<T as Trait>::Balance,
+	BalanceOf<T>,
 	<T as frame_system::Trait>::BlockNumber,
 	<T as Trait>::Value,
 >;
@@ -159,7 +165,7 @@ pub struct OracleMeta<
 }
 type OracleMetaOf<T> = OracleMeta<
 	<T as frame_system::Trait>::AccountId,
-	<T as Trait>::Balance,
+	BalanceOf<T>,
 >;
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
@@ -248,6 +254,10 @@ pub trait FeedOracle {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as ChainlinkFeed {
+		/// The account controlling the funds for this pallet.
+		pub PalletAdmin get(fn pallet_admin): T::AccountId = T::ModuleId::get().into_account();
+		pub PendingPalletAdmin: Option<T::AccountId>;
+
 		/// A running counter used internally to determine the next feed id
 		pub FeedCounter get(fn feed_counter): T::FeedId;
 
@@ -276,7 +286,7 @@ pub type SubmissionBounds = (u32, u32);
 decl_event!(
 	pub enum Event<T> where
 		AccountId = <T as frame_system::Trait>::AccountId,
-		Balance = <T as Trait>::Balance,
+		Balance = BalanceOf<T>,
 		BlockNumber = <T as frame_system::Trait>::BlockNumber,
 		FeedId = <T as Trait>::FeedId,
 		RoundId = <T as Trait>::RoundId,
@@ -304,6 +314,10 @@ decl_event!(
 		OwnerUpdateRequested(FeedId, AccountId, AccountId),
 		/// The owner change was executed. \[feed, new_owner\]
 		OwnerUpdated(FeedId, AccountId),
+		/// A pallet admin change was reqeusted. \[old_pallet_admin, new_pallet_admin\]
+		PalletAdminUpdateRequested(AccountId, AccountId),
+		/// The pallet admin change was executed. \[new_admin\]
+		PalletAdminUpdated(AccountId),
 	}
 );
 
@@ -362,6 +376,14 @@ decl_error! {
 		CannotRequestRoundYet,
 		/// No requester permissions associated with the given account.
 		NotAuthorizedRequester,
+		/// Cannot withdraw funds.
+		InsufficientFunds,
+		/// Funds cannot be withdrawn as the reserve would be critically low.
+		InsufficientReserve,
+		/// Only the pallet admin account can call this extrinsic.
+		NotPalletAdmin,
+		/// Only the pending admin can accept the transfer.
+		NotPendingPalletAdmin,
 	}
 }
 
@@ -374,7 +396,7 @@ decl_module! {
 		#[weight = 100]
 		pub fn create_feed(
 			origin,
-			payment_amount: T::Balance,
+			payment_amount: BalanceOf<T>,
 			timeout: T::BlockNumber,
 			submission_value_bounds: (T::Value, T::Value),
 			submission_count_bounds: (u32, u32),
@@ -408,8 +430,8 @@ decl_module! {
 				};
 				let started_at = frame_system::Module::<T>::block_number();
 				let updated_at = Some(started_at);
-				// Store a dummy value for round 0 because we will not get useful data for it, but need some
-				// seed data that future rounds can carry over.
+				// Store a dummy value for round 0 because we will not get useful data for
+				// it, but need some seed data that future rounds can carry over.
 				Rounds::<T>::insert(id, T::RoundId::zero(), Round {
 					started_at,
 					answer: Some(Zero::zero()),
@@ -466,7 +488,7 @@ decl_module! {
 				oracle_status.last_reported_round = Some(round_id);
 				oracle_status.latest_submission = Some(submission);
 				OracleStati::<T>::insert(feed_id, &oracle, oracle_status);
-				Self::deposit_event(RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle));
+				Self::deposit_event(RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle.clone()));
 
 				// update round answer
 				let (min_count, max_count) = details.submission_count_bounds;
@@ -484,18 +506,17 @@ decl_module! {
 						feed.first_valid_round = Some(round_id);
 					}
 
-					Self::deposit_event(RawEvent::AnswerUpdated(feed_id, round_id, new_answer, updated_at));
+					Self::deposit_event(RawEvent::AnswerUpdated(
+						feed_id, round_id, new_answer, updated_at));
 				}
 
-				// pay oracle
-				// uint128 payment = details[_roundId].paymentAmount;
-				// Funds memory funds = recordedFunds;
-				// funds.available = funds.available.sub(payment);
-				// funds.allocated = funds.allocated.add(payment);
-				// recordedFunds = funds;
-				// oracles[msg.sender].withdrawable = oracles[msg.sender].withdrawable.add(payment);
-
-				// emit AvailableFundsUpdated(funds.available);
+				// update oracle withdrawable
+				let payment = details.payment_amount;
+				T::Currency::reserve(&T::ModuleId::get().into_account(), payment)?;
+				let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
+				oracle_meta.withdrawable = oracle_meta.withdrawable
+					.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
+				Oracles::<T>::insert(&oracle, oracle_meta);
 
 				Feeds::<T>::insert(feed_id, feed);
 
@@ -550,7 +571,7 @@ decl_module! {
 		pub fn update_future_rounds(
 			origin,
 			feed_id: T::FeedId,
-			payment_amount: T::Balance,
+			payment_amount: BalanceOf<T>,
 			submission_count_bounds: (u32, u32),
 			restart_delay: T::RoundId,
 			timeout: T::BlockNumber,
@@ -582,6 +603,37 @@ decl_module! {
 			Self::deposit_event(RawEvent::RoundDetailsUpdated(payment_amount, submission_count_bounds, restart_delay, timeout));
 
 			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn withdraw_payment(origin,
+			oracle: T::AccountId,
+			recipient: T::AccountId,
+			amount: BalanceOf<T>,
+		) {
+			let admin = ensure_signed(origin)?;
+			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
+			ensure!(oracle_meta.admin == admin, Error::<T>::NotAdmin);
+
+			oracle_meta.withdrawable = oracle_meta.withdrawable
+				.checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?;
+
+			T::Currency::transfer(&T::ModuleId::get().into_account(), &recipient, amount, ExistenceRequirement::KeepAlive)?;
+			Oracles::<T>::insert(&oracle, oracle_meta);
+		}
+
+		#[weight = 100]
+		pub fn withdraw_funds(origin,
+			recipient: T::AccountId,
+			amount: BalanceOf<T>,
+		) {
+			let sender = ensure_signed(origin)?;
+			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
+			let fund = T::ModuleId::get().into_account();
+			let reserve = T::Currency::free_balance(&fund);
+			let new_reserve = reserve.checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?;
+			ensure!(new_reserve >= T::MinimumReserve::get(), Error::<T>::InsufficientReserve);
+			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
 		}
 
 		/// Initiate an admin transfer for the given oracle.
@@ -732,6 +784,36 @@ decl_module! {
 			Self::deposit_event(RawEvent::OwnerUpdated(feed_id, new_owner));
 
 			Ok(().into())
+		}
+
+		#[weight = 100]
+		pub fn transfer_pallet_admin(
+			origin,
+			new_pallet_admin: T::AccountId,
+		) -> DispatchResult {
+			let old_admin = ensure_signed(origin)?;
+
+			ensure!(Self::pallet_admin() == old_admin, Error::<T>::NotPalletAdmin);
+
+			PendingPalletAdmin::<T>::put(&new_pallet_admin);
+
+			Self::deposit_event(RawEvent::PalletAdminUpdateRequested(old_admin, new_pallet_admin));
+
+			Ok(())
+		}
+
+		#[weight = 100]
+		pub fn accept_pallet_admin(origin) -> DispatchResult {
+			let new_pallet_admin = ensure_signed(origin)?;
+
+			ensure!(PendingPalletAdmin::<T>::get().filter(|p| p == &new_pallet_admin).is_some(), Error::<T>::NotPendingPalletAdmin);
+
+			PendingPalletAdmin::<T>::take();
+			PalletAdmin::<T>::put(&new_pallet_admin);
+
+			Self::deposit_event(RawEvent::PalletAdminUpdated(new_pallet_admin));
+
+			Ok(())
 		}
 	}
 }
