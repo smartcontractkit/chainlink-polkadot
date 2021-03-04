@@ -76,6 +76,7 @@ parameter_types! {
 	pub const MinimumReserve: u64 = MIN_RESERVE;
 	pub const StringLimit: u32 = 30;
 	pub const OracleLimit: u32 = 10;
+	pub const PruningWindow: u32 = 3;
 }
 
 impl Trait for Test {
@@ -88,6 +89,7 @@ impl Trait for Test {
 	type MinimumReserve = MinimumReserve;
 	type StringLimit = StringLimit;
 	type OracleCountLimit = OracleLimit;
+	type PruningWindow = PruningWindow;
 }
 type ChainlinkFeed = crate::Module<Test>;
 
@@ -517,5 +519,71 @@ fn transfer_pallet_admin_should_work() {
 		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)));
 		assert_eq!(PalletAdmin::<Test>::get(), new_admin);
 		assert_eq!(PendingPalletAdmin::<Test>::get(), None);
+	});
+}
+
+#[test]
+fn prune_should_work() {
+	// ## Pruning Testing Scenario
+	//
+	// |- round zero
+	// v             v- latest round
+	// 0 1 2 3 4 5 6 7 8 <- reporting round
+	//       ^- first valid round
+	new_test_ext().execute_with(|| {
+		let feed_id = 0;
+		let submission = 42;
+		let submit_one = |r| {
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(2), feed_id, r, submission));
+		};
+		let submit_two = |r| {
+			submit_one(r);
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(3), feed_id, r, submission));
+		};
+
+		let owner = 1;
+		// we require min 2 oracles so that we can time out the first few
+		// so first_valid_round will be > 1
+		let submission_count_bounds = (2, 3);
+		assert_ok!(ChainlinkFeed::create_feed(
+			Origin::signed(owner),
+			1,
+			1,
+			(10, 1_000),
+			submission_count_bounds,
+			5,
+			b"desc".to_vec(),
+			0,
+			vec![(1, 4), (2, 4), (3, 4)],
+		));
+
+		// submit 2 rounds that will be timed out
+		submit_one(1);
+		System::set_block_number(2);
+		submit_one(2);
+		System::set_block_number(4);
+		// submit the valid rounds
+		submit_two(3);
+		submit_two(4);
+		submit_two(5);
+		submit_two(6);
+		submit_two(7);
+		// simulate an unfinished round so reporting_round != latest_round
+		submit_one(8);
+
+		assert_ok!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 5));
+		// we try to prune until 5, but limits are set up in a way that we can
+		// only prune until 4
+		assert_eq!(ChainlinkFeed::round(feed_id, 3), None);
+		let round = ChainlinkFeed::round(feed_id, 4).expect("fourth round should be present");
+		assert_eq!(
+			round,
+			Round {
+				started_at: 4,
+				answer: Some(submission),
+				updated_at: Some(4),
+				answered_in_round: Some(4),
+			}
+		);
 	});
 }

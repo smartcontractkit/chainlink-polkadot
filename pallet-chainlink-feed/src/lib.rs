@@ -87,6 +87,8 @@ pub trait Trait: frame_system::Trait {
 	/// Maximum number of oracles per feed.
 	type OracleCountLimit: Get<u32>;
 
+	type PruningWindow: Get<Self::RoundId>;
+
 	// type WeightInfo: WeightInfo;
 }
 
@@ -384,6 +386,10 @@ decl_error! {
 		NotPalletAdmin,
 		/// Only the pending admin can accept the transfer.
 		NotPendingPalletAdmin,
+		/// Round zero is not allowed to be pruned.
+		CannotPruneRoundZero,
+		/// The given pruning bounds don't cause any pruning with the current state.
+		NothingToPrune,
 	}
 }
 
@@ -756,7 +762,6 @@ decl_module! {
 		) -> DispatchResultWithPostInfo {
 			let old_owner = ensure_signed(origin)?;
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-
 			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
 
 			feed.pending_owner = Some(new_owner.clone());
@@ -814,6 +819,39 @@ decl_module! {
 			Self::deposit_event(RawEvent::PalletAdminUpdated(new_pallet_admin));
 
 			Ok(())
+		}
+
+		#[weight = 100]
+		pub fn prune(
+			origin,
+			feed_id: T::FeedId,
+			first_to_prune: T::RoundId,
+			keep_round: T::RoundId,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
+			ensure!(first_to_prune > Zero::zero(), Error::<T>::CannotPruneRoundZero);
+			ensure!(keep_round > first_to_prune, Error::<T>::CannotPruneRoundZero);
+			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
+
+			if let Some(first_valid_round) = feed.first_valid_round {
+				let pruning_window = T::PruningWindow::get();
+				ensure!(feed.latest_round.saturating_sub(first_to_prune) > pruning_window, Error::<T>::NothingToPrune);
+				let keep_round = feed.latest_round.saturating_sub(pruning_window).min(keep_round);
+				let mut round = first_to_prune;
+				while round < keep_round {
+					Rounds::<T>::remove(feed_id, round);
+					Details::<T>::remove(feed_id, round);
+					round += One::one();
+				}
+				feed.first_valid_round = Some(keep_round.max(first_valid_round));
+
+				Feeds::<T>::insert(feed_id, feed);
+
+				Ok(())
+			} else {
+				Err(Error::<T>::NothingToPrune.into())
+			}
 		}
 	}
 }
