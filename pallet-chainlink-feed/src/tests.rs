@@ -76,6 +76,7 @@ parameter_types! {
 	pub const MinimumReserve: u64 = MIN_RESERVE;
 	pub const StringLimit: u32 = 30;
 	pub const OracleLimit: u32 = 10;
+	pub const FeedLimit: u32 = 10;
 	pub const PruningWindow: u32 = 3;
 }
 
@@ -89,6 +90,7 @@ impl Trait for Test {
 	type MinimumReserve = MinimumReserve;
 	type StringLimit = StringLimit;
 	type OracleCountLimit = OracleLimit;
+	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;
 }
 type ChainlinkFeed = crate::Module<Test>;

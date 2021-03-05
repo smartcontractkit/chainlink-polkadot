@@ -87,6 +87,10 @@ pub trait Trait: frame_system::Trait {
 	/// Maximum number of oracles per feed.
 	type OracleCountLimit: Get<u32>;
 
+	/// Maximum number of feeds.
+	type FeedLimit: Get<Self::FeedId>;
+
+	/// Number of rounds to keep around per feed.
 	type PruningWindow: Get<Self::RoundId>;
 
 	// type WeightInfo: WeightInfo;
@@ -246,7 +250,6 @@ pub trait FeedOracle {
 	type RoundId: Parameter + BaseArithmetic;
 	type Value: Parameter + BaseArithmetic;
 	type Feed: FeedInterface;
-
 	fn feed(id: Self::FeedId) -> Option<Self::Feed>;
 
 	/// Requests a new round be started. Returns `Ok` in case
@@ -390,6 +393,8 @@ decl_error! {
 		CannotPruneRoundZero,
 		/// The given pruning bounds don't cause any pruning with the current state.
 		NothingToPrune,
+		/// The maximum number of feeds was reached.
+		FeedLimitReached,
 	}
 }
 
@@ -416,6 +421,7 @@ decl_module! {
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				let id: T::FeedId = FeedCounter::<T>::get();
+				ensure!(id < T::FeedLimit::get(), Error::<T>::FeedLimitReached);
 				let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
 				FeedCounter::<T>::put(new_id);
 
@@ -543,9 +549,9 @@ decl_module! {
 			to_disable: Vec<T::AccountId>,
 			to_add: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
-			let sender = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?;
 			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == sender, Error::<T>::NotFeedOwner);
+			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 			let mut to_disable = to_disable;
 			to_disable.sort();
 			to_disable.dedup();
@@ -582,12 +588,11 @@ decl_module! {
 			restart_delay: T::RoundId,
 			timeout: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
-			let sender = ensure_signed(origin)?;
-
+			let owner = ensure_signed(origin)?;
 			let (min, max) = submission_count_bounds;
 			ensure!(max >= min, Error::<T>::WrongBounds);
 			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == sender, Error::<T>::NotFeedOwner);
+			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 			// Make sure that both the min and max of submissions is
 			// less or equal to the number of oracles.
 			ensure!(feed.oracle_count >= max, Error::<T>::MaxExceededTotal);
@@ -830,7 +835,7 @@ decl_module! {
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 			ensure!(first_to_prune > Zero::zero(), Error::<T>::CannotPruneRoundZero);
-			ensure!(keep_round > first_to_prune, Error::<T>::CannotPruneRoundZero);
+			ensure!(keep_round > first_to_prune, Error::<T>::NothingToPrune);
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 
