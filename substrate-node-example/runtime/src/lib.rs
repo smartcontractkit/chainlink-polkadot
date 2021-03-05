@@ -270,7 +270,7 @@ parameter_types! {
 	pub const MinimumReserve: Balance = ExistentialDeposit::get() * 1000;
 	pub const StringLimit: u32 = 30;
 	pub const OracleCountLimit: u32 = 50;
-	pub const PruningWindow: RoundId = 300;
+	pub const PruningWindow: RoundId = 15;
 }
 
 impl pallet_chainlink_feed::Trait for Runtime {
