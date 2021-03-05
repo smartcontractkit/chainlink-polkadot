@@ -10,21 +10,19 @@ mod tests;
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, Parameter, RuntimeDebug, dispatch::{DispatchResult, DispatchError}};
 use frame_support::storage::{with_transaction, TransactionOutcome};
-use frame_support::dispatch::HasCompact;
-use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::traits::{Currency, ExistenceRequirement, Get, ReservableCurrency};
+use frame_support::{
+	decl_error, decl_event, decl_module, decl_storage,
+	dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo, HasCompact},
+	ensure, Parameter, RuntimeDebug,
+};
 use frame_system::ensure_signed;
 use sp_arithmetic::traits::BaseArithmetic;
-use sp_runtime::traits::Member;
-use sp_runtime::traits::One;
-use sp_runtime::traits::Zero;
-use sp_runtime::traits::CheckedAdd;
-use sp_runtime::traits::CheckedSub;
-use sp_runtime::traits::Saturating;
-use sp_runtime::traits::AccountIdConversion;
-use sp_runtime::ModuleId;
+use sp_runtime::{
+	traits::{AccountIdConversion, CheckedAdd, CheckedSub, Member, One, Saturating, Zero},
+	ModuleId,
+};
 use sp_std::convert::{TryFrom, TryInto};
 
 /// Execute the supplied function in a new storage transaction.
@@ -123,72 +121,45 @@ type FeedConfigOf<T> = FeedConfig<
 	BalanceOf<T>,
 	<T as frame_system::Trait>::BlockNumber,
 	<T as Trait>::RoundId,
-	<T as Trait>::Value
+	<T as Trait>::Value,
 >;
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct Round<
-	BlockNumber: Parameter,
-	RoundId: Parameter,
-	Value: Parameter,
-> {
+pub struct Round<BlockNumber: Parameter, RoundId: Parameter, Value: Parameter> {
 	started_at: BlockNumber,
 	answer: Option<Value>,
 	updated_at: Option<BlockNumber>,
 	answered_in_round: Option<RoundId>,
 }
-type RoundOf<T> = Round<
-	<T as frame_system::Trait>::BlockNumber,
-	<T as Trait>::RoundId,
-	<T as Trait>::Value,
->;
+type RoundOf<T> = Round<<T as frame_system::Trait>::BlockNumber, <T as Trait>::RoundId, <T as Trait>::Value>;
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct RoundDetails<
-	Balance: Parameter,
-	BlockNumber: Parameter,
-	Value: Parameter,
-> {
+pub struct RoundDetails<Balance: Parameter, BlockNumber: Parameter, Value: Parameter> {
 	submissions: Vec<Value>,
 	submission_count_bounds: (u32, u32),
 	payment_amount: Balance,
 	timeout: BlockNumber,
 }
-type RoundDetailsOf<T> = RoundDetails<
-	BalanceOf<T>,
-	<T as frame_system::Trait>::BlockNumber,
-	<T as Trait>::Value,
->;
+type RoundDetailsOf<T> =
+	RoundDetails<BalanceOf<T>, <T as frame_system::Trait>::BlockNumber, <T as Trait>::Value>;
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct OracleMeta<
-	AccountId: Parameter,
-	Balance: Parameter,
-> {
+pub struct OracleMeta<AccountId: Parameter, Balance: Parameter> {
 	withdrawable: Balance,
 	admin: AccountId,
 	pending_admin: Option<AccountId>,
 }
-type OracleMetaOf<T> = OracleMeta<
-	<T as frame_system::Trait>::AccountId,
-	BalanceOf<T>,
->;
+type OracleMetaOf<T> = OracleMeta<<T as frame_system::Trait>::AccountId, BalanceOf<T>>;
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct OracleStatus<
-	RoundId: Parameter,
-	Value: Parameter
-> {
+pub struct OracleStatus<RoundId: Parameter, Value: Parameter> {
 	starting_round: RoundId,
 	ending_round: Option<RoundId>,
 	last_reported_round: Option<RoundId>,
 	last_started_round: Option<RoundId>,
 	latest_submission: Option<Value>,
 }
-type OracleStatusOf<T> = OracleStatus<
-	<T as Trait>::RoundId,
-	<T as Trait>::Value,
->;
+type OracleStatusOf<T> = OracleStatus<<T as Trait>::RoundId, <T as Trait>::Value>;
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct Requester<RoundId: Parameter> {
@@ -198,41 +169,30 @@ pub struct Requester<RoundId: Parameter> {
 type RequesterOf<T> = Requester<<T as Trait>::RoundId>;
 
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct RoundData<
-	BlockNumber: Parameter,
-	RoundId: Parameter,
-	Value: Parameter,
-> {
+pub struct RoundData<BlockNumber: Parameter, RoundId: Parameter, Value: Parameter> {
 	pub started_at: BlockNumber,
 	pub answer: Value,
 	pub updated_at: BlockNumber,
 	pub answered_in_round: RoundId,
 }
-type RoundDataOf<T> = RoundData<
-	<T as frame_system::Trait>::BlockNumber,
-	<T as Trait>::RoundId,
-	<T as Trait>::Value,
->;
+type RoundDataOf<T> =
+	RoundData<<T as frame_system::Trait>::BlockNumber, <T as Trait>::RoundId, <T as Trait>::Value>;
 
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
 pub enum RoundConversionError {
-	MissingField
+	MissingField,
 }
 
-impl<BlockNumber,
-RoundId,
-Value> TryFrom<Round<BlockNumber,
-RoundId,
-Value>> for RoundData<BlockNumber,
-RoundId,
-Value> where BlockNumber: Parameter,
-RoundId: Parameter,
-Value: Parameter, {
+impl<BlockNumber, RoundId, Value> TryFrom<Round<BlockNumber, RoundId, Value>>
+	for RoundData<BlockNumber, RoundId, Value>
+where
+	BlockNumber: Parameter,
+	RoundId: Parameter,
+	Value: Parameter,
+{
 	type Error = RoundConversionError;
 
-    fn try_from(r: Round<BlockNumber,
-		RoundId,
-		Value>) -> Result<Self, Self::Error> {
+	fn try_from(r: Round<BlockNumber, RoundId, Value>) -> Result<Self, Self::Error> {
 		if r.answered_in_round.is_none() || r.answer.is_none() || r.updated_at.is_none() {
 			return Err(RoundConversionError::MissingField);
 		}
@@ -242,7 +202,7 @@ Value: Parameter, {
 			updated_at: r.updated_at.unwrap(),
 			answered_in_round: r.answered_in_round.unwrap(),
 		})
-    }
+	}
 }
 
 pub trait FeedOracle {
@@ -289,7 +249,8 @@ decl_storage! {
 pub type SubmissionBounds = (u32, u32);
 
 decl_event!(
-	pub enum Event<T> where
+	pub enum Event<T>
+	where
 		AccountId = <T as frame_system::Trait>::AccountId,
 		Balance = BalanceOf<T>,
 		BlockNumber = <T as frame_system::Trait>::BlockNumber,
@@ -866,8 +827,14 @@ impl<T: Trait> Module<T> {
 		let o = Self::oracle_status(feed, acc).ok_or(Error::<T>::NotOracle)?;
 
 		ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);
-		ensure!(o.ending_round.map(|e| e >= round_id).unwrap_or(true), Error::<T>::OracleDisabled);
-		ensure!(o.last_reported_round.map(|l| l < round_id).unwrap_or(true), Error::<T>::ReportingOrder);
+		ensure!(
+			o.ending_round.map(|e| e >= round_id).unwrap_or(true),
+			Error::<T>::OracleDisabled
+		);
+		ensure!(
+			o.last_reported_round.map(|l| l < round_id).unwrap_or(true),
+			Error::<T>::ReportingOrder
+		);
 		// TODO: port solidity
 		// 	if (_roundId != rrId && _roundId != rrId.add(1) && !previousAndCurrentUnanswered(_roundId, rrId)) return "invalid round to report";
 		// if (_roundId != 1 && !supersedable(_roundId.sub(1))) return "previous round not supersedable";
@@ -877,22 +844,32 @@ impl<T: Trait> Module<T> {
 	/// Initialize a new round.
 	///
 	/// **Warning:** Fallible function that changes storage.
-	fn initialize_round(feed_id: T::FeedId, feed: &FeedConfigOf<T>, new_round_id: T::RoundId) -> Result<T::BlockNumber, DispatchError> {
-
+	fn initialize_round(
+		feed_id: T::FeedId,
+		feed: &FeedConfigOf<T>,
+		new_round_id: T::RoundId,
+	) -> Result<T::BlockNumber, DispatchError> {
 		let prev_round_id = new_round_id.saturating_sub(One::one());
 		if Self::timed_out(feed_id, prev_round_id) {
 			Self::close_timed_out_round(feed_id, prev_round_id)?;
 		}
 
 		// reportingRoundId = _roundId;
-		Details::<T>::insert(feed_id, new_round_id, RoundDetails {
-			submissions: Vec::new(),
-			submission_count_bounds: feed.submission_count_bounds,
-			payment_amount: feed.payment_amount,
-			timeout: feed.timeout,
-		});
+		Details::<T>::insert(
+			feed_id,
+			new_round_id,
+			RoundDetails {
+				submissions: Vec::new(),
+				submission_count_bounds: feed.submission_count_bounds,
+				payment_amount: feed.payment_amount,
+				timeout: feed.timeout,
+			},
+		);
 		let started_at = frame_system::Module::<T>::block_number();
-		let round = Round { started_at, ..Default::default() };
+		let round = Round {
+			started_at,
+			..Default::default()
+		};
 		Rounds::<T>::insert(feed_id, new_round_id, round);
 
 		Ok(started_at)
@@ -902,13 +879,20 @@ impl<T: Trait> Module<T> {
 	/// rounds not present in storage.
 	fn timed_out(feed: T::FeedId, round_id: T::RoundId) -> bool {
 		// Assumption: returning false for non-existent rounds is fine.
-		let started_at = Self::round(feed, round_id).map(|r| r.started_at).unwrap_or(Zero::zero());
-		let timeout = Self::round_details(feed, round_id).map(|d| d.timeout).unwrap_or(Zero::zero());
+		let started_at = Self::round(feed, round_id)
+			.map(|r| r.started_at)
+			.unwrap_or(Zero::zero());
+		let timeout = Self::round_details(feed, round_id)
+			.map(|d| d.timeout)
+			.unwrap_or(Zero::zero());
 		let block_num = frame_system::Module::<T>::block_number();
 
-		started_at > Zero::zero() && timeout > Zero::zero()
-			&& started_at.checked_add(&timeout)
-				.expect("started_at and timeout should have sane values -> no overflow; qed") < block_num
+		started_at > Zero::zero()
+			&& timeout > Zero::zero()
+			&& started_at
+				.checked_add(&timeout)
+				.expect("started_at and timeout should have sane values -> no overflow; qed")
+				< block_num
 	}
 
 	/// Close a timed out round and remove its details.
@@ -937,8 +921,14 @@ impl<T: Trait> Module<T> {
 		feed_id: T::FeedId,
 		to_add: Vec<(T::AccountId, T::AccountId)>,
 	) -> DispatchResult {
-		let new_count = feed.oracle_count.checked_add(to_add.len() as u32).ok_or(Error::<T>::Overflow)?;
-		ensure!(new_count <= T::OracleCountLimit::get(), Error::<T>::OraclesLimitExceeded);
+		let new_count = feed
+			.oracle_count
+			.checked_add(to_add.len() as u32)
+			.ok_or(Error::<T>::Overflow)?;
+		ensure!(
+			new_count <= T::OracleCountLimit::get(),
+			Error::<T>::OraclesLimitExceeded
+		);
 		feed.oracle_count = new_count;
 		for (oracle, admin) in to_add {
 			Oracles::<T>::try_mutate(&oracle, |maybe_meta| -> DispatchResult {
@@ -949,13 +939,19 @@ impl<T: Trait> Module<T> {
 							admin,
 							..Default::default()
 						});
-					},
-					Some(meta) => ensure!(meta.admin == admin, Error::<T>::OwnerCannotChangeAdmin)
+					}
+					Some(meta) => ensure!(meta.admin == admin, Error::<T>::OwnerCannotChangeAdmin),
 				}
 				Ok(())
 			})?;
 			OracleStati::<T>::try_mutate(feed_id, &oracle, |maybe_status| -> DispatchResult {
-				ensure!(maybe_status.as_ref().map(|s| s.ending_round.is_some()).unwrap_or(true), Error::<T>::AlreadyEnabled);
+				ensure!(
+					maybe_status
+						.as_ref()
+						.map(|s| s.ending_round.is_some())
+						.unwrap_or(true),
+					Error::<T>::AlreadyEnabled
+				);
 				*maybe_status = Some(OracleStatus {
 					starting_round: feed.reporting_round,
 					..Default::default()
@@ -984,18 +980,13 @@ pub trait FeedInterface {
 	fn latest_round(&self) -> Self::RoundId;
 
 	/// Returns the data for a given round.
-	fn data_at(&self, round: Self::RoundId) -> Option<RoundData<
-	Self::BlockNumber,
-	Self::RoundId,
-	Self::Value,
->>;
+	fn data_at(
+		&self,
+		round: Self::RoundId,
+	) -> Option<RoundData<Self::BlockNumber, Self::RoundId, Self::Value>>;
 
 	/// Returns the latest data for the feed.
-	fn latest_data(&self) -> RoundData<
-	Self::BlockNumber,
-	Self::RoundId,
-	Self::Value,
->;
+	fn latest_data(&self) -> RoundData<Self::BlockNumber, Self::RoundId, Self::Value>;
 }
 
 pub struct Feed<T: Trait> {
@@ -1024,30 +1015,21 @@ impl<T: Trait> FeedInterface for Feed<T> {
 	}
 
 	/// Returns the data for a given round.
-	fn data_at(&self, round: T::RoundId) -> Option<RoundData<
-		Self::BlockNumber,
-		Self::RoundId,
-		Self::Value,
-	>> {
+	fn data_at(&self, round: T::RoundId) -> Option<RoundData<Self::BlockNumber, Self::RoundId, Self::Value>> {
 		let r = Rounds::<T>::get(self.id, round)?;
 		r.try_into().ok()
 	}
 
 	/// Returns the latest data for the feed.
-	fn latest_data(&self) -> RoundData<
-		Self::BlockNumber,
-		Self::RoundId,
-		Self::Value,
-	> {
+	fn latest_data(&self) -> RoundData<Self::BlockNumber, Self::RoundId, Self::Value> {
 		let latest_round = self.latest_round();
 		self.data_at(latest_round).unwrap_or_else(|| {
 			debug_assert!(false, "The latest round data should always be available.");
-			frame_support::debug::error!("Latest round data missing at which should never happen. (Latest round id: {:?})", latest_round);
-			RoundData::<
-				Self::BlockNumber,
-				Self::RoundId,
-				Self::Value,
-			>::default()
+			frame_support::debug::error!(
+				"Latest round data missing at which should never happen. (Latest round id: {:?})",
+				latest_round
+			);
+			RoundData::<Self::BlockNumber, Self::RoundId, Self::Value>::default()
 		})
 	}
 }
@@ -1074,13 +1056,24 @@ impl<T: Trait> FeedOracle for Module<T> {
 			let round = Self::round(feed_id, feed.reporting_round).ok_or(Error::<T>::RoundNotFound)?;
 			round.updated_at.is_some()
 		};
-		let new_round = feed.reporting_round.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+		let new_round = feed
+			.reporting_round
+			.checked_add(&One::one())
+			.ok_or(Error::<T>::Overflow)?;
 
-		ensure!(is_first_round_or_updated || Self::timed_out(feed_id, feed.reporting_round), Error::<T>::RoundNotSupersedable);
+		ensure!(
+			is_first_round_or_updated || Self::timed_out(feed_id, feed.reporting_round),
+			Error::<T>::RoundNotSupersedable
+		);
 		with_transaction_result(|| -> DispatchResult {
 			let started_at = Self::initialize_round(feed_id, &feed, new_round)?;
 
-			Self::deposit_event(RawEvent::NewRound(feed_id, new_round, T::AccountId::default(), started_at));
+			Self::deposit_event(RawEvent::NewRound(
+				feed_id,
+				new_round,
+				T::AccountId::default(),
+				started_at,
+			));
 
 			Ok(())
 		})
