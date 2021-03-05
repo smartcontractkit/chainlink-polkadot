@@ -261,23 +261,29 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
+pub type FeedId = u32;
+pub type RoundId = u32;
+pub type Value = u128;
+
 parameter_types! {
 	pub const FeedModule: ModuleId = ModuleId(*b"linkfeed");
 	pub const MinimumReserve: Balance = ExistentialDeposit::get() * 1000;
 	pub const StringLimit: u32 = 30;
 	pub const OracleCountLimit: u32 = 50;
+	pub const PruningWindow: RoundId = 300;
 }
 
 impl pallet_chainlink_feed::Trait for Runtime {
 	type Event = Event;
-	type FeedId = u32;
-	type RoundId = u32;
-	type Value = u128;
+	type FeedId = FeedId;
+	type RoundId = RoundId;
+	type Value = Value;
 	type Currency = Balances;
 	type ModuleId = FeedModule;
 	type MinimumReserve = MinimumReserve;
 	type StringLimit = StringLimit;
 	type OracleCountLimit = OracleCountLimit;
+	type PruningWindow = PruningWindow;
 }
 
 /// Configure the template pallet in pallets/template.
