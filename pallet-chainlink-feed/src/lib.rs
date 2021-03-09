@@ -422,7 +422,6 @@ decl_module! {
 			})
 		}
 
-		// TODO: unfinished
 		#[weight = 100]
 		pub fn submit(
 			origin,
