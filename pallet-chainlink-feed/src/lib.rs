@@ -564,9 +564,9 @@ decl_module! {
 			// round.
 			ensure!(feed.oracle_count as u64 > restart_delay.into(), Error::<T>::DelayExceededTotal);
 			// require(recordedFunds.available >= requiredReserve(_paymentAmount), "insufficient funds for payment");
-			// if (oracleCount() > 0) {
-			// 	require(_minSubmissions > 0, "min must be greater than 0");
-			// }
+			if feed.oracle_count > 0 {
+				ensure!(min > 0, Error::<T>::WrongBounds);
+			}
 
 			feed.payment_amount = payment_amount;
 			feed.submission_count_bounds = submission_count_bounds;
