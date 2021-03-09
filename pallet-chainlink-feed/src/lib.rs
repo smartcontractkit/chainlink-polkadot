@@ -356,6 +356,10 @@ decl_error! {
 		NothingToPrune,
 		/// The maximum number of feeds was reached.
 		FeedLimitReached,
+		/// The round cannot be superseded by a new round.
+		NotSupersedable,
+		/// The round cannot be started because it is not a valid new round.
+		InvalidRound,
 	}
 }
 
@@ -823,8 +827,13 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	fn ensure_round_valid_for(feed: T::FeedId, acc: &T::AccountId, round_id: T::RoundId) -> DispatchResult {
-		let o = Self::oracle_status(feed, acc).ok_or(Error::<T>::NotOracle)?;
+	fn ensure_round_valid_for(
+		feed_id: T::FeedId,
+		acc: &T::AccountId,
+		round_id: T::RoundId,
+	) -> DispatchResult {
+		let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+		let o = Self::oracle_status(feed_id, acc).ok_or(Error::<T>::NotOracle)?;
 
 		ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);
 		ensure!(
@@ -835,9 +844,26 @@ impl<T: Trait> Module<T> {
 			o.last_reported_round.map(|l| l < round_id).unwrap_or(true),
 			Error::<T>::ReportingOrder
 		);
-		// TODO: port solidity
-		// 	if (_roundId != rrId && _roundId != rrId.add(1) && !previousAndCurrentUnanswered(_roundId, rrId)) return "invalid round to report";
-		// if (_roundId != 1 && !supersedable(_roundId.sub(1))) return "previous round not supersedable";
+		let is_current = round_id == feed.reporting_round;
+		let is_next = round_id == feed.reporting_round.saturating_add(One::one());
+		let current_unanswered = Self::round(feed_id, feed.reporting_round)
+			.map(|r| r.updated_at.is_none())
+			.unwrap_or(true);
+		let is_previous = round_id.saturating_add(One::one()) == feed.reporting_round;
+		ensure!(
+			is_current || is_next || (is_previous && current_unanswered),
+			Error::<T>::InvalidRound
+		);
+		let supersedable = |round_id| {
+			let updated = Self::round(feed_id, round_id)
+				.map(|r| r.updated_at.is_some())
+				.unwrap_or(false);
+			updated || Self::timed_out(feed_id, round_id)
+		};
+		ensure!(
+			round_id == One::one() || supersedable(round_id.saturating_sub(One::one())),
+			Error::<T>::NotSupersedable
+		);
 		Ok(())
 	}
 
@@ -908,6 +934,7 @@ impl<T: Trait> Module<T> {
 		let updated_at = frame_system::Module::<T>::block_number();
 		timed_out_round.updated_at = Some(updated_at);
 
+		Rounds::<T>::insert(feed, timed_out, timed_out_round);
 		Details::<T>::remove(feed, timed_out);
 
 		Ok(())

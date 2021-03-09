@@ -559,11 +559,12 @@ fn prune_should_work() {
 			vec![(1, 4), (2, 4), (3, 4)],
 		));
 
+		System::set_block_number(1);
 		// submit 2 rounds that will be timed out
 		submit_one(1);
-		System::set_block_number(2);
+		System::set_block_number(3);
 		submit_one(2);
-		System::set_block_number(4);
+		System::set_block_number(5);
 		// submit the valid rounds
 		submit_two(3);
 		submit_two(4);
@@ -581,9 +582,9 @@ fn prune_should_work() {
 		assert_eq!(
 			round,
 			Round {
-				started_at: 4,
+				started_at: 5,
 				answer: Some(submission),
-				updated_at: Some(4),
+				updated_at: Some(5),
 				answered_in_round: Some(4),
 			}
 		);
