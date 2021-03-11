@@ -26,6 +26,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 
+type AccountId = u64;
 impl system::Trait for Test {
 	type BaseCallFilter = ();
 	type Origin = Origin;
@@ -34,7 +35,7 @@ impl system::Trait for Test {
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u64;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type Event = ();
@@ -450,27 +451,31 @@ fn feed_oracle_trait_should_work() {
 		));
 
 		let feed_id = 0;
-		let mut feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
-		assert_eq!(feed.first_valid_round(), None);
-		assert_eq!(feed.latest_round(), 0);
-		assert_eq!(feed.latest_data(), RoundDataOf::<Test>::default());
+		{
+			let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+			assert_eq!(feed.first_valid_round(), None);
+			assert_eq!(feed.latest_round(), 0);
+			assert_eq!(feed.latest_data(), RoundDataOf::<Test>::default());
+		}
 		let round_id = 1;
 		let oracle = 2;
 		let submission = 42;
 		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, submission));
 		let second_oracle = 3;
 		assert_ok!(ChainlinkFeed::submit(Origin::signed(second_oracle), feed_id, round_id, submission));
-		feed.reload();
-		assert_eq!(feed.first_valid_round(), Some(1));
-		assert_eq!(feed.latest_round(), 1);
-		assert_eq!(feed.latest_data(), RoundData {
-			answer: 42,
-			started_at: 0,
-			updated_at: 0,
-			answered_in_round: 1,
-		});
+		{
+			let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+			assert_eq!(feed.first_valid_round(), Some(1));
+			assert_eq!(feed.latest_round(), 1);
+			assert_eq!(feed.latest_data(), RoundData {
+				answer: 42,
+				started_at: 0,
+				updated_at: 0,
+				answered_in_round: 1,
+			});
 
-		assert_ok!(<ChainlinkFeed as FeedOracle>::request_new_round(feed_id));
+		assert_ok!(feed.request_new_round(AccountId::default()));
+		}
 		let round_id = 2;
 		let round = ChainlinkFeed::round(feed_id, round_id).expect("second round should be present");
 		assert_eq!(

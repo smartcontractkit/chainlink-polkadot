@@ -133,6 +133,20 @@ pub struct Round<BlockNumber: Parameter, RoundId: Parameter, Value: Parameter> {
 }
 type RoundOf<T> = Round<<T as frame_system::Trait>::BlockNumber, <T as Trait>::RoundId, <T as Trait>::Value>;
 
+impl<B, R, V> Round<B, R, V>
+where
+	B: Parameter + Default,
+	R: Parameter + Default,
+	V: Parameter + Default,
+{
+	fn new(started_at: B) -> Self {
+		Self {
+			started_at,
+			..Default::default()
+		}
+	}
+}
+
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct RoundDetails<Balance: Parameter, BlockNumber: Parameter, Value: Parameter> {
 	submissions: Vec<Value>,
@@ -207,14 +221,8 @@ where
 
 pub trait FeedOracle {
 	type FeedId: Parameter + BaseArithmetic;
-	type RoundId: Parameter + BaseArithmetic;
-	type Value: Parameter + BaseArithmetic;
 	type Feed: FeedInterface;
 	fn feed(id: Self::FeedId) -> Option<Self::Feed>;
-
-	/// Requests a new round be started. Returns `Ok` in case
-	/// of success, `Err(reason)` in case of failure.
-	fn request_new_round(feed_id: Self::FeedId) -> DispatchResult;
 }
 
 decl_storage! {
@@ -390,7 +398,7 @@ decl_module! {
 				let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
 				FeedCounter::<T>::put(new_id);
 
-				let mut new_feed = FeedConfig {
+				let new_config = FeedConfig {
 					owner: owner.clone(),
 					pending_owner: None,
 					payment_amount,
@@ -405,6 +413,7 @@ decl_module! {
 					first_valid_round: None,
 					oracle_count: Zero::zero(),
 				};
+				let mut feed = Feed::<T>::new(id, new_config); // synced on drop
 				let started_at = frame_system::Module::<T>::block_number();
 				let updated_at = Some(started_at);
 				// Store a dummy value for round 0 because we will not get useful data for
@@ -415,8 +424,7 @@ decl_module! {
 					updated_at,
 					answered_in_round: Some(Zero::zero())
 				});
-				Self::add_oracles(&mut new_feed, id, oracles)?;
-				Feeds::<T>::insert(id, new_feed);
+				feed.add_oracles(oracles)?;
 				Self::deposit_event(RawEvent::FeedCreated(id, owner));
 				Ok(().into())
 			})
@@ -431,26 +439,27 @@ decl_module! {
 		) -> DispatchResultWithPostInfo {
 			let oracle = ensure_signed(origin)?;
 
-			Self::ensure_round_valid_for(feed_id, &oracle, round_id)?;
-
-			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			let (min_val, max_val) = feed.submission_value_bounds;
-			ensure!(submission >= min_val, Error::<T>::SubmissionBelowMinimum);
-			ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
-
-			let new_round_id = feed.reporting_round.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-			let mut oracle_status = Self::oracle_status(feed_id, &oracle).ok_or(Error::<T>::NotOracle)?;
-			let next_eligible_round = oracle_status.last_started_round
-				.unwrap_or(Zero::zero())
-				.checked_add(&feed.restart_delay).ok_or(Error::<T>::Overflow)?
-				.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-			let eligible_to_start = round_id >= next_eligible_round
-				|| oracle_status.last_started_round.is_none();
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
+				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+				feed.ensure_valid_round(&oracle, round_id)?;
+
+				let (min_val, max_val) = feed.config.submission_value_bounds;
+				ensure!(submission >= min_val, Error::<T>::SubmissionBelowMinimum);
+				ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
+
+				let new_round_id = feed.reporting_round_id().saturating_add(One::one());
+				let mut oracle_status = Self::oracle_status(feed_id, &oracle).ok_or(Error::<T>::NotOracle)?;
+				let next_eligible_round = oracle_status.last_started_round
+					.unwrap_or(Zero::zero())
+					.checked_add(&feed.config.restart_delay).ok_or(Error::<T>::Overflow)?
+					.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+				let eligible_to_start = round_id >= next_eligible_round
+					|| oracle_status.last_started_round.is_none();
+
 				// initialize the round if conditions are met
 				if round_id == new_round_id && eligible_to_start {
-					feed.reporting_round = new_round_id;
-					let started_at = Self::initialize_round(feed_id, &feed, new_round_id)?;
+					feed.config.reporting_round = new_round_id;
+					let started_at = feed.initialize_round(new_round_id)?;
 
 					Self::deposit_event(RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
 
@@ -477,9 +486,9 @@ decl_module! {
 					round.answered_in_round = Some(round_id);
 					Rounds::<T>::insert(feed_id, round_id, round);
 
-					feed.latest_round = round_id;
-					if feed.first_valid_round.is_none() {
-						feed.first_valid_round = Some(round_id);
+					feed.config.latest_round = round_id;
+					if feed.config.first_valid_round.is_none() {
+						feed.config.first_valid_round = Some(round_id);
 					}
 
 					Self::deposit_event(RawEvent::AnswerUpdated(
@@ -493,8 +502,6 @@ decl_module! {
 				oracle_meta.withdrawable = oracle_meta.withdrawable
 					.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
 				Oracles::<T>::insert(&oracle, oracle_meta);
-
-				Feeds::<T>::insert(feed_id, feed);
 
 				// delete the details if the maximum count has been reached
 				if details.submissions.len() < max_count as usize {
@@ -514,30 +521,16 @@ decl_module! {
 			to_add: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
+
 			let mut to_disable = to_disable;
 			to_disable.sort();
 			to_disable.dedup();
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
-				let disabled_count = to_disable.len() as u32;
-				debug_assert!(feed.oracle_count >= disabled_count);
-				// This should be fine as we assert on every oracle
-				// in the loop that it exists and we deduplicate.
-				feed.oracle_count = feed.oracle_count.saturating_sub(disabled_count);
-				for d in to_disable {
-					// disable
-					let mut status = Self::oracle_status(feed_id, &d).ok_or(Error::<T>::OracleNotFound)?;
-					// Is this check necessary?
-					ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);
-					status.ending_round = Some(feed.reporting_round);
-					OracleStati::<T>::insert(feed_id, &d, status);
-					Self::deposit_event(RawEvent::OraclePermissionsUpdated(feed_id, d, false));
-				}
+				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?; // synced on drop
+				feed.ensure_owner(&owner)?;
 
-				Self::add_oracles(&mut feed, feed_id, to_add)?;
-
-				Feeds::<T>::insert(feed_id, feed);
+				feed.disable_oracles(to_disable)?;
+				feed.add_oracles(to_add)?;
 
 				Ok(().into())
 			})
@@ -553,29 +546,10 @@ decl_module! {
 			timeout: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			let (min, max) = submission_count_bounds;
-			ensure!(max >= min, Error::<T>::WrongBounds);
-			let mut feed = Feeds::<T>::get(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
-			// Make sure that both the min and max of submissions is
-			// less or equal to the number of oracles.
-			ensure!(feed.oracle_count >= max, Error::<T>::MaxExceededTotal);
-			// Make sure that at least one oracle can request a new
-			// round.
-			ensure!(feed.oracle_count as u64 > restart_delay.into(), Error::<T>::DelayExceededTotal);
-			// require(recordedFunds.available >= requiredReserve(_paymentAmount), "insufficient funds for payment");
-			if feed.oracle_count > 0 {
-				ensure!(min > 0, Error::<T>::WrongBounds);
-			}
+			let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?; // synced on drop
+			feed.ensure_owner(&owner)?;
 
-			feed.payment_amount = payment_amount;
-			feed.submission_count_bounds = submission_count_bounds;
-			feed.restart_delay = restart_delay;
-			feed.timeout = timeout;
-
-			Feeds::<T>::insert(feed_id, feed);
-
-			Self::deposit_event(RawEvent::RoundDetailsUpdated(payment_amount, submission_count_bounds, restart_delay, timeout));
+			feed.update_future_rounds(payment_amount, submission_count_bounds, restart_delay, timeout)?;
 
 			Ok(().into())
 		}
@@ -659,28 +633,20 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			let mut requester = Self::requester(feed_id, &sender).ok_or(Error::<T>::NotAuthorizedRequester)?;
-			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			let is_first_round_or_updated = if feed.reporting_round == Zero::zero() {
-				true
-			} else {
-				let round = Self::round(feed_id, feed.reporting_round).ok_or(Error::<T>::RoundNotFound)?;
-				round.updated_at.is_some()
-			};
-
-			ensure!(is_first_round_or_updated || Self::timed_out(feed_id, feed.reporting_round), Error::<T>::RoundNotSupersedable);
-
-			let new_round = feed.reporting_round.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-			let last_started = requester.last_started_round.unwrap_or(Zero::zero());
-			let next_allowed_round = last_started.checked_add(&requester.delay).ok_or(Error::<T>::Overflow)?;
-			ensure!(requester.last_started_round.is_none() || new_round > next_allowed_round, Error::<T>::CannotRequestRoundYet);
+			
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
-				let started_at = Self::initialize_round(feed_id, &feed, new_round)?;
+				let feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+
+				let new_round = feed.reporting_round_id().checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+				let last_started = requester.last_started_round.unwrap_or(Zero::zero());
+				let next_allowed_round = last_started.checked_add(&requester.delay).ok_or(Error::<T>::Overflow)?;
+				ensure!(requester.last_started_round.is_none() || new_round > next_allowed_round, Error::<T>::CannotRequestRoundYet);
 
 				requester.last_started_round = Some(new_round);
 				Requesters::<T>::insert(feed_id, &sender, requester);
 
-				Self::deposit_event(RawEvent::NewRound(feed_id, new_round, sender, started_at));
+				feed.request_new_round(sender)?;
 
 				Ok(().into())
 			})
@@ -826,178 +792,14 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	fn ensure_round_valid_for(
-		feed_id: T::FeedId,
-		acc: &T::AccountId,
-		round_id: T::RoundId,
-	) -> DispatchResult {
-		let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-		let o = Self::oracle_status(feed_id, acc).ok_or(Error::<T>::NotOracle)?;
-
-		ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);
-		ensure!(
-			o.ending_round.map(|e| e >= round_id).unwrap_or(true),
-			Error::<T>::OracleDisabled
-		);
-		ensure!(
-			o.last_reported_round.map(|l| l < round_id).unwrap_or(true),
-			Error::<T>::ReportingOrder
-		);
-		let is_current = round_id == feed.reporting_round;
-		let is_next = round_id == feed.reporting_round.saturating_add(One::one());
-		let current_unanswered = Self::round(feed_id, feed.reporting_round)
-			.map(|r| r.updated_at.is_none())
-			.unwrap_or(true);
-		let is_previous = round_id.saturating_add(One::one()) == feed.reporting_round;
-		ensure!(
-			is_current || is_next || (is_previous && current_unanswered),
-			Error::<T>::InvalidRound
-		);
-		let supersedable = |round_id| {
-			let updated = Self::round(feed_id, round_id)
-				.map(|r| r.updated_at.is_some())
-				.unwrap_or(false);
-			updated || Self::timed_out(feed_id, round_id)
-		};
-		ensure!(
-			round_id == One::one() || supersedable(round_id.saturating_sub(One::one())),
-			Error::<T>::NotSupersedable
-		);
-		Ok(())
-	}
-
-	/// Initialize a new round.
-	///
-	/// **Warning:** Fallible function that changes storage.
-	fn initialize_round(
-		feed_id: T::FeedId,
-		feed: &FeedConfigOf<T>,
-		new_round_id: T::RoundId,
-	) -> Result<T::BlockNumber, DispatchError> {
-		let prev_round_id = new_round_id.saturating_sub(One::one());
-		if Self::timed_out(feed_id, prev_round_id) {
-			Self::close_timed_out_round(feed_id, prev_round_id)?;
-		}
-
-		// reportingRoundId = _roundId;
-		Details::<T>::insert(
-			feed_id,
-			new_round_id,
-			RoundDetails {
-				submissions: Vec::new(),
-				submission_count_bounds: feed.submission_count_bounds,
-				payment_amount: feed.payment_amount,
-				timeout: feed.timeout,
-			},
-		);
-		let started_at = frame_system::Module::<T>::block_number();
-		let round = Round {
-			started_at,
-			..Default::default()
-		};
-		Rounds::<T>::insert(feed_id, new_round_id, round);
-
-		Ok(started_at)
-	}
-
-	/// Check whether a round is timed out. Returns `false` for
-	/// rounds not present in storage.
-	fn timed_out(feed: T::FeedId, round_id: T::RoundId) -> bool {
-		// Assumption: returning false for non-existent rounds is fine.
-		let started_at = Self::round(feed, round_id)
-			.map(|r| r.started_at)
-			.unwrap_or(Zero::zero());
-		let timeout = Self::round_details(feed, round_id)
-			.map(|d| d.timeout)
-			.unwrap_or(Zero::zero());
-		let block_num = frame_system::Module::<T>::block_number();
-
-		started_at > Zero::zero()
-			&& timeout > Zero::zero()
-			&& started_at
-				.checked_add(&timeout)
-				.expect("started_at and timeout should have sane values -> no overflow; qed")
-				< block_num
-	}
-
-	/// Close a timed out round and remove its details.
-	///
-	/// **Warning:** Fallible function that changes storage.
-	// TODO: use [require_transactional](https://github.com/paritytech/substrate/issues/7004) after migrating to Substrate v3.
-	fn close_timed_out_round(feed: T::FeedId, timed_out: T::RoundId) -> DispatchResult {
-		let prev_id = timed_out.saturating_sub(One::one());
-		let prev_round = Self::round(feed, prev_id).ok_or(Error::<T>::RoundNotFound)?;
-		let mut timed_out_round = Self::round(feed, timed_out).ok_or(Error::<T>::RoundNotFound)?;
-		timed_out_round.answer = prev_round.answer;
-		timed_out_round.answered_in_round = prev_round.answered_in_round;
-		let updated_at = frame_system::Module::<T>::block_number();
-		timed_out_round.updated_at = Some(updated_at);
-
-		Rounds::<T>::insert(feed, timed_out, timed_out_round);
-		Details::<T>::remove(feed, timed_out);
-
-		Ok(())
-	}
-
-	/// Add the given oracles to the given feed.
-	///
-	/// **Warning:** Fallible function that changes storage.
-	fn add_oracles(
-		feed: &mut FeedConfigOf<T>,
-		feed_id: T::FeedId,
-		to_add: Vec<(T::AccountId, T::AccountId)>,
-	) -> DispatchResult {
-		let new_count = feed
-			.oracle_count
-			.checked_add(to_add.len() as u32)
-			.ok_or(Error::<T>::Overflow)?;
-		ensure!(
-			new_count <= T::OracleCountLimit::get(),
-			Error::<T>::OraclesLimitExceeded
-		);
-		feed.oracle_count = new_count;
-		for (oracle, admin) in to_add {
-			Oracles::<T>::try_mutate(&oracle, |maybe_meta| -> DispatchResult {
-				match maybe_meta {
-					None => {
-						*maybe_meta = Some(OracleMeta {
-							withdrawable: Zero::zero(),
-							admin,
-							..Default::default()
-						});
-					}
-					Some(meta) => ensure!(meta.admin == admin, Error::<T>::OwnerCannotChangeAdmin),
-				}
-				Ok(())
-			})?;
-			OracleStati::<T>::try_mutate(feed_id, &oracle, |maybe_status| -> DispatchResult {
-				ensure!(
-					maybe_status
-						.as_ref()
-						.map(|s| s.ending_round.is_some())
-						.unwrap_or(true),
-					Error::<T>::AlreadyEnabled
-				);
-				*maybe_status = Some(OracleStatus {
-					starting_round: feed.reporting_round,
-					..Default::default()
-				});
-				Ok(())
-			})?;
-			Self::deposit_event(RawEvent::OraclePermissionsUpdated(feed_id, oracle, true));
-		}
-
-		Ok(())
-	}
 }
 
 pub trait FeedInterface {
+	type AccountId: Parameter;
 	type BlockNumber: Parameter;
 	type FeedId: Parameter + BaseArithmetic;
 	type RoundId: Parameter + BaseArithmetic;
 	type Value: Parameter + BaseArithmetic;
-
-	fn reload(&mut self);
 
 	/// Returns the id of the first round that contains non-default data.
 	fn first_valid_round(&self) -> Option<Self::RoundId>;
@@ -1013,22 +815,318 @@ pub trait FeedInterface {
 
 	/// Returns the latest data for the feed.
 	fn latest_data(&self) -> RoundData<Self::BlockNumber, Self::RoundId, Self::Value>;
+
+	fn request_new_round(&self, requester: Self::AccountId) -> DispatchResult;
 }
 
 pub struct Feed<T: Trait> {
 	id: T::FeedId,
 	config: FeedConfigOf<T>,
+	should_sync: bool,
+}
+
+impl<T: Trait> Feed<T> {
+	// --- constructors ---
+	/// Create a new feed with the given id and config.
+	/// Will store the config when dropped.
+	fn new(id: T::FeedId, config: FeedConfigOf<T>) -> Self {
+		Self {
+			id,
+			config,
+			should_sync: true,
+		}
+	}
+
+	/// Load the feed with the given id for reading.
+	/// Will not store the config when dropped. (-> Don't mutate this.)
+	fn read_only_from(id: T::FeedId) -> Option<Self> {
+		let config = Feeds::<T>::get(id)?;
+		Some(Self {
+			id,
+			config,
+			should_sync: false,
+		})
+	}
+
+	/// Load the feed with the given id from storage.
+	/// Will store the config when dropped.
+	fn load_from(id: T::FeedId) -> Option<Self> {
+		let config = Feeds::<T>::get(id)?;
+		Some(Self {
+			id,
+			config,
+			should_sync: true,
+		})
+	}
+
+	// --- getters ---
+	/// Return the round oracles are currently reporting data for.
+	fn reporting_round_id(&self) -> T::RoundId {
+		self.config.reporting_round
+	}
+
+	/// Return the round data (including the answer, if present).
+	fn round(&self, round: T::RoundId) -> Option<RoundOf<T>> {
+		Rounds::<T>::get(self.id, round)
+	}
+
+	/// Return the round details (including submissions).
+	fn details(&self, round: T::RoundId) -> Option<RoundDetailsOf<T>> {
+		Details::<T>::get(self.id, round)
+	}
+
+	/// Return the oracle status associated with this feed.
+	fn status(&self, oracle: &T::AccountId) -> Option<OracleStatusOf<T>> {
+		OracleStati::<T>::get(self.id, oracle)
+	}
+
+	/// Return the number of oracles that can submit data for this feed.
+	fn oracle_count(&self) -> u32 {
+		self.config.oracle_count
+	}
+
+	// --- checks ---
+	/// Make sure that the given account is the owner of the feed.
+	fn ensure_owner(&self, owner: &T::AccountId) -> DispatchResult {
+		ensure!(&self.config.owner == owner, Error::<T>::NotFeedOwner);
+		Ok(())
+	}
+
+	/// Make sure that the given oracle can submit data for the given round.
+	fn ensure_valid_round(&self, oracle: &T::AccountId, round_id: T::RoundId) -> DispatchResult {
+		let o = self.status(oracle).ok_or(Error::<T>::NotOracle)?;
+
+		ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);
+		ensure!(
+			o.ending_round.map(|e| e >= round_id).unwrap_or(true),
+			Error::<T>::OracleDisabled
+		);
+		ensure!(
+			o.last_reported_round.map(|l| l < round_id).unwrap_or(true),
+			Error::<T>::ReportingOrder
+		);
+		let is_current = round_id == self.reporting_round_id();
+		let is_next = round_id == self.reporting_round_id().saturating_add(One::one());
+		let current_unanswered = self
+			.round(self.reporting_round_id())
+			.map(|r| r.updated_at.is_none())
+			.unwrap_or(true);
+		let is_previous = round_id.saturating_add(One::one()) == self.reporting_round_id();
+		ensure!(
+			is_current || is_next || (is_previous && current_unanswered),
+			Error::<T>::InvalidRound
+		);
+		ensure!(
+			round_id == One::one() || self.is_supersedable(round_id.saturating_sub(One::one())),
+			Error::<T>::NotSupersedable
+		);
+		Ok(())
+	}
+
+	/// Check whether a round is timed out.
+	/// Returns `false` for rounds not present in storage.
+	fn is_timed_out(&self, round: T::RoundId) -> bool {
+		// Assumption: returning false for non-existent rounds is fine.
+		let started_at = self.round(round).map(|r| r.started_at).unwrap_or(Zero::zero());
+		let timeout = self.details(round).map(|d| d.timeout).unwrap_or(Zero::zero());
+		let block_num = frame_system::Module::<T>::block_number();
+
+		started_at > Zero::zero()
+			&& timeout > Zero::zero()
+			&& started_at
+				.checked_add(&timeout)
+				.expect("started_at and timeout should have sane values -> no overflow; qed")
+				< block_num
+	}
+
+	/// Check whether a round has been updated.
+	/// Returns `false` for rounds not present in storage.
+	fn was_updated(&self, round: T::RoundId) -> bool {
+		self.round(round).map(|r| r.updated_at.is_some()).unwrap_or(false)
+	}
+
+	/// Check whether the round can be superseded by the next one.
+	/// Returns `false` for rounds not present in storage.
+	fn is_supersedable(&self, round: T::RoundId) -> bool {
+		round == Zero::zero() || self.was_updated(round) || self.is_timed_out(round)
+	}
+
+	// --- mutators ---
+
+	/// Add the given oracles to the feed.
+	///
+	/// **Warning:** Fallible function that changes storage.
+	fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
+		let new_count = self
+			.config
+			.oracle_count
+			.checked_add(to_add.len() as u32)
+			.ok_or(Error::<T>::Overflow)?;
+		ensure!(
+			new_count <= T::OracleCountLimit::get(),
+			Error::<T>::OraclesLimitExceeded
+		);
+		self.config.oracle_count = new_count;
+		for (oracle, admin) in to_add {
+			Oracles::<T>::try_mutate(&oracle, |maybe_meta| -> DispatchResult {
+				match maybe_meta {
+					None => {
+						*maybe_meta = Some(OracleMeta {
+							withdrawable: Zero::zero(),
+							admin,
+							..Default::default()
+						});
+					}
+					Some(meta) => ensure!(meta.admin == admin, Error::<T>::OwnerCannotChangeAdmin),
+				}
+				Ok(())
+			})?;
+			OracleStati::<T>::try_mutate(self.id, &oracle, |maybe_status| -> DispatchResult {
+				ensure!(
+					maybe_status
+						.as_ref()
+						.map(|s| s.ending_round.is_some())
+						.unwrap_or(true),
+					Error::<T>::AlreadyEnabled
+				);
+				*maybe_status = Some(OracleStatus {
+					starting_round: self.reporting_round_id(),
+					..Default::default()
+				});
+				Ok(())
+			})?;
+			Module::<T>::deposit_event(RawEvent::OraclePermissionsUpdated(self.id, oracle, true));
+		}
+
+		Ok(())
+	}
+
+	/// Disable the given oracles.
+	///
+	/// **Warning:** Fallible function that changes storage.
+	fn disable_oracles(&mut self, to_disable: Vec<T::AccountId>) -> DispatchResult {
+		let disabled_count = to_disable.len() as u32;
+		debug_assert!(self.config.oracle_count >= disabled_count);
+		// This should be fine as we assert on every oracle
+		// in the loop that it exists and we deduplicate.
+		self.config.oracle_count = self.config.oracle_count.saturating_sub(disabled_count);
+		for d in to_disable {
+			let mut status = self.status(&d).ok_or(Error::<T>::OracleNotFound)?;
+			ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);
+			status.ending_round = Some(self.reporting_round_id());
+			OracleStati::<T>::insert(self.id, &d, status);
+			Module::<T>::deposit_event(RawEvent::OraclePermissionsUpdated(self.id, d, false));
+		}
+		Ok(())
+	}
+
+	/// Update the configuration for future oracle rounds. (Past and present
+	/// rounds are unaffected.)
+	fn update_future_rounds(
+		&mut self,
+		payment_amount: BalanceOf<T>,
+		submission_count_bounds: (u32, u32),
+		restart_delay: T::RoundId,
+		timeout: T::BlockNumber,
+	) -> DispatchResult {
+		let (min, max) = submission_count_bounds;
+		ensure!(max >= min, Error::<T>::WrongBounds);
+		// Make sure that both the min and max of submissions is
+		// less or equal to the number of oracles.
+		ensure!(self.oracle_count() >= max, Error::<T>::MaxExceededTotal);
+		// Make sure that at least one oracle can request a new
+		// round.
+		ensure!(
+			self.oracle_count() as u64 > restart_delay.into(),
+			Error::<T>::DelayExceededTotal
+		);
+		// require(recordedFunds.available >= requiredReserve(_paymentAmount), "insufficient funds for payment");
+		if self.oracle_count() > 0 {
+			ensure!(min > 0, Error::<T>::WrongBounds);
+		}
+
+		self.config.payment_amount = payment_amount;
+		self.config.submission_count_bounds = submission_count_bounds;
+		self.config.restart_delay = restart_delay;
+		self.config.timeout = timeout;
+
+		Module::<T>::deposit_event(RawEvent::RoundDetailsUpdated(
+			payment_amount,
+			submission_count_bounds,
+			restart_delay,
+			timeout,
+		));
+		Ok(())
+	}
+
+	/// Initialize a new round.
+	/// Will close the previous one if it is timed out.
+	///
+	/// **Warning:** Fallible function that changes storage.
+	fn initialize_round(
+		&self,
+		new_round_id: T::RoundId,
+	) -> Result<T::BlockNumber, DispatchError> {
+		let prev_round_id = new_round_id.saturating_sub(One::one());
+		if self.is_timed_out(prev_round_id) {
+			self.close_timed_out_round(prev_round_id)?;
+		}
+
+		Details::<T>::insert(
+			self.id,
+			new_round_id,
+			RoundDetails {
+				submissions: Vec::new(),
+				submission_count_bounds: self.config.submission_count_bounds,
+				payment_amount: self.config.payment_amount,
+				timeout: self.config.timeout,
+			},
+		);
+		let started_at = frame_system::Module::<T>::block_number();
+		Rounds::<T>::insert(self.id, new_round_id, Round::new(started_at));
+
+		Ok(started_at)
+	}
+
+	/// Close a timed out round and remove its details.
+	///
+	/// **Warning:** Fallible function that changes storage.
+	// TODO: use [require_transactional](https://github.com/paritytech/substrate/issues/7004) after migrating to Substrate v3.
+	fn close_timed_out_round(&self, timed_out_id: T::RoundId) -> DispatchResult {
+		let prev_id = timed_out_id.saturating_sub(One::one());
+		let prev_round = self.round(prev_id).ok_or(Error::<T>::RoundNotFound)?;
+		let mut timed_out_round = self.round(timed_out_id).ok_or(Error::<T>::RoundNotFound)?;
+		timed_out_round.answer = prev_round.answer;
+		timed_out_round.answered_in_round = prev_round.answered_in_round;
+		let updated_at = frame_system::Module::<T>::block_number();
+		timed_out_round.updated_at = Some(updated_at);
+
+		Rounds::<T>::insert(self.id, timed_out_id, timed_out_round);
+		Details::<T>::remove(self.id, timed_out_id);
+
+		Ok(())
+	}
+
+	fn sync_to_storage(&mut self) {
+		Feeds::<T>::insert(self.id, sp_std::mem::take(&mut self.config));
+	}
+}
+
+// We want the feed to sync automatically when going out of scope.
+impl<T: Trait> Drop for Feed<T> {
+	fn drop(&mut self) {
+		if self.should_sync {
+			self.sync_to_storage();
+		}
+	}
 }
 
 impl<T: Trait> FeedInterface for Feed<T> {
+	type AccountId = T::AccountId;
 	type BlockNumber = T::BlockNumber;
 	type FeedId = T::FeedId;
 	type RoundId = T::RoundId;
 	type Value = T::Value;
-
-	fn reload(&mut self) {
-		self.config = Feeds::<T>::get(self.id).expect("feed config should be present");
-	}
 
 	/// Returns the id of the first round that contains non-default data.
 	fn first_valid_round(&self) -> Option<T::RoundId> {
@@ -1042,8 +1140,7 @@ impl<T: Trait> FeedInterface for Feed<T> {
 
 	/// Returns the data for a given round.
 	fn data_at(&self, round: T::RoundId) -> Option<RoundData<Self::BlockNumber, Self::RoundId, Self::Value>> {
-		let r = Rounds::<T>::get(self.id, round)?;
-		r.try_into().ok()
+		self.round(round)?.try_into().ok()
 	}
 
 	/// Returns the latest data for the feed.
@@ -1055,53 +1152,41 @@ impl<T: Trait> FeedInterface for Feed<T> {
 				"Latest round data missing at which should never happen. (Latest round id: {:?})",
 				latest_round
 			);
-			RoundData::<Self::BlockNumber, Self::RoundId, Self::Value>::default()
+			RoundData::default()
 		})
+	}
+
+	/// Requests that a new round be started for the feed.
+	/// Returns `Ok` on success and `Err` in case the round could not be started.
+	///
+	/// **Warning:** Fallible function that changes storage.
+	fn request_new_round(&self, requester: T::AccountId) -> DispatchResult {
+		let new_round = self.reporting_round_id()
+			.checked_add(&One::one())
+			.ok_or(Error::<T>::Overflow)?;
+		ensure!(
+			self.is_supersedable(self.reporting_round_id()),
+			Error::<T>::RoundNotSupersedable
+		);
+		let started_at = self.initialize_round(new_round)?;
+
+		Module::<T>::deposit_event(RawEvent::NewRound(
+			self.id,
+			new_round,
+			requester,
+			started_at,
+		));
+
+		Ok(())
 	}
 }
 
 impl<T: Trait> FeedOracle for Module<T> {
 	type FeedId = T::FeedId;
-	type RoundId = T::RoundId;
-	type Value = T::Value;
 	type Feed = Feed<T>;
 
 	/// Return a transient feed proxy object for interacting with the feed given by the id.
 	fn feed(id: Self::FeedId) -> Option<Self::Feed> {
-		let config = Feeds::<T>::get(id)?;
-		Some(Feed { id, config })
-	}
-
-	/// Requests a new round be started. Returns `Ok` in case
-	/// of success, `Err(reason)` in case of failure.
-	fn request_new_round(feed_id: Self::FeedId) -> DispatchResult {
-		let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-		let is_first_round_or_updated = if feed.reporting_round == Zero::zero() {
-			true
-		} else {
-			let round = Self::round(feed_id, feed.reporting_round).ok_or(Error::<T>::RoundNotFound)?;
-			round.updated_at.is_some()
-		};
-		let new_round = feed
-			.reporting_round
-			.checked_add(&One::one())
-			.ok_or(Error::<T>::Overflow)?;
-
-		ensure!(
-			is_first_round_or_updated || Self::timed_out(feed_id, feed.reporting_round),
-			Error::<T>::RoundNotSupersedable
-		);
-		with_transaction_result(|| -> DispatchResult {
-			let started_at = Self::initialize_round(feed_id, &feed, new_round)?;
-
-			Self::deposit_event(RawEvent::NewRound(
-				feed_id,
-				new_round,
-				T::AccountId::default(),
-				started_at,
-			));
-
-			Ok(())
-		})
+		Feed::read_only_from(id)
 	}
 }
