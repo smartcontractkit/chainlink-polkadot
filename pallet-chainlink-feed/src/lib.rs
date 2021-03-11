@@ -375,8 +375,11 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event() = default;
 
-		// Creates a new oracle feed with the given config values.
 		// TODO: weights
+
+		// --- feed operations ---
+
+		/// Creates a new oracle feed with the given config values.
 		#[weight = 100]
 		pub fn create_feed(
 			origin,
@@ -430,6 +433,47 @@ decl_module! {
 			})
 		}
 
+		/// Initiate the transfer of the feed to `new_owner`.
+		#[weight = 100]
+		pub fn transfer_ownership(
+			origin,
+			feed_id: T::FeedId,
+			new_owner: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let old_owner = ensure_signed(origin)?;
+			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
+
+			feed.pending_owner = Some(new_owner.clone());
+			Feeds::<T>::insert(feed_id, feed);
+
+			Self::deposit_event(RawEvent::OwnerUpdateRequested(feed_id, old_owner, new_owner));
+
+			Ok(().into())
+		}
+
+		/// Accept the transfer of feed ownership.
+		#[weight = 100]
+		pub fn accept_ownership(
+			origin,
+			feed_id: T::FeedId,
+		) -> DispatchResultWithPostInfo {
+			let new_owner = ensure_signed(origin)?;
+			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+
+			ensure!(feed.pending_owner.filter(|p| p == &new_owner).is_some(), Error::<T>::NotPendingOwner);
+
+			feed.pending_owner = None;
+			feed.owner = new_owner.clone();
+			Feeds::<T>::insert(feed_id, feed);
+
+			Self::deposit_event(RawEvent::OwnerUpdated(feed_id, new_owner));
+
+			Ok(().into())
+		}
+
+		/// Submit a new value to the given feed and round.
+		/// Limited to the oracles of a feed.
 		#[weight = 100]
 		pub fn submit(
 			origin,
@@ -513,6 +557,8 @@ decl_module! {
 			})
 		}
 
+		/// Disable and add oracles for the given feed.
+		/// Limited to the owner of a feed.
 		#[weight = 100]
 		pub fn change_oracles(
 			origin,
@@ -536,6 +582,8 @@ decl_module! {
 			})
 		}
 
+		/// Update the configuration for future oracle rounds.
+		/// Limited to the owner of a feed.
 		#[weight = 100]
 		pub fn update_future_rounds(
 			origin,
@@ -554,208 +602,8 @@ decl_module! {
 			Ok(().into())
 		}
 
-		#[weight = 100]
-		pub fn withdraw_payment(origin,
-			oracle: T::AccountId,
-			recipient: T::AccountId,
-			amount: BalanceOf<T>,
-		) {
-			let admin = ensure_signed(origin)?;
-			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
-			ensure!(oracle_meta.admin == admin, Error::<T>::NotAdmin);
-
-			oracle_meta.withdrawable = oracle_meta.withdrawable
-				.checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?;
-
-			T::Currency::transfer(&T::ModuleId::get().into_account(), &recipient, amount, ExistenceRequirement::KeepAlive)?;
-			Oracles::<T>::insert(&oracle, oracle_meta);
-		}
-
-		#[weight = 100]
-		pub fn withdraw_funds(origin,
-			recipient: T::AccountId,
-			amount: BalanceOf<T>,
-		) {
-			let sender = ensure_signed(origin)?;
-			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
-			let fund = T::ModuleId::get().into_account();
-			let reserve = T::Currency::free_balance(&fund);
-			let new_reserve = reserve.checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?;
-			ensure!(new_reserve >= T::MinimumReserve::get(), Error::<T>::InsufficientReserve);
-			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
-		}
-
-		/// Initiate an admin transfer for the given oracle.
-		#[weight = 100]
-		pub fn transfer_admin(
-			origin,
-			oracle: T::AccountId,
-			new_admin: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let old_admin = ensure_signed(origin)?;
-			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
-
-			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
-
-			oracle_meta.pending_admin = Some(new_admin.clone());
-			Oracles::<T>::insert(&oracle, oracle_meta);
-
-			Self::deposit_event(RawEvent::OracleAdminUpdateRequested(oracle, old_admin, new_admin));
-
-			Ok(().into())
-		}
-
-		/// Complete an admin transfer for the given oracle.
-		#[weight = 100]
-		pub fn accept_admin(
-			origin,
-			oracle: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let new_admin = ensure_signed(origin)?;
-			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
-
-			ensure!(oracle_meta.pending_admin.filter(|p| p == &new_admin).is_some(), Error::<T>::NotPendingAdmin);
-
-			oracle_meta.pending_admin = None;
-			oracle_meta.admin = new_admin.clone();
-			Oracles::<T>::insert(&oracle, oracle_meta);
-
-			Self::deposit_event(RawEvent::OracleAdminUpdated(oracle, new_admin));
-
-			Ok(().into())
-		}
-
-		#[weight = 100]
-		pub fn request_new_round(
-			origin,
-			feed_id: T::FeedId,
-		) -> DispatchResultWithPostInfo {
-			let sender = ensure_signed(origin)?;
-
-			let mut requester = Self::requester(feed_id, &sender).ok_or(Error::<T>::NotAuthorizedRequester)?;
-			
-
-			with_transaction_result(|| -> DispatchResultWithPostInfo {
-				let feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-
-				let new_round = feed.reporting_round_id().checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-				let last_started = requester.last_started_round.unwrap_or(Zero::zero());
-				let next_allowed_round = last_started.checked_add(&requester.delay).ok_or(Error::<T>::Overflow)?;
-				ensure!(requester.last_started_round.is_none() || new_round > next_allowed_round, Error::<T>::CannotRequestRoundYet);
-
-				requester.last_started_round = Some(new_round);
-				Requesters::<T>::insert(feed_id, &sender, requester);
-
-				feed.request_new_round(sender)?;
-
-				Ok(().into())
-			})
-		}
-
-		#[weight = 100]
-		pub fn set_requester(
-			origin,
-			feed_id: T::FeedId,
-			requester: T::AccountId,
-			delay: T::RoundId,
-		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
-			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
-
-			let mut requester_meta = Self::requester(feed_id, &requester).unwrap_or_default();
-			requester_meta.delay = delay;
-			Requesters::<T>::insert(feed_id, &requester, requester_meta);
-
-			Self::deposit_event(RawEvent::RequesterPermissionsSet(feed_id, requester, true, delay));
-
-			Ok(().into())
-		}
-
-		#[weight = 100]
-		pub fn remove_requester(
-			origin,
-			feed_id: T::FeedId,
-			requester: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
-			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
-
-			let requester_meta = Requesters::<T>::take(feed_id, &requester).ok_or(Error::<T>::RequesterNotFound)?;
-
-			Self::deposit_event(RawEvent::RequesterPermissionsSet(feed_id, requester, false, requester_meta.delay));
-
-			Ok(().into())
-		}
-
-		#[weight = 100]
-		pub fn transfer_ownership(
-			origin,
-			feed_id: T::FeedId,
-			new_owner: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			let old_owner = ensure_signed(origin)?;
-			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
-
-			feed.pending_owner = Some(new_owner.clone());
-			Feeds::<T>::insert(feed_id, feed);
-
-			Self::deposit_event(RawEvent::OwnerUpdateRequested(feed_id, old_owner, new_owner));
-
-			Ok(().into())
-		}
-
-		#[weight = 100]
-		pub fn accept_ownership(
-			origin,
-			feed_id: T::FeedId,
-		) -> DispatchResultWithPostInfo {
-			let new_owner = ensure_signed(origin)?;
-			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-
-			ensure!(feed.pending_owner.filter(|p| p == &new_owner).is_some(), Error::<T>::NotPendingOwner);
-
-			feed.pending_owner = None;
-			feed.owner = new_owner.clone();
-			Feeds::<T>::insert(feed_id, feed);
-
-			Self::deposit_event(RawEvent::OwnerUpdated(feed_id, new_owner));
-
-			Ok(().into())
-		}
-
-		#[weight = 100]
-		pub fn transfer_pallet_admin(
-			origin,
-			new_pallet_admin: T::AccountId,
-		) -> DispatchResult {
-			let old_admin = ensure_signed(origin)?;
-
-			ensure!(Self::pallet_admin() == old_admin, Error::<T>::NotPalletAdmin);
-
-			PendingPalletAdmin::<T>::put(&new_pallet_admin);
-
-			Self::deposit_event(RawEvent::PalletAdminUpdateRequested(old_admin, new_pallet_admin));
-
-			Ok(())
-		}
-
-		#[weight = 100]
-		pub fn accept_pallet_admin(origin) -> DispatchResult {
-			let new_pallet_admin = ensure_signed(origin)?;
-
-			ensure!(PendingPalletAdmin::<T>::get().filter(|p| p == &new_pallet_admin).is_some(), Error::<T>::NotPendingPalletAdmin);
-
-			PendingPalletAdmin::<T>::take();
-			PalletAdmin::<T>::put(&new_pallet_admin);
-
-			Self::deposit_event(RawEvent::PalletAdminUpdated(new_pallet_admin));
-
-			Ok(())
-		}
-
+		/// Prune the state of a feed to reduce storage load.
+		/// Limited to the owner of a feed.
 		#[weight = 100]
 		pub fn prune(
 			origin,
@@ -787,6 +635,191 @@ decl_module! {
 			} else {
 				Err(Error::<T>::NothingToPrune.into())
 			}
+		}
+
+		// --- feed: round requests ---
+
+		/// Set requester permissions for `requester`.
+		/// Limited to the feed owner.
+		#[weight = 100]
+		pub fn set_requester(
+			origin,
+			feed_id: T::FeedId,
+			requester: T::AccountId,
+			delay: T::RoundId,
+		) -> DispatchResultWithPostInfo {
+			let owner = ensure_signed(origin)?;
+			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
+
+			let mut requester_meta = Self::requester(feed_id, &requester).unwrap_or_default();
+			requester_meta.delay = delay;
+			Requesters::<T>::insert(feed_id, &requester, requester_meta);
+
+			Self::deposit_event(RawEvent::RequesterPermissionsSet(feed_id, requester, true, delay));
+
+			Ok(().into())
+		}
+
+		/// Remove requester permissions for `requester`.
+		/// Limited to the feed owner.
+		#[weight = 100]
+		pub fn remove_requester(
+			origin,
+			feed_id: T::FeedId,
+			requester: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let owner = ensure_signed(origin)?;
+			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
+
+			let requester_meta = Requesters::<T>::take(feed_id, &requester).ok_or(Error::<T>::RequesterNotFound)?;
+
+			Self::deposit_event(RawEvent::RequesterPermissionsSet(feed_id, requester, false, requester_meta.delay));
+
+			Ok(().into())
+		}
+
+		/// Request the start of a new oracle round.
+		/// Limited to accounts with "requester" permission.
+		#[weight = 100]
+		pub fn request_new_round(
+			origin,
+			feed_id: T::FeedId,
+		) -> DispatchResultWithPostInfo {
+			let sender = ensure_signed(origin)?;
+			let mut requester = Self::requester(feed_id, &sender).ok_or(Error::<T>::NotAuthorizedRequester)?;
+
+			with_transaction_result(|| -> DispatchResultWithPostInfo {
+				let feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+
+				let new_round = feed.reporting_round_id().checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+				let last_started = requester.last_started_round.unwrap_or(Zero::zero());
+				let next_allowed_round = last_started.checked_add(&requester.delay).ok_or(Error::<T>::Overflow)?;
+				ensure!(requester.last_started_round.is_none() || new_round > next_allowed_round, Error::<T>::CannotRequestRoundYet);
+
+				requester.last_started_round = Some(new_round);
+				Requesters::<T>::insert(feed_id, &sender, requester);
+
+				feed.request_new_round(sender)?;
+
+				Ok(().into())
+			})
+		}
+
+		// --- oracle operations ---
+
+		/// Withdraw `amount` payment of the given oracle to `recipient`.
+		/// Limited to the oracle admin.
+		#[weight = 100]
+		pub fn withdraw_payment(origin,
+			oracle: T::AccountId,
+			recipient: T::AccountId,
+			amount: BalanceOf<T>,
+		) {
+			let admin = ensure_signed(origin)?;
+			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
+			ensure!(oracle_meta.admin == admin, Error::<T>::NotAdmin);
+
+			oracle_meta.withdrawable = oracle_meta.withdrawable
+				.checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?;
+
+			T::Currency::transfer(&T::ModuleId::get().into_account(), &recipient, amount, ExistenceRequirement::KeepAlive)?;
+			Oracles::<T>::insert(&oracle, oracle_meta);
+		}
+
+		/// Initiate an admin transfer for the given oracle.
+		/// Limited to the oracle admin account.
+		#[weight = 100]
+		pub fn transfer_admin(
+			origin,
+			oracle: T::AccountId,
+			new_admin: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let old_admin = ensure_signed(origin)?;
+			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
+
+			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
+
+			oracle_meta.pending_admin = Some(new_admin.clone());
+			Oracles::<T>::insert(&oracle, oracle_meta);
+
+			Self::deposit_event(RawEvent::OracleAdminUpdateRequested(oracle, old_admin, new_admin));
+
+			Ok(().into())
+		}
+
+		/// Complete an admin transfer for the given oracle.
+		/// Limited to the pending oracle admin account.
+		#[weight = 100]
+		pub fn accept_admin(
+			origin,
+			oracle: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let new_admin = ensure_signed(origin)?;
+			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
+
+			ensure!(oracle_meta.pending_admin.filter(|p| p == &new_admin).is_some(), Error::<T>::NotPendingAdmin);
+
+			oracle_meta.pending_admin = None;
+			oracle_meta.admin = new_admin.clone();
+			Oracles::<T>::insert(&oracle, oracle_meta);
+
+			Self::deposit_event(RawEvent::OracleAdminUpdated(oracle, new_admin));
+
+			Ok(().into())
+		}
+
+		// --- pallet admin operations ---
+
+		/// Withdraw `amount` funds to `recipient`.
+		/// Limited to the pallet admin.
+		#[weight = 100]
+		pub fn withdraw_funds(origin,
+			recipient: T::AccountId,
+			amount: BalanceOf<T>,
+		) {
+			let sender = ensure_signed(origin)?;
+			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
+			let fund = T::ModuleId::get().into_account();
+			let reserve = T::Currency::free_balance(&fund);
+			let new_reserve = reserve.checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?;
+			ensure!(new_reserve >= T::MinimumReserve::get(), Error::<T>::InsufficientReserve);
+			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
+		}
+
+		/// Initiate an admin transfer for the pallet.
+		/// Limited to the pallet admin account.
+		#[weight = 100]
+		pub fn transfer_pallet_admin(
+			origin,
+			new_pallet_admin: T::AccountId,
+		) -> DispatchResult {
+			let old_admin = ensure_signed(origin)?;
+
+			ensure!(Self::pallet_admin() == old_admin, Error::<T>::NotPalletAdmin);
+
+			PendingPalletAdmin::<T>::put(&new_pallet_admin);
+
+			Self::deposit_event(RawEvent::PalletAdminUpdateRequested(old_admin, new_pallet_admin));
+
+			Ok(())
+		}
+
+		/// Complete an admin transfer for the pallet.
+		/// Limited to the pending pallet admin account.
+		#[weight = 100]
+		pub fn accept_pallet_admin(origin) -> DispatchResult {
+			let new_pallet_admin = ensure_signed(origin)?;
+
+			ensure!(PendingPalletAdmin::<T>::get().filter(|p| p == &new_pallet_admin).is_some(), Error::<T>::NotPendingPalletAdmin);
+
+			PendingPalletAdmin::<T>::take();
+			PalletAdmin::<T>::put(&new_pallet_admin);
+
+			Self::deposit_event(RawEvent::PalletAdminUpdated(new_pallet_admin));
+
+			Ok(())
 		}
 	}
 }
