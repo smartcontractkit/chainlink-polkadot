@@ -353,7 +353,7 @@ decl_event!(
 		OwnerUpdateRequested(FeedId, AccountId, AccountId),
 		/// The owner change was executed. \[feed, new_owner\]
 		OwnerUpdated(FeedId, AccountId),
-		/// A pallet admin change was reqeusted. \[old_pallet_admin, new_pallet_admin\]
+		/// A pallet admin change was requested. \[old_pallet_admin, new_pallet_admin\]
 		PalletAdminUpdateRequested(AccountId, AccountId),
 		/// The pallet admin change was executed. \[new_admin\]
 		PalletAdminUpdated(AccountId),
