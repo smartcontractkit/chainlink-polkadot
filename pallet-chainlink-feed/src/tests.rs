@@ -27,12 +27,13 @@ parameter_types! {
 }
 
 type AccountId = u64;
+type BlockNumber = u64;
 impl system::Trait for Test {
 	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Call = ();
 	type Index = u64;
-	type BlockNumber = u64;
+	type BlockNumber = BlockNumber;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
@@ -60,9 +61,10 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 1;
 }
 
+type Balance = u64;
 impl pallet_balances::Trait for Test {
 	type MaxLocks = ();
-	type Balance = u64;
+	type Balance = Balance;
 	type Event = ();
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
@@ -81,10 +83,11 @@ parameter_types! {
 	pub const PruningWindow: u32 = 3;
 }
 
+type RoundId = u32;
 impl Trait for Test {
 	type Event = ();
 	type FeedId = u32;
-	type RoundId = u32;
+	type RoundId = RoundId;
 	type Value = u64;
 	type Currency = Balances;
 	type ModuleId = FeedModuleId;
@@ -95,6 +98,75 @@ impl Trait for Test {
 	type PruningWindow = PruningWindow;
 }
 type ChainlinkFeed = crate::Module<Test>;
+
+#[derive(Debug, Default)]
+struct FeedBuilder {
+	owner: Option<AccountId>,
+	payment: Option<Balance>,
+	timeout: Option<BlockNumber>,
+	min_submissions: Option<u32>,
+	restart_delay: Option<RoundId>,
+	oracles: Option<Vec<(AccountId, AccountId)>>,
+}
+
+impl FeedBuilder {
+	fn new() -> Self {
+		Self::default()
+	}
+
+	fn owner(mut self, o: AccountId) -> Self {
+		self.owner = Some(o);
+		self
+	}
+
+	fn payment(mut self, p: Balance) -> Self {
+		self.payment = Some(p);
+		self
+	}
+
+	fn timeout(mut self, t: BlockNumber) -> Self {
+		self.timeout = Some(t);
+		self
+	}
+
+	fn min_submissions(mut self, m: u32) -> Self {
+		self.min_submissions = Some(m);
+		self
+	}
+
+	fn restart_delay(mut self, d: RoundId) -> Self {
+		self.restart_delay = Some(d);
+		self
+	}
+
+	fn oracles(mut self, o: Vec<(AccountId, AccountId)>) -> Self {
+		self.oracles = Some(o);
+		self
+	}
+
+	fn build_and_store(self) -> DispatchResultWithPostInfo {
+		let owner = Origin::signed(self.owner.unwrap_or(1));
+		let payment = self.payment.unwrap_or(20);
+		let timeout = self.timeout.unwrap_or(1);
+		let value_bounds = (1, 1_000);
+		let min_submissions = self.min_submissions.unwrap_or(2);
+		let decimals = 5;
+		let description = b"desc".to_vec();
+		let restart_delay = self.restart_delay.unwrap_or(1);
+		let oracles = self.oracles.unwrap_or(vec![(2, 4), (3, 4), (4, 4)]);
+		ChainlinkFeed::create_feed(
+			owner,
+			payment,
+			timeout,
+			value_bounds,
+			min_submissions,
+			decimals,
+			description,
+			restart_delay,
+			oracles,
+		)
+	}
+}
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default()
@@ -141,22 +213,12 @@ fn feed_creation_should_work() {
 #[test]
 fn submit_should_work() {
 	new_test_ext().execute_with(|| {
-		let payment_amount = 20;
+		let payment = 20;
 		let timeout = 10;
 		let min_submissions = 2;
 		let oracles = vec![(1, 4), (2, 4), (3, 4)];
 		let submission_count_bounds = (min_submissions, oracles.len() as u32);
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(1),
-			payment_amount,
-			timeout,
-			(10, 1_000),
-			min_submissions,
-			5,
-			b"desc".to_vec(),
-			0,
-			oracles,
-		));
+		assert_ok!(FeedBuilder::new().payment(payment).timeout(timeout).min_submissions(min_submissions).oracles(oracles).build_and_store());
 
 		let feed_id = 0;
 		let round_id = 1;
@@ -182,7 +244,7 @@ fn submit_should_work() {
 			RoundDetails {
 				submissions: vec![submission, submission],
 				submission_count_bounds,
-				payment_amount,
+				payment,
 				timeout,
 			}
 		);
@@ -196,17 +258,9 @@ fn submit_should_work() {
 fn change_oracles_should_work() {
 	new_test_ext().execute_with(|| {
 		let initial_oracles = vec![(1, 4), (2, 4), (3, 4)];
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(1),
-			20,
-			10,
-			(10, 1_000),
-			3,
-			5,
-			b"desc".to_vec(),
-			2,
-			initial_oracles.clone(),
-		));
+		assert_ok!(FeedBuilder::new().oracles(
+			initial_oracles.clone()
+		).build_and_store());
 		for (o, _a) in initial_oracles.iter() {
 			assert!(ChainlinkFeed::oracle(o).is_some(), "oracle should be present");
 		}
@@ -245,17 +299,8 @@ fn change_oracles_should_work() {
 fn oracle_deduplication() {
 	new_test_ext().execute_with(|| {
 		let initial_oracles = vec![(1, 4), (2, 4), (3, 4)];
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(1),
-			20,
-			10,
-			(10, 1_000),
-			3,
-			5,
-			b"desc".to_vec(),
-			2,
-			initial_oracles.clone(),
-		));
+
+		assert_ok!(FeedBuilder::new().oracles(initial_oracles.clone()).build_and_store());
 		let feed_id = 0;
 		let mut to_disable = vec![1, 2, 1];
 		let to_add = vec![];
@@ -288,20 +333,10 @@ fn update_future_rounds_should_work() {
 		let old_timeout = 10;
 		let old_min = 3;
 		let oracles = vec![(1, 4), (2, 4), (3, 4)];
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(1),
-			old_payment,
-			old_timeout,
-			(10, 1_000),
-			old_min,
-			5,
-			b"desc".to_vec(),
-			2,
-			oracles,
-		));
+		assert_ok!(FeedBuilder::new().payment(old_payment).timeout(old_timeout).min_submissions(old_min).oracles(oracles).build_and_store());
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
-		assert_eq!(feed.payment_amount, old_payment);
+		assert_eq!(feed.payment, old_payment);
 
 		let new_payment = 30;
 		let new_min = 3;
@@ -319,7 +354,7 @@ fn update_future_rounds_should_work() {
 
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
-		assert_eq!(feed.payment_amount, new_payment);
+		assert_eq!(feed.payment, new_payment);
 	});
 }
 
@@ -328,17 +363,7 @@ fn admin_transfer_should_work() {
 	new_test_ext().execute_with(|| {
 		let oracle = 1;
 		let old_admin = 2;
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(1),
-			20,
-			10,
-			(10, 1_000),
-			1,
-			5,
-			b"desc".to_vec(),
-			0,
-			vec![(oracle, old_admin)],
-		));
+		assert_ok!(FeedBuilder::new().min_submissions(1).restart_delay(0).oracles(vec![(oracle, old_admin)]).build_and_store());
 
 		let new_admin = 42;
 		assert_ok!(ChainlinkFeed::transfer_admin(
@@ -359,22 +384,12 @@ fn admin_transfer_should_work() {
 fn request_new_round_should_work() {
 	new_test_ext().execute_with(|| {
 		let owner = 1;
-		let payment_amount = 20;
+		let payment = 20;
 		let timeout = 10;
 		let min_submissions = 2;
 		let oracles = vec![(1, 4), (2, 4), (3, 4)];
 		let submission_count_bounds = (min_submissions, oracles.len() as u32);
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(owner),
-			payment_amount,
-			timeout,
-			(10, 1_000),
-			min_submissions,
-			5,
-			b"desc".to_vec(),
-			2,
-			oracles,
-		));
+		assert_ok!(FeedBuilder::new().owner(owner).payment(payment).timeout(timeout).min_submissions(min_submissions).oracles(oracles).build_and_store());
 
 		let feed_id = 0;
 		let requester = 22;
@@ -409,7 +424,7 @@ fn request_new_round_should_work() {
 			RoundDetails {
 				submissions: Vec::new(),
 				submission_count_bounds,
-				payment_amount,
+				payment,
 				timeout,
 			}
 		);
@@ -420,17 +435,7 @@ fn request_new_round_should_work() {
 fn transfer_ownership_should_work() {
 	new_test_ext().execute_with(|| {
 		let old_owner = 1;
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(old_owner),
-			20,
-			10,
-			(10, 1_000),
-			3,
-			5,
-			b"desc".to_vec(),
-			2,
-			vec![(1, 4), (2, 4), (3, 4)],
-		));
+		assert_ok!(FeedBuilder::new().owner(old_owner).build_and_store());
 
 		let feed_id = 0;
 		let new_owner = 42;
@@ -447,18 +452,9 @@ fn transfer_ownership_should_work() {
 #[test]
 fn feed_oracle_trait_should_work() {
 	new_test_ext().execute_with(|| {
-		let old_owner = 1;
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(old_owner),
-			20,
-			10,
-			(10, 1_000),
-			2,
-			5,
-			b"desc".to_vec(),
-			2,
-			vec![(1, 4), (2, 4), (3, 4)],
-		));
+		let oracle = 2;
+		let second_oracle = 3;
+		assert_ok!(FeedBuilder::new().oracles(vec![(oracle, 4), (second_oracle, 4)]).build_and_store());
 
 		let feed_id = 0;
 		{
@@ -468,10 +464,8 @@ fn feed_oracle_trait_should_work() {
 			assert_eq!(feed.latest_data(), RoundDataOf::<Test>::default());
 		}
 		let round_id = 1;
-		let oracle = 2;
 		let submission = 42;
 		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, submission));
-		let second_oracle = 3;
 		assert_ok!(ChainlinkFeed::submit(Origin::signed(second_oracle), feed_id, round_id, submission));
 		{
 			let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
@@ -549,44 +543,37 @@ fn prune_should_work() {
 	//       ^- first valid round
 	new_test_ext().execute_with(|| {
 		let feed_id = 0;
+		let oracle_a = 2;
+		let oracle_b = 3;
+		let oracle_admin = 4;
 		let submission = 42;
-		let submit_one = |r| {
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(2), feed_id, r, submission));
+		let submit_a = |r| {
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle_a), feed_id, r, submission));
 		};
-		let submit_two = |r| {
-			submit_one(r);
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(3), feed_id, r, submission));
+		let submit_a_and_b = |r| {
+			submit_a(r);
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle_b), feed_id, r, submission));
 		};
 
 		let owner = 1;
 		// we require min 2 oracles so that we can time out the first few
 		// so first_valid_round will be > 1
-		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(owner),
-			1,
-			1,
-			(10, 1_000),
-			2,
-			5,
-			b"desc".to_vec(),
-			0,
-			vec![(1, 4), (2, 4), (3, 4)],
-		));
+		assert_ok!(FeedBuilder::new().owner(owner).timeout(1).min_submissions(2).restart_delay(0).oracles(vec![(oracle_a, oracle_admin), (oracle_b, oracle_admin)]).build_and_store());
 
 		System::set_block_number(1);
 		// submit 2 rounds that will be timed out
-		submit_one(1);
+		submit_a(1);
 		System::set_block_number(3);
-		submit_one(2);
+		submit_a(2);
 		System::set_block_number(5);
 		// submit the valid rounds
-		submit_two(3);
-		submit_two(4);
-		submit_two(5);
-		submit_two(6);
-		submit_two(7);
+		submit_a_and_b(3);
+		submit_a_and_b(4);
+		submit_a_and_b(5);
+		submit_a_and_b(6);
+		submit_a_and_b(7);
 		// simulate an unfinished round so reporting_round != latest_round
-		submit_one(8);
+		submit_a(8);
 
 		assert_ok!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 5));
 		// we try to prune until 5, but limits are set up in a way that we can

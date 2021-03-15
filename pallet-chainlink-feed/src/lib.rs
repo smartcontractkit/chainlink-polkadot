@@ -107,7 +107,7 @@ pub struct FeedConfig<
 	pending_owner: Option<AccountId>,
 	submission_value_bounds: (Value, Value),
 	submission_count_bounds: (u32, u32),
-	payment_amount: Balance,
+	payment: Balance,
 	timeout: BlockNumber,
 	decimals: u8,
 	description: Vec<u8>,
@@ -157,7 +157,7 @@ where
 pub struct RoundDetails<Balance: Parameter, BlockNumber: Parameter, Value: Parameter> {
 	submissions: Vec<Value>,
 	submission_count_bounds: (u32, u32),
-	payment_amount: Balance,
+	payment: Balance,
 	timeout: BlockNumber,
 }
 pub type RoundDetailsOf<T> =
@@ -339,7 +339,7 @@ decl_event!(
 		SubmissionReceived(FeedId, RoundId, Value, AccountId),
 		/// The answer for the round was updated. \[feed_id, round_id, new_answer, updated_at_block\]
 		AnswerUpdated(FeedId, RoundId, Value, BlockNumber),
-		/// The round details were updated. \[payment_amount, submission_count_bounds, restart_delay, timeout\]
+		/// The round details were updated. \[payment, submission_count_bounds, restart_delay, timeout\]
 		RoundDetailsUpdated(Balance, SubmissionBounds, RoundId, BlockNumber),
 		/// An admin change was requested for the given oracle. \[oracle, admin, pending_admin\]
 		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
@@ -448,7 +448,7 @@ decl_module! {
 		#[weight = 100]
 		pub fn create_feed(
 			origin,
-			payment_amount: BalanceOf<T>,
+			payment: BalanceOf<T>,
 			timeout: T::BlockNumber,
 			submission_value_bounds: (T::Value, T::Value),
 			min_submissions: u32,
@@ -471,7 +471,7 @@ decl_module! {
 				let new_config = FeedConfig {
 					owner: owner.clone(),
 					pending_owner: None,
-					payment_amount,
+					payment,
 					timeout,
 					submission_value_bounds,
 					submission_count_bounds,
@@ -496,7 +496,7 @@ decl_module! {
 				});
 				feed.add_oracles(oracles)?;
 				// validate the rounds config
-				feed.update_future_rounds(payment_amount, submission_count_bounds, restart_delay, timeout)?;
+				feed.update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)?;
 				Self::deposit_event(RawEvent::FeedCreated(id, owner));
 				Ok(().into())
 			})
@@ -609,7 +609,7 @@ decl_module! {
 				}
 
 				// update oracle withdrawable
-				let payment = details.payment_amount;
+				let payment = details.payment;
 				T::Currency::reserve(&T::ModuleId::get().into_account(), payment)?;
 				let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 				oracle_meta.withdrawable = oracle_meta.withdrawable
@@ -657,7 +657,7 @@ decl_module! {
 		pub fn update_future_rounds(
 			origin,
 			feed_id: T::FeedId,
-			payment_amount: BalanceOf<T>,
+			payment: BalanceOf<T>,
 			submission_count_bounds: (u32, u32),
 			restart_delay: T::RoundId,
 			timeout: T::BlockNumber,
@@ -666,7 +666,7 @@ decl_module! {
 			let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?; // synced on drop
 			feed.ensure_owner(&owner)?;
 
-			feed.update_future_rounds(payment_amount, submission_count_bounds, restart_delay, timeout)?;
+			feed.update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)?;
 
 			Ok(().into())
 		}
@@ -1107,7 +1107,7 @@ impl<T: Trait> Feed<T> {
 	/// **Warning:** Fallible function that changes storage.
 	fn update_future_rounds(
 		&mut self,
-		payment_amount: BalanceOf<T>,
+		payment: BalanceOf<T>,
 		submission_count_bounds: (u32, u32),
 		restart_delay: T::RoundId,
 		timeout: T::BlockNumber,
@@ -1128,13 +1128,13 @@ impl<T: Trait> Feed<T> {
 			ensure!(min > 0, Error::<T>::WrongBounds);
 		}
 
-		self.config.payment_amount = payment_amount;
+		self.config.payment = payment;
 		self.config.submission_count_bounds = submission_count_bounds;
 		self.config.restart_delay = restart_delay;
 		self.config.timeout = timeout;
 
 		Module::<T>::deposit_event(RawEvent::RoundDetailsUpdated(
-			payment_amount,
+			payment,
 			submission_count_bounds,
 			restart_delay,
 			timeout,
@@ -1161,7 +1161,7 @@ impl<T: Trait> Feed<T> {
 			RoundDetails {
 				submissions: Vec::new(),
 				submission_count_bounds: self.config.submission_count_bounds,
-				payment_amount: self.config.payment_amount,
+				payment: self.config.payment,
 				timeout: self.config.timeout,
 			},
 		);

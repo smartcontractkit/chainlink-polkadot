@@ -9,7 +9,7 @@
     "pending_owner": "Option<AccountId>",
     "submission_value_bounds": "(Value, Value)",
     "submission_count_bounds": "(u32, u32)",
-    "payment_amount": "Balance",
+    "payment": "Balance",
     "timeout": "BlockNumber",
     "decimals": "u8",
     "description": "Vec<u8>",
@@ -30,7 +30,7 @@
   "RoundDetails": {
     "submissions": "Vec<Value>",
     "submission_count_bounds": "(u32, u32)",
-    "payment_amount": "Balance",
+    "payment": "Balance",
     "timeout": "BlockNumber"
   },
   "RoundDetailsOf": "RoundDetails",
