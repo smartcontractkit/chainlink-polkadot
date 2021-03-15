@@ -1,4 +1,6 @@
 {
+  "Address": "AccountId",
+  "LookupSource": "AccountId",
   "FeedId": "u32",
   "RoundId": "u32",
   "Value": "u128",
