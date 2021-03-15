@@ -451,7 +451,7 @@ decl_module! {
 			payment_amount: BalanceOf<T>,
 			timeout: T::BlockNumber,
 			submission_value_bounds: (T::Value, T::Value),
-			submission_count_bounds: (u32, u32),
+			min_submissions: u32,
 			decimals: u8,
 			description: Vec<u8>,
 			restart_delay: T::RoundId,
@@ -459,6 +459,8 @@ decl_module! {
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
 			ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
+
+			let submission_count_bounds = (min_submissions, oracles.len() as u32);
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				let id: T::FeedId = FeedCounter::<T>::get();
@@ -493,6 +495,8 @@ decl_module! {
 					answered_in_round: Some(Zero::zero())
 				});
 				feed.add_oracles(oracles)?;
+				// validate the rounds config
+				feed.update_future_rounds(payment_amount, submission_count_bounds, restart_delay, timeout)?;
 				Self::deposit_event(RawEvent::FeedCreated(id, owner));
 				Ok(().into())
 			})

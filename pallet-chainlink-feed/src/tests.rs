@@ -129,7 +129,7 @@ fn feed_creation_should_work() {
 			20,
 			10,
 			(10, 1_000),
-			(3, 8),
+			3,
 			5,
 			b"desc".to_vec(),
 			2,
@@ -143,17 +143,19 @@ fn submit_should_work() {
 	new_test_ext().execute_with(|| {
 		let payment_amount = 20;
 		let timeout = 10;
-		let submission_count_bounds = (2, 3);
+		let min_submissions = 2;
+		let oracles = vec![(1, 4), (2, 4), (3, 4)];
+		let submission_count_bounds = (min_submissions, oracles.len() as u32);
 		assert_ok!(ChainlinkFeed::create_feed(
 			Origin::signed(1),
 			payment_amount,
 			timeout,
 			(10, 1_000),
-			submission_count_bounds,
+			min_submissions,
 			5,
 			b"desc".to_vec(),
 			0,
-			vec![(1, 4), (2, 4), (3, 4)],
+			oracles,
 		));
 
 		let feed_id = 0;
@@ -199,7 +201,7 @@ fn change_oracles_should_work() {
 			20,
 			10,
 			(10, 1_000),
-			(3, 8),
+			3,
 			5,
 			b"desc".to_vec(),
 			2,
@@ -248,7 +250,7 @@ fn oracle_deduplication() {
 			20,
 			10,
 			(10, 1_000),
-			(3, 8),
+			3,
 			5,
 			b"desc".to_vec(),
 			2,
@@ -284,17 +286,18 @@ fn update_future_rounds_should_work() {
 	new_test_ext().execute_with(|| {
 		let old_payment = 20;
 		let old_timeout = 10;
-		let old_min_max = (3, 8);
+		let old_min = 3;
+		let oracles = vec![(1, 4), (2, 4), (3, 4)];
 		assert_ok!(ChainlinkFeed::create_feed(
 			Origin::signed(1),
 			old_payment,
 			old_timeout,
 			(10, 1_000),
-			old_min_max,
+			old_min,
 			5,
 			b"desc".to_vec(),
 			2,
-			vec![(1, 4), (2, 4), (3, 4)],
+			oracles,
 		));
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
@@ -330,10 +333,10 @@ fn admin_transfer_should_work() {
 			20,
 			10,
 			(10, 1_000),
-			(2, 3),
+			1,
 			5,
 			b"desc".to_vec(),
-			2,
+			0,
 			vec![(oracle, old_admin)],
 		));
 
@@ -358,17 +361,19 @@ fn request_new_round_should_work() {
 		let owner = 1;
 		let payment_amount = 20;
 		let timeout = 10;
-		let submission_count_bounds = (2, 3);
+		let min_submissions = 2;
+		let oracles = vec![(1, 4), (2, 4), (3, 4)];
+		let submission_count_bounds = (min_submissions, oracles.len() as u32);
 		assert_ok!(ChainlinkFeed::create_feed(
 			Origin::signed(owner),
 			payment_amount,
 			timeout,
 			(10, 1_000),
-			submission_count_bounds,
+			min_submissions,
 			5,
 			b"desc".to_vec(),
 			2,
-			vec![(2, 3)],
+			oracles,
 		));
 
 		let feed_id = 0;
@@ -420,7 +425,7 @@ fn transfer_ownership_should_work() {
 			20,
 			10,
 			(10, 1_000),
-			(3, 8),
+			3,
 			5,
 			b"desc".to_vec(),
 			2,
@@ -448,7 +453,7 @@ fn feed_oracle_trait_should_work() {
 			20,
 			10,
 			(10, 1_000),
-			(2, 3),
+			2,
 			5,
 			b"desc".to_vec(),
 			2,
@@ -556,13 +561,12 @@ fn prune_should_work() {
 		let owner = 1;
 		// we require min 2 oracles so that we can time out the first few
 		// so first_valid_round will be > 1
-		let submission_count_bounds = (2, 3);
 		assert_ok!(ChainlinkFeed::create_feed(
 			Origin::signed(owner),
 			1,
 			1,
 			(10, 1_000),
-			submission_count_bounds,
+			2,
 			5,
 			b"desc".to_vec(),
 			0,
