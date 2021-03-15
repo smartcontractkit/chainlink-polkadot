@@ -176,11 +176,15 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 	let module_account: AccountId = FeedModuleId::get().into_account();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(module_account, 100 * MIN_RESERVE)],
-	}.assimilate_storage(&mut t).unwrap();
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	crate::GenesisConfig::<Test> {
-		pallet_admin: module_account
-	}.assimilate_storage(&mut t).unwrap();
+		pallet_admin: module_account,
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 
 	t.into()
 }
@@ -218,15 +222,30 @@ fn submit_should_work() {
 		let min_submissions = 2;
 		let oracles = vec![(1, 4), (2, 4), (3, 4)];
 		let submission_count_bounds = (min_submissions, oracles.len() as u32);
-		assert_ok!(FeedBuilder::new().payment(payment).timeout(timeout).min_submissions(min_submissions).oracles(oracles).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.payment(payment)
+			.timeout(timeout)
+			.min_submissions(min_submissions)
+			.oracles(oracles)
+			.build_and_store());
 
 		let feed_id = 0;
 		let round_id = 1;
 		let oracle = 2;
 		let submission = 42;
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, submission));
+		assert_ok!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			feed_id,
+			round_id,
+			submission
+		));
 		let second_oracle = 3;
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(second_oracle), feed_id, round_id, submission));
+		assert_ok!(ChainlinkFeed::submit(
+			Origin::signed(second_oracle),
+			feed_id,
+			round_id,
+			submission
+		));
 		let round = ChainlinkFeed::round(feed_id, round_id).expect("first round should be present");
 		assert_eq!(
 			round,
@@ -258,9 +277,9 @@ fn submit_should_work() {
 fn change_oracles_should_work() {
 	new_test_ext().execute_with(|| {
 		let initial_oracles = vec![(1, 4), (2, 4), (3, 4)];
-		assert_ok!(FeedBuilder::new().oracles(
-			initial_oracles.clone()
-		).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.oracles(initial_oracles.clone())
+			.build_and_store());
 		for (o, _a) in initial_oracles.iter() {
 			assert!(ChainlinkFeed::oracle(o).is_some(), "oracle should be present");
 		}
@@ -300,7 +319,9 @@ fn oracle_deduplication() {
 	new_test_ext().execute_with(|| {
 		let initial_oracles = vec![(1, 4), (2, 4), (3, 4)];
 
-		assert_ok!(FeedBuilder::new().oracles(initial_oracles.clone()).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.oracles(initial_oracles.clone())
+			.build_and_store());
 		let feed_id = 0;
 		let mut to_disable = vec![1, 2, 1];
 		let to_add = vec![];
@@ -333,7 +354,12 @@ fn update_future_rounds_should_work() {
 		let old_timeout = 10;
 		let old_min = 3;
 		let oracles = vec![(1, 4), (2, 4), (3, 4)];
-		assert_ok!(FeedBuilder::new().payment(old_payment).timeout(old_timeout).min_submissions(old_min).oracles(oracles).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.payment(old_payment)
+			.timeout(old_timeout)
+			.min_submissions(old_min)
+			.oracles(oracles)
+			.build_and_store());
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.payment, old_payment);
@@ -363,7 +389,11 @@ fn admin_transfer_should_work() {
 	new_test_ext().execute_with(|| {
 		let oracle = 1;
 		let old_admin = 2;
-		assert_ok!(FeedBuilder::new().min_submissions(1).restart_delay(0).oracles(vec![(oracle, old_admin)]).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.min_submissions(1)
+			.restart_delay(0)
+			.oracles(vec![(oracle, old_admin)])
+			.build_and_store());
 
 		let new_admin = 42;
 		assert_ok!(ChainlinkFeed::transfer_admin(
@@ -389,12 +419,23 @@ fn request_new_round_should_work() {
 		let min_submissions = 2;
 		let oracles = vec![(1, 4), (2, 4), (3, 4)];
 		let submission_count_bounds = (min_submissions, oracles.len() as u32);
-		assert_ok!(FeedBuilder::new().owner(owner).payment(payment).timeout(timeout).min_submissions(min_submissions).oracles(oracles).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.owner(owner)
+			.payment(payment)
+			.timeout(timeout)
+			.min_submissions(min_submissions)
+			.oracles(oracles)
+			.build_and_store());
 
 		let feed_id = 0;
 		let requester = 22;
 		let delay = 4;
-		assert_ok!(ChainlinkFeed::set_requester(Origin::signed(owner), feed_id, requester, delay));
+		assert_ok!(ChainlinkFeed::set_requester(
+			Origin::signed(owner),
+			feed_id,
+			requester,
+			delay
+		));
 		let requester_meta =
 			ChainlinkFeed::requester(feed_id, requester).expect("requester should be present");
 		assert_eq!(
@@ -439,10 +480,17 @@ fn transfer_ownership_should_work() {
 
 		let feed_id = 0;
 		let new_owner = 42;
-		assert_ok!(ChainlinkFeed::transfer_ownership(Origin::signed(old_owner), feed_id, new_owner));
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			new_owner
+		));
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, Some(new_owner));
-		assert_ok!(ChainlinkFeed::accept_ownership(Origin::signed(new_owner), feed_id));
+		assert_ok!(ChainlinkFeed::accept_ownership(
+			Origin::signed(new_owner),
+			feed_id
+		));
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, None);
 		assert_eq!(feed.owner, new_owner);
@@ -454,7 +502,9 @@ fn feed_oracle_trait_should_work() {
 	new_test_ext().execute_with(|| {
 		let oracle = 2;
 		let second_oracle = 3;
-		assert_ok!(FeedBuilder::new().oracles(vec![(oracle, 4), (second_oracle, 4)]).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.oracles(vec![(oracle, 4), (second_oracle, 4)])
+			.build_and_store());
 
 		let feed_id = 0;
 		{
@@ -465,20 +515,33 @@ fn feed_oracle_trait_should_work() {
 		}
 		let round_id = 1;
 		let submission = 42;
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, submission));
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(second_oracle), feed_id, round_id, submission));
+		assert_ok!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			feed_id,
+			round_id,
+			submission
+		));
+		assert_ok!(ChainlinkFeed::submit(
+			Origin::signed(second_oracle),
+			feed_id,
+			round_id,
+			submission
+		));
 		{
 			let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
 			assert_eq!(feed.first_valid_round(), Some(1));
 			assert_eq!(feed.latest_round(), 1);
-			assert_eq!(feed.latest_data(), RoundData {
-				answer: 42,
-				started_at: 0,
-				updated_at: 0,
-				answered_in_round: 1,
-			});
+			assert_eq!(
+				feed.latest_data(),
+				RoundData {
+					answer: 42,
+					started_at: 0,
+					updated_at: 0,
+					answered_in_round: 1,
+				}
+			);
 
-		assert_ok!(feed.request_new_round(AccountId::default()));
+			assert_ok!(feed.request_new_round(AccountId::default()));
 		}
 		let round_id = 2;
 		let round = ChainlinkFeed::round(feed_id, round_id).expect("second round should be present");
@@ -499,13 +562,24 @@ fn payment_withdrawal_should_work() {
 		let oracle = 3;
 		let admin = 4;
 		let recipient = 5;
-		Oracles::<Test>::insert(oracle, OracleMeta {
-			withdrawable: amount,
-			admin,
-			..Default::default()
-		});
-		assert_noop!(ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, 2 * amount), Error::<Test>::InsufficientFunds);
-		assert_ok!(ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, amount));
+		Oracles::<Test>::insert(
+			oracle,
+			OracleMeta {
+				withdrawable: amount,
+				admin,
+				..Default::default()
+			},
+		);
+		assert_noop!(
+			ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, 2 * amount),
+			Error::<Test>::InsufficientFunds
+		);
+		assert_ok!(ChainlinkFeed::withdraw_payment(
+			Origin::signed(admin),
+			oracle,
+			recipient,
+			amount
+		));
 	});
 }
 
@@ -515,8 +589,15 @@ fn funds_withdrawal_should_work() {
 		let amount = 50;
 		let recipient = 5;
 		let fund = FeedModuleId::get().into_account();
-		assert_noop!(ChainlinkFeed::withdraw_funds(Origin::signed(fund), recipient, 100 * MIN_RESERVE), Error::<Test>::InsufficientReserve);
-		assert_ok!(ChainlinkFeed::withdraw_funds(Origin::signed(fund),recipient, amount));
+		assert_noop!(
+			ChainlinkFeed::withdraw_funds(Origin::signed(fund), recipient, 100 * MIN_RESERVE),
+			Error::<Test>::InsufficientReserve
+		);
+		assert_ok!(ChainlinkFeed::withdraw_funds(
+			Origin::signed(fund),
+			recipient,
+			amount
+		));
 	});
 }
 
@@ -525,7 +606,10 @@ fn transfer_pallet_admin_should_work() {
 	new_test_ext().execute_with(|| {
 		let new_admin = 23;
 		let fund = FeedModuleId::get().into_account();
-		assert_ok!(ChainlinkFeed::transfer_pallet_admin(Origin::signed(fund), new_admin));
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(fund),
+			new_admin
+		));
 		assert_eq!(PendingPalletAdmin::<Test>::get(), Some(new_admin));
 		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)));
 		assert_eq!(PalletAdmin::<Test>::get(), new_admin);
@@ -548,17 +632,33 @@ fn prune_should_work() {
 		let oracle_admin = 4;
 		let submission = 42;
 		let submit_a = |r| {
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle_a), feed_id, r, submission));
+			assert_ok!(ChainlinkFeed::submit(
+				Origin::signed(oracle_a),
+				feed_id,
+				r,
+				submission
+			));
 		};
 		let submit_a_and_b = |r| {
 			submit_a(r);
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle_b), feed_id, r, submission));
+			assert_ok!(ChainlinkFeed::submit(
+				Origin::signed(oracle_b),
+				feed_id,
+				r,
+				submission
+			));
 		};
 
 		let owner = 1;
 		// we require min 2 oracles so that we can time out the first few
 		// so first_valid_round will be > 1
-		assert_ok!(FeedBuilder::new().owner(owner).timeout(1).min_submissions(2).restart_delay(0).oracles(vec![(oracle_a, oracle_admin), (oracle_b, oracle_admin)]).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.owner(owner)
+			.timeout(1)
+			.min_submissions(2)
+			.restart_delay(0)
+			.oracles(vec![(oracle_a, oracle_admin), (oracle_b, oracle_admin)])
+			.build_and_store());
 
 		System::set_block_number(1);
 		// submit 2 rounds that will be timed out
