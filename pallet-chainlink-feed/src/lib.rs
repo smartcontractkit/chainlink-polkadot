@@ -554,6 +554,7 @@ decl_module! {
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+				let mut oracle_status = Self::oracle_status(feed_id, &oracle).ok_or(Error::<T>::NotOracle)?;
 				feed.ensure_valid_round(&oracle, round_id)?;
 
 				let (min_val, max_val) = feed.config.submission_value_bounds;
@@ -561,7 +562,6 @@ decl_module! {
 				ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
 
 				let new_round_id = feed.reporting_round_id().saturating_add(One::one());
-				let mut oracle_status = Self::oracle_status(feed_id, &oracle).ok_or(Error::<T>::NotOracle)?;
 				let next_eligible_round = oracle_status.last_started_round
 					.unwrap_or(Zero::zero())
 					.checked_add(&feed.config.restart_delay).ok_or(Error::<T>::Overflow)?

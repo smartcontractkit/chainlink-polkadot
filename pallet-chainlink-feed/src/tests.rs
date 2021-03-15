@@ -79,16 +79,18 @@ parameter_types! {
 	pub const MinimumReserve: u64 = MIN_RESERVE;
 	pub const StringLimit: u32 = 30;
 	pub const OracleLimit: u32 = 10;
-	pub const FeedLimit: u32 = 10;
+	pub const FeedLimit: u16 = 10;
 	pub const PruningWindow: u32 = 3;
 }
 
+type FeedId = u16;
 type RoundId = u32;
+type Value = u64;
 impl Trait for Test {
 	type Event = ();
-	type FeedId = u32;
+	type FeedId = FeedId;
 	type RoundId = RoundId;
-	type Value = u64;
+	type Value = Value;
 	type Currency = Balances;
 	type ModuleId = FeedModuleId;
 	type MinimumReserve = MinimumReserve;
@@ -104,6 +106,7 @@ struct FeedBuilder {
 	owner: Option<AccountId>,
 	payment: Option<Balance>,
 	timeout: Option<BlockNumber>,
+	value_bounds: Option<(Value, Value)>,
 	min_submissions: Option<u32>,
 	restart_delay: Option<RoundId>,
 	oracles: Option<Vec<(AccountId, AccountId)>>,
@@ -129,6 +132,11 @@ impl FeedBuilder {
 		self
 	}
 
+	fn value_bounds(mut self, min: Value, max: Value) -> Self {
+		self.value_bounds = Some((min, max));
+		self
+	}
+
 	fn min_submissions(mut self, m: u32) -> Self {
 		self.min_submissions = Some(m);
 		self
@@ -148,7 +156,7 @@ impl FeedBuilder {
 		let owner = Origin::signed(self.owner.unwrap_or(1));
 		let payment = self.payment.unwrap_or(20);
 		let timeout = self.timeout.unwrap_or(1);
-		let value_bounds = (1, 1_000);
+		let value_bounds = self.value_bounds.unwrap_or((1, 1_000));
 		let min_submissions = self.min_submissions.unwrap_or(2);
 		let decimals = 5;
 		let description = b"desc".to_vec();
@@ -270,6 +278,57 @@ fn submit_should_work() {
 		let oracle_status =
 			ChainlinkFeed::oracle_status(feed_id, oracle).expect("oracle status should be present");
 		assert_eq!(oracle_status.latest_submission, Some(submission));
+	});
+}
+
+#[test]
+fn submit_failure_cases() {
+	new_test_ext().execute_with(|| {
+		let oracle = 2;
+		let oracles = vec![(1, 4), (oracle, 4), (3, 4)];
+		assert_ok!(FeedBuilder::new()
+			.value_bounds(1, 100)
+			.oracles(oracles)
+			.build_and_store());
+
+		let feed_id = 0;
+		let no_feed = 1234;
+		let round_id = 1;
+		let submission = 42;
+		assert_noop!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			no_feed,
+			round_id,
+			submission
+		), Error::<Test>::FeedNotFound);
+		let not_oracle = 1337;
+		assert_noop!(ChainlinkFeed::submit(
+			Origin::signed(not_oracle),
+			feed_id,
+			round_id,
+			submission
+		), Error::<Test>::NotOracle);
+		let invalid_round = 1337;
+		assert_noop!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			feed_id,
+			invalid_round,
+			submission
+		), Error::<Test>::InvalidRound);
+		let low_value = 0;
+		assert_noop!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			feed_id,
+			round_id,
+			low_value,
+		), Error::<Test>::SubmissionBelowMinimum);
+		let high_value = 13377331;
+		assert_noop!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			feed_id,
+			round_id,
+			high_value,
+		), Error::<Test>::SubmissionAboveMaximum);
 	});
 }
 
