@@ -291,7 +291,7 @@ pub trait FeedInterface {
 decl_storage! {
 	trait Store for Module<T: Trait> as ChainlinkFeed {
 		/// The account controlling the funds for this pallet.
-		pub PalletAdmin get(fn pallet_admin): T::AccountId = T::ModuleId::get().into_account();
+		pub PalletAdmin get(fn pallet_admin) config(): T::AccountId;
 		// possible optimization: put together with admin?
 		/// The account to set as future pallet admin.
 		pub PendingPalletAdmin: Option<T::AccountId>;

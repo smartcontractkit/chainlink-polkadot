@@ -101,8 +101,13 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 		.build_storage::<Test>()
 		.unwrap();
 
+	let module_account: AccountId = FeedModuleId::get().into_account();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(FeedModuleId::get().into_account(), 100 * MIN_RESERVE)],
+		balances: vec![(module_account, 100 * MIN_RESERVE)],
+	}.assimilate_storage(&mut t).unwrap();
+
+	crate::GenesisConfig::<Test> {
+		pallet_admin: module_account
 	}.assimilate_storage(&mut t).unwrap();
 
 	t.into()
