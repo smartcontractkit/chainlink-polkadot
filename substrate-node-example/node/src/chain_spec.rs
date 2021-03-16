@@ -155,6 +155,7 @@ fn testnet_genesis(
 		}),
 		pallet_chainlink_feed: Some(ChainlinkFeedConfig {
 			pallet_admin: root_key,
+			feed_creators: endowed_accounts.clone(),
 		}),
 	}
 }

@@ -302,6 +302,9 @@ decl_storage! {
 		/// Configuration for a feed.
 		pub Feeds get(fn feed_config): map hasher(twox_64_concat) T::FeedId => Option<FeedConfigOf<T>>;
 
+		/// Accounts allowed to create feeds.
+		pub FeedCreators: map hasher(blake2_128_concat) T::AccountId => Option<()>;
+
 		/// User-facing round data.
 		pub Rounds get(fn round): double_map hasher(twox_64_concat) T::FeedId, hasher(twox_64_concat) T::RoundId => Option<RoundOf<T>>;
 
@@ -316,6 +319,13 @@ decl_storage! {
 
 		/// Per-feed permissioning for starting new rounds.
 		pub Requesters get(fn requester): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<RequesterOf<T>>;
+	} add_extra_genesis {
+		config(feed_creators): Vec<T::AccountId>;
+		build(|config: &GenesisConfig<T>| {
+			for creator in &config.feed_creators {
+				FeedCreators::<T>::insert(creator, ());
+			}
+		})
 	}
 }
 
@@ -357,6 +367,10 @@ decl_event!(
 		PalletAdminUpdateRequested(AccountId, AccountId),
 		/// The pallet admin change was executed. \[new_admin\]
 		PalletAdminUpdated(AccountId),
+		/// The account is allowed to create feeds. \[new_creator\]
+		FeedCreator(AccountId),
+		/// The account is no longer allowed to create feeds. \[previously_creator\]
+		FeedCreatorRemoved(AccountId),
 	}
 );
 
@@ -433,6 +447,8 @@ decl_error! {
 		NotSupersedable,
 		/// The round cannot be started because it is not a valid new round.
 		InvalidRound,
+		/// The calling account is not allowed to create feeds.
+		NotFeedCreator,
 	}
 }
 
@@ -445,6 +461,7 @@ decl_module! {
 		// --- feed operations ---
 
 		/// Create a new oracle feed with the given config values.
+		/// Limited to feed creator accounts.
 		#[weight = 100]
 		pub fn create_feed(
 			origin,
@@ -458,6 +475,7 @@ decl_module! {
 			oracles: Vec<(T::AccountId, T::AccountId)>,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
+			ensure!(FeedCreators::<T>::contains_key(&owner), Error::<T>::NotFeedCreator);
 			ensure!(description.len() as u32 <= T::StringLimit::get(), Error::<T>::DescriptionTooLong);
 
 			let submission_count_bounds = (min_submissions, oracles.len() as u32);
@@ -889,6 +907,30 @@ decl_module! {
 			Self::deposit_event(RawEvent::PalletAdminUpdated(new_pallet_admin));
 
 			Ok(())
+		}
+
+		/// Allow the given account to create oracle feeds.
+		/// Limited to the pallet admin account.
+		#[weight = 100]
+		pub fn set_feed_creator(origin, new_creator: T::AccountId) {
+			let admin = ensure_signed(origin)?;
+			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
+
+			FeedCreators::<T>::insert(&new_creator, ());
+
+			Self::deposit_event(RawEvent::FeedCreator(new_creator));
+		}
+
+		/// Disallow the given account to create oracle feeds.
+		/// Limited to the pallet admin account.
+		#[weight = 100]
+		pub fn remove_feed_creator(origin, creator: T::AccountId) {
+			let admin = ensure_signed(origin)?;
+			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
+
+			FeedCreators::<T>::remove(&creator);
+
+			Self::deposit_event(RawEvent::FeedCreatorRemoved(creator));
 		}
 	}
 }

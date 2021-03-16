@@ -190,6 +190,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 
 	crate::GenesisConfig::<Test> {
 		pallet_admin: module_account,
+		feed_creators: vec![1],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -748,5 +749,18 @@ fn prune_should_work() {
 				answered_in_round: Some(4),
 			}
 		);
+	});
+}
+
+#[test]
+fn feed_creation_permissioning() {
+	new_test_ext().execute_with(|| {
+		let admin = FeedModuleId::get().into_account();
+		let new_creator = 15;
+		assert_noop!(FeedBuilder::new().owner(new_creator).build_and_store(), Error::<Test>::NotFeedCreator);
+		assert_ok!(ChainlinkFeed::set_feed_creator(Origin::signed(admin), new_creator));
+		assert_ok!(FeedBuilder::new().owner(new_creator).build_and_store());
+		assert_ok!(ChainlinkFeed::remove_feed_creator(Origin::signed(admin), new_creator));
+		assert_noop!(FeedBuilder::new().owner(new_creator).build_and_store(), Error::<Test>::NotFeedCreator);
 	});
 }
