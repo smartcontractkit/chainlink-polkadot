@@ -456,6 +456,9 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event() = default;
 
+		/// The account used to pay oracles and manage the funds of this pallet.
+		const FundAccount: T::AccountId = T::ModuleId::get().into_account();
+
 		// TODO: weights
 
 		// --- feed operations ---
