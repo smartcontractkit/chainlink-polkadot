@@ -59,5 +59,6 @@
     "updated_at": "BlockNumber",
     "answered_in_round": "RoundId"
   },
-  "RoundDataOf": "RoundData"
+  "RoundDataOf": "RoundData",
+  "SubmissionBounds": "(u32, u32)"
 }
