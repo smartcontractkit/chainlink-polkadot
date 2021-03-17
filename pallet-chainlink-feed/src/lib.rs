@@ -350,7 +350,7 @@ decl_event!(
 		/// The answer for the round was updated. \[feed_id, round_id, new_answer, updated_at_block\]
 		AnswerUpdated(FeedId, RoundId, Value, BlockNumber),
 		/// The round details were updated. \[payment, submission_count_bounds, restart_delay, timeout\]
-		RoundDetailsUpdated(Balance, SubmissionBounds, RoundId, BlockNumber),
+		RoundDetailsUpdated(FeedId, Balance, SubmissionBounds, RoundId, BlockNumber),
 		/// An admin change was requested for the given oracle. \[oracle, admin, pending_admin\]
 		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
 		/// The admin change was executed. \[oracle, new_admin\]
@@ -1179,6 +1179,7 @@ impl<T: Trait> Feed<T> {
 		self.config.timeout = timeout;
 
 		Module::<T>::deposit_event(RawEvent::RoundDetailsUpdated(
+			self.id,
 			payment,
 			submission_count_bounds,
 			restart_delay,
