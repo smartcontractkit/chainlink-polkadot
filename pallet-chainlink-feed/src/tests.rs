@@ -785,7 +785,7 @@ fn can_go_into_debt_and_repay() {
 		assert_eq!(Balances::free_balance(admin), new_funds - 10);
 		assert_eq!(ChainlinkFeed::debt(), payment - 10);
 		// should be possible to overshoot in passing the amount correcting debt...
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), payment));
+		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(42), payment));
 		// ... but will only correct the debt
 		assert_eq!(Balances::free_balance(admin), new_funds - payment);
 		assert_eq!(ChainlinkFeed::debt(), 0);

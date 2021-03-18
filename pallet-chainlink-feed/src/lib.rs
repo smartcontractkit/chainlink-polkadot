@@ -892,8 +892,7 @@ decl_module! {
 		/// Limited to the pallet admin.
 		#[weight = 100]
 		pub fn reduce_debt(origin, amount: BalanceOf<T>) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
-			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
+			let _sender = ensure_signed(origin)?;
 			Debt::<T>::try_mutate(|debt| {
 				let to_reserve = amount.min(*debt);
 				T::Currency::reserve(&T::ModuleId::get().into_account(), to_reserve)?;
