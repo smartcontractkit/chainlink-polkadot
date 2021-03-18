@@ -764,3 +764,30 @@ fn feed_creation_permissioning() {
 		assert_noop!(FeedBuilder::new().owner(new_creator).build_and_store(), Error::<Test>::NotFeedCreator);
 	});
 }
+
+#[test]
+fn can_go_into_debt_and_repay() {
+	new_test_ext().execute_with(|| {
+		let admin: AccountId = FeedModuleId::get().into_account();
+		let owner = 1;
+		let oracle = 2;
+		let payment = 33;
+		assert_ok!(FeedBuilder::new().payment(payment).owner(owner).oracles(vec![(oracle, 3), (3, 3)]).build_and_store());
+		assert_eq!(ChainlinkFeed::debt(), 0);
+		// ensure the fund is out of tokens
+		Balances::make_free_balance_be(&admin, ExistentialDeposit::get());
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), 0, 1, 42));
+		assert_eq!(ChainlinkFeed::debt(), payment);
+		let new_funds = 2 * payment;
+		Balances::make_free_balance_be(&admin, new_funds);
+		// should be possible to reduce debt partially
+		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), 10));
+		assert_eq!(Balances::free_balance(admin), new_funds - 10);
+		assert_eq!(ChainlinkFeed::debt(), payment - 10);
+		// should be possible to overshoot in passing the amount correcting debt...
+		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), payment));
+		// ... but will only correct the debt
+		assert_eq!(Balances::free_balance(admin), new_funds - payment);
+		assert_eq!(ChainlinkFeed::debt(), 0);
+	});
+}

@@ -296,6 +296,9 @@ decl_storage! {
 		/// The account to set as future pallet admin.
 		pub PendingPalletAdmin: Option<T::AccountId>;
 
+		/// Tracks the amount of debt accrued by the pallet towards the oracles.
+		pub Debt get(fn debt): BalanceOf<T>;
+
 		/// A running counter used internally to determine the next feed id.
 		pub FeedCounter get(fn feed_counter): T::FeedId;
 
@@ -631,7 +634,13 @@ decl_module! {
 
 				// update oracle withdrawable
 				let payment = details.payment;
-				T::Currency::reserve(&T::ModuleId::get().into_account(), payment)?;
+				T::Currency::reserve(&T::ModuleId::get().into_account(), payment).or_else(|_| -> DispatchResult {
+					// track the debt in case we cannot reserve
+					Debt::<T>::try_mutate(|debt| {
+						*debt = debt.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
+						Ok(())
+					})
+				})?;
 				let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 				oracle_meta.withdrawable = oracle_meta.withdrawable
 					.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
@@ -876,6 +885,22 @@ decl_module! {
 			let new_reserve = reserve.checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?;
 			ensure!(new_reserve >= T::MinimumReserve::get(), Error::<T>::InsufficientReserve);
 			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
+		}
+
+		/// Reduce the amount of debt in the pallet by moving funds from
+		/// the free balance to the reserved so oracles can be payed out.
+		/// Limited to the pallet admin.
+		#[weight = 100]
+		pub fn reduce_debt(origin, amount: BalanceOf<T>) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
+			Debt::<T>::try_mutate(|debt| {
+				let to_reserve = amount.min(*debt);
+				T::Currency::reserve(&T::ModuleId::get().into_account(), to_reserve)?;
+				// it's fine if we saturate to 0 debt
+				*debt = debt.saturating_sub(amount);
+				Ok(())
+			})
 		}
 
 		/// Initiate an admin transfer for the pallet.
