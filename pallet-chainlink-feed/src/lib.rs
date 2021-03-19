@@ -352,7 +352,7 @@ decl_event!(
 		SubmissionReceived(FeedId, RoundId, Value, AccountId),
 		/// The answer for the round was updated. \[feed_id, round_id, new_answer, updated_at_block\]
 		AnswerUpdated(FeedId, RoundId, Value, BlockNumber),
-		/// The round details were updated. \[payment, submission_count_bounds, restart_delay, timeout\]
+		/// The round details were updated. \[feed_id, payment, submission_count_bounds, restart_delay, timeout\]
 		RoundDetailsUpdated(FeedId, Balance, SubmissionBounds, RoundId, BlockNumber),
 		/// An admin change was requested for the given oracle. \[oracle, admin, pending_admin\]
 		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
