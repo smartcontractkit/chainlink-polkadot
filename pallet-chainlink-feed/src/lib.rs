@@ -65,7 +65,7 @@ pub trait Trait: frame_system::Trait {
 	type FeedId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
 
 	/// Type for round indexing.
-	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic + Into<u64>;
+	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic + From<u32> + Into<u64>;
 
 	/// Oracle feed values.
 	type Value: Member + Parameter + Default + Copy + HasCompact + PartialEq + BaseArithmetic;
@@ -285,7 +285,7 @@ pub trait FeedInterface {
 	/// Request that a new oracle round be started.
 	///
 	/// **Warning:** Fallible function that changes storage.
-	fn request_new_round(&self, requester: Self::AccountId) -> DispatchResult;
+	fn request_new_round(&mut self, requester: Self::AccountId) -> DispatchResult;
 }
 
 decl_storage! {
@@ -595,7 +595,6 @@ decl_module! {
 
 				// initialize the round if conditions are met
 				if round_id == new_round_id && eligible_to_start {
-					feed.config.reporting_round = new_round_id;
 					let started_at = feed.initialize_round(new_round_id)?;
 
 					Self::deposit_event(RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
@@ -790,7 +789,7 @@ decl_module! {
 			let mut requester = Self::requester(feed_id, &sender).ok_or(Error::<T>::NotAuthorizedRequester)?;
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
-				let feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 
 				let new_round = feed.reporting_round_id().checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
 				let last_started = requester.last_started_round.unwrap_or(Zero::zero());
@@ -1217,9 +1216,11 @@ impl<T: Trait> Feed<T> {
 	///
 	/// **Warning:** Fallible function that changes storage.
 	fn initialize_round(
-		&self,
+		&mut self,
 		new_round_id: T::RoundId,
 	) -> Result<T::BlockNumber, DispatchError> {
+		self.config.reporting_round = new_round_id;
+
 		let prev_round_id = new_round_id.saturating_sub(One::one());
 		if self.is_timed_out(prev_round_id) {
 			self.close_timed_out_round(prev_round_id)?;
@@ -1323,7 +1324,7 @@ impl<T: Trait> FeedInterface for Feed<T> {
 	/// Returns `Ok` on success and `Err` in case the round could not be started.
 	///
 	/// **Warning:** Fallible function that changes storage.
-	fn request_new_round(&self, requester: T::AccountId) -> DispatchResult {
+	fn request_new_round(&mut self, requester: T::AccountId) -> DispatchResult {
 		let new_round = self.reporting_round_id()
 			.checked_add(&One::one())
 			.ok_or(Error::<T>::Overflow)?;
