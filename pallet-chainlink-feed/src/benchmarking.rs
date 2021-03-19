@@ -86,7 +86,7 @@ benchmarks! {
 	}
 
 	submit {
-		let o in 1 .. T::OracleCountLimit::get();
+		let o in 2 .. T::OracleCountLimit::get();
 
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -107,20 +107,26 @@ benchmarks! {
 		));
 		let feed: T::FeedId = Zero::zero();
 		let round: T::RoundId = One::one();
+		let answer: T::Value = 5u8.into();
 		for (o, _a) in oracles.iter().skip(1) {
-			assert_ok!(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, 1u8.into(), 5u8.into()));
+			assert_ok!(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, 1u8.into(), answer));
 		}
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(Round::new(Zero::zero())));
-		// assert_eq!(ChainlinkFeed::<T>::round(feed, round), None);
 	}: _(
 			RawOrigin::Signed(oracle.clone()),
 			feed,
 			1u8.into(),
-			5u8.into()
+			answer
 		)
 	verify {
-		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(Round { started_at: One::one(), answer: Some(5u8.into()), updated_at: Some(One::one()), answered_in_round: Some(1u8.into()) }));
+		let expected_round = Round {
+			started_at: Zero::zero(),
+			answer: Some(answer),
+			updated_at: Some(One::one()),
+			answered_in_round: Some(1u8.into())
+		};
+		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
 	}
 
 	// force_create {
