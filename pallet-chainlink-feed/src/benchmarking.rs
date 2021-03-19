@@ -85,7 +85,47 @@ benchmarks! {
 		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").owner, new_owner);
 	}
 
-	submit {
+	submit_opening_round_answers {
+		let o = 3;
+		let caller: T::AccountId = whitelisted_caller();
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		assert_ok!(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
+		frame_support::debug::debug!("before benchmark");
+		assert_ok!(ChainlinkFeed::<T>::create_feed(
+			RawOrigin::Signed(caller.clone()).into(),
+			50u32.into(),
+			Zero::zero(),
+			(1u8.into(), 100u8.into()),
+			1,
+			5u8.into(),
+			b"desc".to_vec(),
+			Zero::zero(),
+			oracles.clone(),
+		));
+		let feed: T::FeedId = Zero::zero();
+		let round: T::RoundId = One::one();
+		let answer: T::Value = 5u8.into();
+		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
+		assert_eq!(ChainlinkFeed::<T>::round(feed, round), None);
+	}: submit(
+			RawOrigin::Signed(oracle.clone()),
+			feed,
+			1u8.into(),
+			answer
+		)
+	verify {
+		let expected_round = Round {
+			started_at: One::one(),
+			answer: Some(answer),
+			updated_at: Some(One::one()),
+			answered_in_round: Some(1u8.into())
+		};
+		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
+	}
+
+	submit_closing_answer {
 		let o in 2 .. T::OracleCountLimit::get();
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -113,7 +153,7 @@ benchmarks! {
 		}
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(Round::new(Zero::zero())));
-	}: _(
+	}: submit(
 			RawOrigin::Signed(oracle.clone()),
 			feed,
 			1u8.into(),
@@ -306,9 +346,16 @@ mod tests {
 	}
 
 	#[test]
-	fn submit() {
+	fn submit_opening_round_answers() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_submit::<Test>());
+			assert_ok!(test_benchmark_submit_opening_round_answers::<Test>());
+		});
+	}
+
+	#[test]
+	fn submit_closing_answer() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_submit_closing_answer::<Test>());
 		});
 	}
 }
