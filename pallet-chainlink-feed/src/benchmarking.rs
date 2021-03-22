@@ -31,7 +31,7 @@ benchmarks! {
 		frame_support::debug::debug!("before benchmark");
 	}: _(
 			RawOrigin::Signed(caller.clone()),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -53,7 +53,7 @@ benchmarks! {
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -77,7 +77,7 @@ benchmarks! {
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -104,7 +104,7 @@ benchmarks! {
 		frame_support::debug::debug!("before benchmark");
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1,
@@ -145,7 +145,7 @@ benchmarks! {
 		frame_support::debug::debug!("before benchmark");
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			oracles.len() as u32,
@@ -190,7 +190,7 @@ benchmarks! {
 		frame_support::debug::debug!("before benchmark");
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -221,7 +221,7 @@ benchmarks! {
 		frame_support::debug::debug!("before benchmark");
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -257,7 +257,7 @@ benchmarks! {
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -302,7 +302,7 @@ benchmarks! {
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -327,7 +327,7 @@ benchmarks! {
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
@@ -355,7 +355,7 @@ benchmarks! {
 		frame_support::debug::debug!("before benchmark");
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
-			50u32.into(),
+			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1,
@@ -395,8 +395,7 @@ benchmarks! {
 		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
-		frame_support::debug::debug!("before benchmark");
-		let payment: BalanceOf<T> = 50u32.into();
+		let payment: BalanceOf<T> = 600u32.into(); // ExistentialDeposit is 500
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
 			payment,
@@ -419,6 +418,8 @@ benchmarks! {
 			answer
 		));
 		let recipient: T::AccountId = account("recipient", 0, SEED);
+		let fund_account = T::ModuleId::get().into_account();
+		T::Currency::make_free_balance_be(&fund_account, payment + payment);
 	}: _(
 		RawOrigin::Signed(admin.clone()),
 		oracle.clone(),
