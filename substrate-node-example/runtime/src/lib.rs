@@ -38,8 +38,11 @@ pub use frame_support::{
 	},
 };
 
+pub mod weights;
+
 /// Import the template pallet.
 pub use pallet_template;
+pub use pallet_chainlink_feed;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -274,6 +277,7 @@ parameter_types! {
 	pub const PruningWindow: RoundId = 15;
 }
 
+use weights::pallet_chainlink_feed::WeightInfo as ChainlinkWeightInfo;
 impl pallet_chainlink_feed::Trait for Runtime {
 	type Event = Event;
 	type FeedId = FeedId;
@@ -286,6 +290,7 @@ impl pallet_chainlink_feed::Trait for Runtime {
 	type OracleCountLimit = OracleCountLimit;
 	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;
+	type WeightInfo = ChainlinkWeightInfo;
 }
 
 /// Configure the template pallet in pallets/template.

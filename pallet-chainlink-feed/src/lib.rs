@@ -7,6 +7,8 @@ mod benchmarking;
 #[cfg(test)]
 mod tests;
 
+pub mod default_weights;
+
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
@@ -16,6 +18,7 @@ use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo, HasCompact},
 	ensure, Parameter, RuntimeDebug,
+	weights::Weight,
 };
 use frame_system::ensure_signed;
 use sp_arithmetic::traits::BaseArithmetic;
@@ -65,7 +68,7 @@ pub trait Trait: frame_system::Trait {
 	type FeedId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
 
 	/// Type for round indexing.
-	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic + From<u32> + Into<u64>;
+	type RoundId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic + From<u32> + Into<u32>;
 
 	/// Oracle feed values.
 	type Value: Member + Parameter + Default + Copy + HasCompact + PartialEq + BaseArithmetic;
@@ -91,7 +94,8 @@ pub trait Trait: frame_system::Trait {
 	/// Number of rounds to keep around per feed.
 	type PruningWindow: Get<Self::RoundId>;
 
-	// type WeightInfo: WeightInfo;
+	/// The weight for this pallet's extrinsics.
+	type WeightInfo: WeightInfo;
 }
 
 /// The configuration for an oracle feed.
@@ -468,7 +472,7 @@ decl_module! {
 
 		/// Create a new oracle feed with the given config values.
 		/// Limited to feed creator accounts.
-		#[weight = 100]
+		#[weight = T::WeightInfo::create_feed(oracles.len() as u32)]
 		pub fn create_feed(
 			origin,
 			payment: BalanceOf<T>,
@@ -527,7 +531,7 @@ decl_module! {
 		}
 
 		/// Initiate the transfer of the feed to `new_owner`.
-		#[weight = 100]
+		#[weight = T::WeightInfo::transfer_ownership()]
 		pub fn transfer_ownership(
 			origin,
 			feed_id: T::FeedId,
@@ -546,7 +550,7 @@ decl_module! {
 		}
 
 		/// Accept the transfer of feed ownership.
-		#[weight = 100]
+		#[weight = T::WeightInfo::accept_ownership()]
 		pub fn accept_ownership(
 			origin,
 			feed_id: T::FeedId,
@@ -567,7 +571,9 @@ decl_module! {
 
 		/// Submit a new value to the given feed and round.
 		/// Limited to the oracles of a feed.
-		#[weight = 100]
+		#[weight = T::WeightInfo::submit_opening_round_answers().max(
+			T::WeightInfo::submit_closing_answer(T::OracleCountLimit::get())
+		)]
 		pub fn submit(
 			origin,
 			feed_id: T::FeedId,
@@ -657,7 +663,7 @@ decl_module! {
 
 		/// Disable and add oracles for the given feed.
 		/// Limited to the owner of a feed.
-		#[weight = 100]
+		#[weight = T::WeightInfo::change_oracles((to_disable.len() + to_add.len()) as u32)]
 		pub fn change_oracles(
 			origin,
 			feed_id: T::FeedId,
@@ -682,7 +688,7 @@ decl_module! {
 
 		/// Update the configuration for future oracle rounds.
 		/// Limited to the owner of a feed.
-		#[weight = 100]
+		#[weight = T::WeightInfo::update_future_rounds()]
 		pub fn update_future_rounds(
 			origin,
 			feed_id: T::FeedId,
@@ -702,7 +708,7 @@ decl_module! {
 
 		/// Prune the state of a feed to reduce storage load.
 		/// Limited to the owner of a feed.
-		#[weight = 100]
+		#[weight = T::WeightInfo::prune(keep_round.saturating_sub(*first_to_prune).into())]
 		pub fn prune(
 			origin,
 			feed_id: T::FeedId,
@@ -739,7 +745,7 @@ decl_module! {
 
 		/// Set requester permissions for `requester`.
 		/// Limited to the feed owner.
-		#[weight = 100]
+		#[weight = T::WeightInfo::set_requester()]
 		pub fn set_requester(
 			origin,
 			feed_id: T::FeedId,
@@ -761,7 +767,7 @@ decl_module! {
 
 		/// Remove requester permissions for `requester`.
 		/// Limited to the feed owner.
-		#[weight = 100]
+		#[weight = T::WeightInfo::remove_requester()]
 		pub fn remove_requester(
 			origin,
 			feed_id: T::FeedId,
@@ -780,7 +786,7 @@ decl_module! {
 
 		/// Request the start of a new oracle round.
 		/// Limited to accounts with "requester" permission.
-		#[weight = 100]
+		#[weight = T::WeightInfo::request_new_round()]
 		pub fn request_new_round(
 			origin,
 			feed_id: T::FeedId,
@@ -809,7 +815,7 @@ decl_module! {
 
 		/// Withdraw `amount` payment of the given oracle to `recipient`.
 		/// Limited to the oracle admin.
-		#[weight = 100]
+		#[weight = T::WeightInfo::withdraw_payment()]
 		pub fn withdraw_payment(origin,
 			oracle: T::AccountId,
 			recipient: T::AccountId,
@@ -828,7 +834,7 @@ decl_module! {
 
 		/// Initiate an admin transfer for the given oracle.
 		/// Limited to the oracle admin account.
-		#[weight = 100]
+		#[weight = T::WeightInfo::transfer_admin()]
 		pub fn transfer_admin(
 			origin,
 			oracle: T::AccountId,
@@ -849,7 +855,7 @@ decl_module! {
 
 		/// Complete an admin transfer for the given oracle.
 		/// Limited to the pending oracle admin account.
-		#[weight = 100]
+		#[weight = T::WeightInfo::accept_admin()]
 		pub fn accept_admin(
 			origin,
 			oracle: T::AccountId,
@@ -872,7 +878,7 @@ decl_module! {
 
 		/// Withdraw `amount` funds to `recipient`.
 		/// Limited to the pallet admin.
-		#[weight = 100]
+		#[weight = T::WeightInfo::withdraw_funds()]
 		pub fn withdraw_funds(origin,
 			recipient: T::AccountId,
 			amount: BalanceOf<T>,
@@ -889,7 +895,7 @@ decl_module! {
 		/// Reduce the amount of debt in the pallet by moving funds from
 		/// the free balance to the reserved so oracles can be payed out.
 		/// Limited to the pallet admin.
-		#[weight = 100]
+		#[weight = T::WeightInfo::reduce_debt()]
 		pub fn reduce_debt(origin, amount: BalanceOf<T>) -> DispatchResult {
 			let _sender = ensure_signed(origin)?;
 			Debt::<T>::try_mutate(|debt| {
@@ -903,7 +909,7 @@ decl_module! {
 
 		/// Initiate an admin transfer for the pallet.
 		/// Limited to the pallet admin account.
-		#[weight = 100]
+		#[weight = T::WeightInfo::transfer_pallet_admin()]
 		pub fn transfer_pallet_admin(
 			origin,
 			new_pallet_admin: T::AccountId,
@@ -921,7 +927,7 @@ decl_module! {
 
 		/// Complete an admin transfer for the pallet.
 		/// Limited to the pending pallet admin account.
-		#[weight = 100]
+		#[weight = T::WeightInfo::accept_pallet_admin()]
 		pub fn accept_pallet_admin(origin) -> DispatchResult {
 			let new_pallet_admin = ensure_signed(origin)?;
 
@@ -937,7 +943,7 @@ decl_module! {
 
 		/// Allow the given account to create oracle feeds.
 		/// Limited to the pallet admin account.
-		#[weight = 100]
+		#[weight = T::WeightInfo::set_feed_creator()]
 		pub fn set_feed_creator(origin, new_creator: T::AccountId) {
 			let admin = ensure_signed(origin)?;
 			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
@@ -949,7 +955,7 @@ decl_module! {
 
 		/// Disallow the given account to create oracle feeds.
 		/// Limited to the pallet admin account.
-		#[weight = 100]
+		#[weight = T::WeightInfo::remove_feed_creator()]
 		pub fn remove_feed_creator(origin, creator: T::AccountId) {
 			let admin = ensure_signed(origin)?;
 			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
@@ -1188,7 +1194,7 @@ impl<T: Trait> Feed<T> {
 		// Make sure that at least one oracle can request a new
 		// round.
 		ensure!(
-			self.oracle_count() as u64 > restart_delay.into(),
+			self.oracle_count() > restart_delay.into(),
 			Error::<T>::DelayExceededTotal
 		);
 		// require(recordedFunds.available >= requiredReserve(_paymentAmount), "insufficient funds for payment");
@@ -1343,4 +1349,28 @@ impl<T: Trait> FeedInterface for Feed<T> {
 
 		Ok(())
 	}
+}
+
+/// Trait for the chainlink pallet extrinsic weights.
+pub trait WeightInfo {
+	fn create_feed(o: u32, ) -> Weight;
+	fn transfer_ownership() -> Weight;
+	fn accept_ownership() -> Weight;
+	fn submit_opening_round_answers() -> Weight;
+	fn submit_closing_answer(o: u32, ) -> Weight;
+	fn change_oracles(o: u32, ) -> Weight;
+	fn update_future_rounds() -> Weight;
+	fn prune(r: u32, ) -> Weight;
+	fn set_requester() -> Weight;
+	fn remove_requester() -> Weight;
+	fn request_new_round() -> Weight;
+	fn withdraw_payment() -> Weight;
+	fn transfer_admin() -> Weight;
+	fn accept_admin() -> Weight;
+	fn withdraw_funds() -> Weight;
+	fn reduce_debt() -> Weight;
+	fn transfer_pallet_admin() -> Weight;
+	fn accept_pallet_admin() -> Weight;
+	fn set_feed_creator() -> Weight;
+	fn remove_feed_creator() -> Weight;
 }

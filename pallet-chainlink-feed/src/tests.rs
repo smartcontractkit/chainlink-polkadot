@@ -98,6 +98,7 @@ impl Trait for Test {
 	type OracleCountLimit = OracleLimit;
 	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;
+	type WeightInfo = ();
 }
 type ChainlinkFeed = crate::Module<Test>;
 
