@@ -17,6 +17,18 @@ fn assert_is_ok<T: Debug, E: Debug>(r: Result<T, E>) {
 	assert!(r.is_ok());
 }
 
+fn whitelisted_account<T: Trait>(name: &'static str, counter: u32) -> T::AccountId {
+	let acc = account(name, counter, SEED);
+	whitelist_acc::<T>(&acc);
+	acc
+}
+
+fn whitelist_acc<T: Trait>(acc: &T::AccountId) {
+	frame_benchmarking::benchmarking::add_to_whitelist(
+		frame_system::Account::<T>::hashed_key_for(acc).into()
+	);
+}
+
 benchmarks! {
 	_ {}
 
@@ -462,7 +474,7 @@ benchmarks! {
 			admin: admin.clone(),
 			pending_admin: None,
 		});
-		let new_admin: T::AccountId = account("new_admin", 0, SEED);
+		let new_admin: T::AccountId = whitelisted_account::<T>("new_admin", 0);
 		assert_is_ok(ChainlinkFeed::<T>::transfer_admin(
 			RawOrigin::Signed(admin.clone()).into(),
 			oracle.clone(),
@@ -483,8 +495,8 @@ benchmarks! {
 	}
 
 	withdraw_funds {
-		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		whitelist_acc::<T>(&pallet_admin);
 		let payment: BalanceOf<T> = 600u32.into(); // ExistentialDeposit is 500
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let fund_account = T::ModuleId::get().into_account();
@@ -497,6 +509,93 @@ benchmarks! {
 	)
 	verify {
 		assert_eq!(T::Currency::free_balance(&recipient), payment);
+	}
+
+	reduce_debt {
+		let caller: T::AccountId = whitelisted_caller();
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		let oracle: T::AccountId = account("oracle", 0, SEED);
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		let payment = 600u32.into();
+		assert_is_ok(ChainlinkFeed::<T>::create_feed(
+			RawOrigin::Signed(caller.clone()).into(),
+			payment,
+			Zero::zero(),
+			(1u8.into(), 100u8.into()),
+			1u8.into(),
+			5u8.into(),
+			b"desc".to_vec(),
+			Zero::zero(),
+			vec![(oracle.clone(), admin)],
+		));
+		let feed = Zero::zero();
+		let answer: T::Value = 42u8.into();
+		let rounds = 4u32;
+		let fund_account = T::ModuleId::get().into_account();
+		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
+		for round in 1..(rounds + 1) {
+			let round = T::RoundId::from(round);
+			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(oracle.clone()).into(), feed, round, answer));
+		}
+		let rounds: BalanceOf<T> = rounds.into();
+		let debt: BalanceOf<T> = rounds * payment;
+		assert_eq!(Debt::<T>::get(), debt);
+		T::Currency::make_free_balance_be(&fund_account, payment + payment);
+	}: _(RawOrigin::Signed(caller.clone()), payment)
+	verify {
+		assert_eq!(T::Currency::free_balance(&fund_account), payment);
+		assert_eq!(Debt::<T>::get(), debt - payment);
+	}
+
+	transfer_pallet_admin {
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		whitelist_acc::<T>(&pallet_admin);
+		let new_admin: T::AccountId = account("new_pallet_admin", 0, SEED);
+	}: _(
+		RawOrigin::Signed(pallet_admin.clone()),
+		new_admin.clone()
+	)
+	verify {
+		assert_eq!(PendingPalletAdmin::<T>::get(), Some(new_admin));
+	}
+
+	accept_pallet_admin {
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		let new_admin: T::AccountId = whitelisted_account::<T>("new_pallet_admin", 0);
+		assert_is_ok(ChainlinkFeed::<T>::transfer_pallet_admin(
+			RawOrigin::Signed(pallet_admin.clone()).into(),
+			new_admin.clone()
+		));
+	}: _(RawOrigin::Signed(new_admin.clone()))
+	verify {
+		assert_eq!(ChainlinkFeed::<T>::pallet_admin(), new_admin);
+		assert_eq!(PendingPalletAdmin::<T>::get(), None);
+	}
+
+	set_feed_creator {
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		whitelist_acc::<T>(&pallet_admin);
+		let new_creator: T::AccountId = account("new_creator", 0, SEED);
+	}: _(
+		RawOrigin::Signed(pallet_admin.clone()),
+		new_creator.clone()
+	)
+	verify {
+		assert!(FeedCreators::<T>::contains_key(&new_creator));
+	}
+
+	remove_feed_creator {
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		whitelist_acc::<T>(&pallet_admin);
+		let creator: T::AccountId = account("creator", 0, SEED);
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(
+			RawOrigin::Signed(pallet_admin.clone()).into(),
+			creator.clone()
+		));
+	}: _(RawOrigin::Signed(pallet_admin.clone()), creator.clone())
+	verify {
+		assert!(!FeedCreators::<T>::contains_key(&creator));
 	}
 }
 
@@ -608,6 +707,41 @@ mod tests {
 	fn withdraw_funds() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_withdraw_funds::<Test>());
+		});
+	}
+
+	#[test]
+	fn reduce_debt() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_reduce_debt::<Test>());
+		});
+	}
+
+	#[test]
+	fn transfer_pallet_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_transfer_pallet_admin::<Test>());
+		});
+	}
+
+	#[test]
+	fn accept_pallet_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_accept_pallet_admin::<Test>());
+		});
+	}
+
+	#[test]
+	fn set_feed_creator() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_set_feed_creator::<Test>());
+		});
+	}
+
+	#[test]
+	fn remove_feed_creator() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_remove_feed_creator::<Test>());
 		});
 	}
 }
