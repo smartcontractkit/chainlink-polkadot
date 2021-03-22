@@ -8,6 +8,8 @@ use crate::Module as ChainlinkFeed;
 
 const SEED: u32 = 0;
 
+/// Either use `assert_ok!` or regular `assert!` depending on std/no_std
+/// environment.
 fn assert_is_ok<T: Debug, E: Debug>(r: Result<T, E>) {
 	#[cfg(feature = "std")]
 	frame_support::assert_ok!(r);
@@ -418,13 +420,65 @@ benchmarks! {
 		));
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 	}: _(
-			RawOrigin::Signed(admin.clone()),
-			oracle.clone(),
-			recipient.clone(),
-			payment
-		)
+		RawOrigin::Signed(admin.clone()),
+		oracle.clone(),
+		recipient.clone(),
+		payment
+	)
 	verify {
 		assert_eq!(T::Currency::free_balance(&recipient), payment);
+	}
+
+	transfer_admin {
+		let oracle: T::AccountId = account("oracle", 0, SEED);
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		Oracles::<T>::insert(&oracle, OracleMeta {
+			withdrawable: Zero::zero(),
+			admin: admin.clone(),
+			pending_admin: None,
+		});
+		let new_admin: T::AccountId = account("new_admin", 0, SEED);
+	}: _(
+		RawOrigin::Signed(admin.clone()),
+		oracle.clone(),
+		new_admin.clone()
+	)
+	verify {
+		let expected_meta = OracleMeta {
+			withdrawable: Zero::zero(),
+			admin: admin.clone(),
+			pending_admin: Some(new_admin.clone()),
+		};
+		let meta = ChainlinkFeed::<T>::oracle(&oracle);
+		assert_eq!(meta, Some(expected_meta));
+	}
+
+	accept_admin {
+		let oracle: T::AccountId = account("oracle", 0, SEED);
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		Oracles::<T>::insert(&oracle, OracleMeta {
+			withdrawable: Zero::zero(),
+			admin: admin.clone(),
+			pending_admin: None,
+		});
+		let new_admin: T::AccountId = account("new_admin", 0, SEED);
+		assert_is_ok(ChainlinkFeed::<T>::transfer_admin(
+			RawOrigin::Signed(admin.clone()).into(),
+			oracle.clone(),
+			new_admin.clone()
+		));
+	}: _(
+		RawOrigin::Signed(new_admin.clone()),
+		oracle.clone()
+	)
+	verify {
+		let expected_meta = OracleMeta {
+			withdrawable: Zero::zero(),
+			admin: new_admin.clone(),
+			pending_admin: None,
+		};
+		let meta = ChainlinkFeed::<T>::oracle(&oracle);
+		assert_eq!(meta, Some(expected_meta));
 	}
 }
 
@@ -515,6 +569,20 @@ mod tests {
 	fn withdraw_payment() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_withdraw_payment::<Test>());
+		});
+	}
+
+	#[test]
+	fn transfer_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_transfer_admin::<Test>());
+		});
+	}
+
+	#[test]
+	fn accept_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_accept_admin::<Test>());
 		});
 	}
 }
