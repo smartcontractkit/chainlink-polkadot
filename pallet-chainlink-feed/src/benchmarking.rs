@@ -481,6 +481,23 @@ benchmarks! {
 		let meta = ChainlinkFeed::<T>::oracle(&oracle);
 		assert_eq!(meta, Some(expected_meta));
 	}
+
+	withdraw_funds {
+		let caller: T::AccountId = whitelisted_caller();
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		let payment: BalanceOf<T> = 600u32.into(); // ExistentialDeposit is 500
+		let recipient: T::AccountId = account("recipient", 0, SEED);
+		let fund_account = T::ModuleId::get().into_account();
+		let multiplier = 1001u32.into();
+		T::Currency::make_free_balance_be(&fund_account, payment * multiplier);
+	}: _(
+		RawOrigin::Signed(pallet_admin.clone()),
+		recipient.clone(),
+		payment
+	)
+	verify {
+		assert_eq!(T::Currency::free_balance(&recipient), payment);
+	}
 }
 
 #[cfg(test)]
@@ -584,6 +601,13 @@ mod tests {
 	fn accept_admin() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_accept_admin::<Test>());
+		});
+	}
+
+	#[test]
+	fn withdraw_funds() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_withdraw_funds::<Test>());
 		});
 	}
 }
