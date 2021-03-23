@@ -98,6 +98,7 @@ impl Trait for Test {
 	type OracleCountLimit = OracleLimit;
 	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;
+	type WeightInfo = ();
 }
 type ChainlinkFeed = crate::Module<Test>;
 
@@ -588,7 +589,7 @@ fn feed_oracle_trait_should_work() {
 			submission
 		));
 		{
-			let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+			let mut feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
 			assert_eq!(feed.first_valid_round(), Some(1));
 			assert_eq!(feed.latest_round(), 1);
 			assert_eq!(

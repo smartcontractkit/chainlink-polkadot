@@ -38,8 +38,11 @@ pub use frame_support::{
 	},
 };
 
+pub mod weights;
+
 /// Import the template pallet.
 pub use pallet_template;
+pub use pallet_chainlink_feed;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -274,6 +277,7 @@ parameter_types! {
 	pub const PruningWindow: RoundId = 15;
 }
 
+use weights::pallet_chainlink_feed::WeightInfo as ChainlinkWeightInfo;
 impl pallet_chainlink_feed::Trait for Runtime {
 	type Event = Event;
 	type FeedId = FeedId;
@@ -286,6 +290,7 @@ impl pallet_chainlink_feed::Trait for Runtime {
 	type OracleCountLimit = OracleCountLimit;
 	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;
+	type WeightInfo = ChainlinkWeightInfo;
 }
 
 /// Configure the template pallet in pallets/template.
@@ -508,6 +513,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+			add_benchmark!(params, batches, pallet_chainlink_feed, ChainlinkFeed);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
