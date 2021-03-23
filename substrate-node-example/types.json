@@ -52,7 +52,6 @@
     "delay": "RoundId",
     "last_started_round": "Option<RoundId>"
   },
-  "RequesterOf": "Requester",
   "RoundData": {
     "started_at": "BlockNumber",
     "answer": "Value",

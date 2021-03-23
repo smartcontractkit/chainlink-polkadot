@@ -264,8 +264,8 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
+pub use pallet_chainlink_feed::RoundId;
 pub type FeedId = u32;
-pub type RoundId = u32;
 pub type Value = u128;
 
 parameter_types! {
@@ -281,7 +281,6 @@ use weights::pallet_chainlink_feed::WeightInfo as ChainlinkWeightInfo;
 impl pallet_chainlink_feed::Trait for Runtime {
 	type Event = Event;
 	type FeedId = FeedId;
-	type RoundId = RoundId;
 	type Value = Value;
 	type Currency = Balances;
 	type ModuleId = FeedModule;

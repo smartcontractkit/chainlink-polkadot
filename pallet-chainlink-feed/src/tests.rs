@@ -74,6 +74,7 @@ impl pallet_balances::Trait for Test {
 type Balances = pallet_balances::Module<Test>;
 
 const MIN_RESERVE: u64 = 100;
+
 parameter_types! {
 	pub const FeedModuleId: ModuleId = ModuleId(*b"linkfeed");
 	pub const MinimumReserve: u64 = MIN_RESERVE;
@@ -84,12 +85,11 @@ parameter_types! {
 }
 
 type FeedId = u16;
-type RoundId = u32;
 type Value = u64;
+
 impl Trait for Test {
 	type Event = ();
 	type FeedId = FeedId;
-	type RoundId = RoundId;
 	type Value = Value;
 	type Currency = Balances;
 	type ModuleId = FeedModuleId;

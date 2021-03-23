@@ -126,7 +126,7 @@ benchmarks! {
 			oracles.clone(),
 		));
 		let feed: T::FeedId = Zero::zero();
-		let round: T::RoundId = One::one();
+		let round: RoundId = One::one();
 		let answer: T::Value = 5u8.into();
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), None);
@@ -167,7 +167,7 @@ benchmarks! {
 			oracles.clone(),
 		));
 		let feed: T::FeedId = Zero::zero();
-		let round: T::RoundId = One::one();
+		let round: RoundId = One::one();
 		let answer: T::Value = 42u8.into();
 		for (o, _a) in oracles.iter().skip(1) {
 			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, 1u8.into(), answer));
@@ -280,30 +280,28 @@ benchmarks! {
 		));
 		let feed = Zero::zero();
 		let answer: T::Value = 42u8.into();
-		let pruning_window: u32 = T::PruningWindow::get().try_into().map_err(|_|()).expect("should be able to convert into u32");
+		let pruning_window: RoundId = T::PruningWindow::get();
 		for round in 1..(pruning_window + r + 2) {
-			let round = T::RoundId::from(round);
 			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(oracle.clone()).into(), feed, round, answer));
 		}
-		let r = T::RoundId::from(r);
 	}: _(
 		RawOrigin::Signed(caller.clone()),
 		feed,
 		1u8.into(),
-		r + One::one()
+		r + 1
 	)
 	verify {
 		// rounds until `r` should be pruned
-		assert_eq!(ChainlinkFeed::<T>::round(feed, T::RoundId::one()), None);
+		assert_eq!(ChainlinkFeed::<T>::round(feed, RoundId::one()), None);
 		assert_eq!(ChainlinkFeed::<T>::round(feed, r), None);
 		let expected_round = Round {
 			started_at: Zero::zero(),
 			answer: Some(answer),
 			updated_at: Some(Zero::zero()),
-			answered_in_round: Some(r + One::one())
+			answered_in_round: Some(r + 1)
 		};
 		// round `r+1` should be kept
-		assert_eq!(ChainlinkFeed::<T>::round(feed, r + T::RoundId::one()), Some(expected_round));
+		assert_eq!(ChainlinkFeed::<T>::round(feed, r + 1), Some(expected_round));
 	}
 
 	set_requester {
@@ -325,7 +323,7 @@ benchmarks! {
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
-		let delay: T::RoundId = 3u8.into();
+		let delay: RoundId = 3;
 	}: _(RawOrigin::Signed(caller.clone()), feed, requester.clone(), delay)
 	verify {
 		assert_eq!(ChainlinkFeed::<T>::requester(feed, requester).expect("feed should be there").delay, delay);
@@ -350,7 +348,7 @@ benchmarks! {
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
-		let delay: T::RoundId = 3u8.into();
+		let delay: RoundId = 3;
 		assert_is_ok(ChainlinkFeed::<T>::set_requester(RawOrigin::Signed(caller.clone()).into(), feed, requester.clone(), delay));
 	}: _(RawOrigin::Signed(caller.clone()), feed, requester.clone())
 	verify {
@@ -377,7 +375,7 @@ benchmarks! {
 			oracles.clone(),
 		));
 		let feed: T::FeedId = Zero::zero();
-		let round: T::RoundId = One::one();
+		let round: RoundId = One::one();
 		let answer: T::Value = 5u8.into();
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
 		assert_is_ok(ChainlinkFeed::<T>::submit(
@@ -389,7 +387,7 @@ benchmarks! {
 		let config = ChainlinkFeed::<T>::feed_config(feed).expect("config should be there");
 		assert_eq!(config.reporting_round, round);
 		let requester: T::AccountId = account("requester", 0, SEED);
-		let delay: T::RoundId = 3u8.into();
+		let delay: RoundId = 3;
 		assert_is_ok(ChainlinkFeed::<T>::set_requester(RawOrigin::Signed(caller.clone()).into(), feed, requester.clone(), delay));
 	}: _(
 			RawOrigin::Signed(requester.clone()),
@@ -397,7 +395,7 @@ benchmarks! {
 		)
 	verify {
 		let config = ChainlinkFeed::<T>::feed_config(feed).expect("config should be there");
-		assert_eq!(config.reporting_round, 2u8.into());
+		assert_eq!(config.reporting_round, 2);
 	}
 
 	withdraw_payment {
@@ -420,7 +418,7 @@ benchmarks! {
 			oracles.clone(),
 		));
 		let feed: T::FeedId = Zero::zero();
-		let round: T::RoundId = One::one();
+		let round: RoundId = One::one();
 		let answer: T::Value = 5u8.into();
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
 		assert_is_ok(ChainlinkFeed::<T>::submit(
@@ -531,11 +529,10 @@ benchmarks! {
 		));
 		let feed = Zero::zero();
 		let answer: T::Value = 42u8.into();
-		let rounds = 4u32;
+		let rounds: RoundId = 4;
 		let fund_account = T::ModuleId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 		for round in 1..(rounds + 1) {
-			let round = T::RoundId::from(round);
 			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(oracle.clone()).into(), feed, round, answer));
 		}
 		let rounds: BalanceOf<T> = rounds.into();
