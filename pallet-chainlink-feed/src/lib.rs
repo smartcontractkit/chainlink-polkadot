@@ -8,11 +8,11 @@ mod benchmarking;
 mod tests;
 
 pub mod default_weights;
+mod utils;
 
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode};
-use frame_support::storage::{with_transaction, TransactionOutcome};
 use frame_support::traits::{Currency, ExistenceRequirement, Get, ReservableCurrency};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
@@ -28,36 +28,7 @@ use sp_runtime::{
 };
 use sp_std::convert::{TryFrom, TryInto};
 
-/// Execute the supplied function in a new storage transaction.
-///
-/// All changes to storage performed by the supplied function are discarded if
-/// the returned outcome is `Result::Err`.
-///
-/// Transactions can be nested to any depth. Commits happen to the parent
-/// transaction.
-// TODO: remove after move to Substrate v3 (once the semantics of #[transactional] work as intended)
-pub(crate) fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result<R, E> {
-	with_transaction(|| {
-		let res = f();
-		if res.is_ok() {
-			TransactionOutcome::Commit(res)
-		} else {
-			TransactionOutcome::Rollback(res)
-		}
-	})
-}
-
-/// Determine the median of a slice of values.
-pub(crate) fn median<T: Copy + BaseArithmetic>(numbers: &mut [T]) -> T {
-	numbers.sort_unstable();
-
-	let mid = numbers.len() / 2;
-	if numbers.len() % 2 == 0 {
-		numbers[mid - 1].saturating_add(numbers[mid]) / 2.into()
-	} else {
-		numbers[mid]
-	}
-}
+use utils::{with_transaction_result, median};
 
 pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 

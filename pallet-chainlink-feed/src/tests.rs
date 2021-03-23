@@ -200,14 +200,6 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[test]
-fn median_works() {
-	let mut values = vec![4u32, 6, 2, 7];
-	assert_eq!(median(&mut values), 5);
-	let mut values = vec![4u32, 6, 2, 7, 9];
-	assert_eq!(median(&mut values), 6);
-}
-
-#[test]
 fn feed_creation_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(ChainlinkFeed::create_feed(
