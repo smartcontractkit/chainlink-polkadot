@@ -527,6 +527,14 @@ decl_module! {
 		}
 
 		/// Submit a new value to the given feed and round.
+		///
+		/// - Will start a new round if there is no round for the id, yet,
+		///   and a round can be started (at this time by this oracle).
+		/// - Will update the round answer if minimum number of submissions
+		///   has been reached.
+		/// - Records the rewards incurred by the oracle.
+		/// - Removes the details for the previous round if it was superseded.
+		///
 		/// Limited to the oracles of a feed.
 		#[weight = T::WeightInfo::submit_opening_round_answers().max(
 			T::WeightInfo::submit_closing_answer(T::OracleCountLimit::get())
@@ -599,7 +607,7 @@ decl_module! {
 						feed_id, round_id, new_answer, updated_at));
 				}
 
-				// update oracle withdrawable
+				// update oracle rewards and try to reserve them
 				let payment = details.payment;
 				T::Currency::reserve(&T::ModuleId::get().into_account(), payment).or_else(|_| -> DispatchResult {
 					// track the debt in case we cannot reserve
@@ -638,9 +646,9 @@ decl_module! {
 			to_disable.sort();
 			to_disable.dedup();
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
-				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?; // synced on drop
+				// synced on drop
+				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 				feed.ensure_owner(&owner)?;
-
 				feed.disable_oracles(to_disable)?;
 				feed.add_oracles(to_add)?;
 
@@ -660,7 +668,8 @@ decl_module! {
 			timeout: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?; // synced on drop
+			// synced on drop
+			let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			feed.ensure_owner(&owner)?;
 
 			feed.update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)?;
