@@ -133,7 +133,7 @@ pub type FeedConfigOf<T> = FeedConfig<
 /// Will only be constructed once minimum amount of submissions have
 /// been provided.
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct Round<BlockNumber: Parameter, RoundId: Parameter, Value: Parameter> {
+pub struct Round<BlockNumber, RoundId, Value> {
 	started_at: BlockNumber,
 	answer: Option<Value>,
 	updated_at: Option<BlockNumber>,
@@ -143,9 +143,9 @@ pub type RoundOf<T> = Round<<T as frame_system::Trait>::BlockNumber, <T as Trait
 
 impl<B, R, V> Round<B, R, V>
 where
-	B: Parameter + Default, // BlockNumber
-	R: Parameter + Default, // RoundId
-	V: Parameter + Default, // Value
+	B: Default, // BlockNumber
+	R: Default, // RoundId
+	V: Default, // Value
 {
 	/// Create a new Round with the given starting block.
 	fn new(started_at: B) -> Self {
@@ -158,7 +158,7 @@ where
 
 /// Round data relevant to oracles.
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct RoundDetails<Balance: Parameter, BlockNumber: Parameter, Value: Parameter> {
+pub struct RoundDetails<Balance, BlockNumber, Value> {
 	submissions: Vec<Value>,
 	submission_count_bounds: (u32, u32),
 	payment: Balance,
@@ -170,7 +170,7 @@ pub type RoundDetailsOf<T> =
 
 /// Meta data tracking withdrawable rewards and admin for an oracle.
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct OracleMeta<AccountId: Parameter, Balance: Parameter> {
+pub struct OracleMeta<AccountId, Balance> {
 	withdrawable: Balance,
 	admin: AccountId,
 	pending_admin: Option<AccountId>,
@@ -179,7 +179,7 @@ pub type OracleMetaOf<T> = OracleMeta<<T as frame_system::Trait>::AccountId, Bal
 
 /// Meta data tracking the oracle status for a feed.
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct OracleStatus<RoundId: Parameter, Value: Parameter> {
+pub struct OracleStatus<RoundId, Value> {
 	starting_round: RoundId,
 	ending_round: Option<RoundId>,
 	last_reported_round: Option<RoundId>,
@@ -190,8 +190,8 @@ pub type OracleStatusOf<T> = OracleStatus<<T as Trait>::RoundId, <T as Trait>::V
 
 impl<R, V> OracleStatus<R, V>
 where
-	R: Parameter + Default, // RoundId
-	V: Parameter + Default, // Value
+	R: Default, // RoundId
+	V: Default, // Value
 {
 	/// Create a new oracle status with the given `starting_round`.
 	fn new(starting_round: R) -> Self {
@@ -204,7 +204,7 @@ where
 
 /// Used to store round requester permissions for accounts.
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct Requester<RoundId: Parameter> {
+pub struct Requester<RoundId> {
 	delay: RoundId,
 	last_started_round: Option<RoundId>,
 }
@@ -212,7 +212,7 @@ pub type RequesterOf<T> = Requester<<T as Trait>::RoundId>;
 
 /// Round data as served by the `FeedInterface`.
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct RoundData<BlockNumber: Parameter, RoundId: Parameter, Value: Parameter> {
+pub struct RoundData<BlockNumber, RoundId, Value> {
 	pub started_at: BlockNumber,
 	pub answer: Value,
 	pub updated_at: BlockNumber,
@@ -229,10 +229,6 @@ pub enum RoundConversionError {
 
 impl<B, R, V> TryFrom<Round<B, R, V>>
 	for RoundData<B, R, V>
-where
-	B: Parameter, // BlockNumber
-	R: Parameter, // RoundId
-	V: Parameter, // Value
 {
 	type Error = RoundConversionError;
 
