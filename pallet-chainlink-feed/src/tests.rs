@@ -292,34 +292,54 @@ fn details_are_cleared() {
 			.build_and_store());
 
 		let feed_id = 0;
-		{ // round 1
+		{
+			// round 1
 			let r = 1;
 			let submission = 42;
 			let answer = submission;
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, r, submission));
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(snd_oracle), feed_id, r, submission));
+			assert_ok!(ChainlinkFeed::submit(
+				Origin::signed(oracle),
+				feed_id,
+				r,
+				submission
+			));
+			assert_ok!(ChainlinkFeed::submit(
+				Origin::signed(snd_oracle),
+				feed_id,
+				r,
+				submission
+			));
 			let round = ChainlinkFeed::round(feed_id, r).unwrap();
 			assert_eq!(round.answer, Some(answer));
 			let details = ChainlinkFeed::round_details(feed_id, r).unwrap();
 			assert_eq!(details.submissions, vec![submission, submission]);
-			let oracle_status =
-			ChainlinkFeed::oracle_status(feed_id, oracle).unwrap();
+			let oracle_status = ChainlinkFeed::oracle_status(feed_id, oracle).unwrap();
 			assert_eq!(oracle_status.latest_submission, Some(submission));
 		}
-		{ // round 2
+		{
+			// round 2
 			let r = 2;
 			let submission = 21;
 			let answer = submission;
 			// switch the order because `oracle` is not allowed
 			// to start a new round
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(snd_oracle), feed_id, r, submission));
-			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, r, submission));
+			assert_ok!(ChainlinkFeed::submit(
+				Origin::signed(snd_oracle),
+				feed_id,
+				r,
+				submission
+			));
+			assert_ok!(ChainlinkFeed::submit(
+				Origin::signed(oracle),
+				feed_id,
+				r,
+				submission
+			));
 			let round = ChainlinkFeed::round(feed_id, r).unwrap();
 			assert_eq!(round.answer, Some(answer));
 			let details = ChainlinkFeed::round_details(feed_id, r).unwrap();
 			assert_eq!(details.submissions, vec![submission, submission]);
-			let oracle_status =
-			ChainlinkFeed::oracle_status(feed_id, oracle).unwrap();
+			let oracle_status = ChainlinkFeed::oracle_status(feed_id, oracle).unwrap();
 			assert_eq!(oracle_status.latest_submission, Some(submission));
 			// old round details should be gone
 			assert_eq!(ChainlinkFeed::round_details(feed_id, 1), None);
@@ -341,40 +361,30 @@ fn submit_failure_cases() {
 		let no_feed = 1234;
 		let round_id = 1;
 		let submission = 42;
-		assert_noop!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
-			no_feed,
-			round_id,
-			submission
-		), Error::<Test>::FeedNotFound);
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(oracle), no_feed, round_id, submission),
+			Error::<Test>::FeedNotFound
+		);
 		let not_oracle = 1337;
-		assert_noop!(ChainlinkFeed::submit(
-			Origin::signed(not_oracle),
-			feed_id,
-			round_id,
-			submission
-		), Error::<Test>::NotOracle);
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(not_oracle), feed_id, round_id, submission),
+			Error::<Test>::NotOracle
+		);
 		let invalid_round = 1337;
-		assert_noop!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
-			feed_id,
-			invalid_round,
-			submission
-		), Error::<Test>::InvalidRound);
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(oracle), feed_id, invalid_round, submission),
+			Error::<Test>::InvalidRound
+		);
 		let low_value = 0;
-		assert_noop!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
-			feed_id,
-			round_id,
-			low_value,
-		), Error::<Test>::SubmissionBelowMinimum);
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, low_value,),
+			Error::<Test>::SubmissionBelowMinimum
+		);
 		let high_value = 13377331;
-		assert_noop!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
-			feed_id,
-			round_id,
-			high_value,
-		), Error::<Test>::SubmissionAboveMaximum);
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, high_value,),
+			Error::<Test>::SubmissionAboveMaximum
+		);
 	});
 }
 
@@ -386,13 +396,20 @@ fn change_oracles_should_work() {
 			.oracles(initial_oracles.clone())
 			.build_and_store());
 		for (o, _a) in initial_oracles.iter() {
-			assert!(ChainlinkFeed::oracle(o).is_some(), "oracle should be present");
+			assert!(
+				ChainlinkFeed::oracle(o).is_some(),
+				"oracle should be present"
+			);
 		}
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.oracle_count, 3);
 
-		let to_disable: Vec<u64> = initial_oracles.into_iter().take(2).map(|(o, _a)| o).collect();
+		let to_disable: Vec<u64> = initial_oracles
+			.into_iter()
+			.take(2)
+			.map(|(o, _a)| o)
+			.collect();
 		let to_add = vec![(6, 9), (7, 9), (8, 9)];
 		assert_ok!(ChainlinkFeed::change_oracles(
 			Origin::signed(1),
@@ -414,7 +431,10 @@ fn change_oracles_should_work() {
 			);
 		}
 		for (o, _a) in to_add.iter() {
-			assert!(ChainlinkFeed::oracle(o).is_some(), "oracle should be present");
+			assert!(
+				ChainlinkFeed::oracle(o).is_some(),
+				"oracle should be present"
+			);
 		}
 	});
 }
@@ -508,7 +528,10 @@ fn admin_transfer_should_work() {
 		));
 		let oracle_meta = ChainlinkFeed::oracle(oracle).expect("oracle should be present");
 		assert_eq!(oracle_meta.pending_admin, Some(new_admin));
-		assert_ok!(ChainlinkFeed::accept_admin(Origin::signed(new_admin), oracle));
+		assert_ok!(ChainlinkFeed::accept_admin(
+			Origin::signed(new_admin),
+			oracle
+		));
 		let oracle_meta = ChainlinkFeed::oracle(oracle).expect("oracle should be present");
 		assert_eq!(oracle_meta.pending_admin, None);
 		assert_eq!(oracle_meta.admin, new_admin);
@@ -649,7 +672,8 @@ fn feed_oracle_trait_should_work() {
 			assert_ok!(feed.request_new_round(AccountId::default()));
 		}
 		let round_id = 2;
-		let round = ChainlinkFeed::round(feed_id, round_id).expect("second round should be present");
+		let round =
+			ChainlinkFeed::round(feed_id, round_id).expect("second round should be present");
 		assert_eq!(
 			round,
 			Round {
@@ -716,7 +740,9 @@ fn transfer_pallet_admin_should_work() {
 			new_admin
 		));
 		assert_eq!(PendingPalletAdmin::<Test>::get(), Some(new_admin));
-		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)));
+		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(
+			new_admin
+		)));
 		assert_eq!(PalletAdmin::<Test>::get(), new_admin);
 		assert_eq!(PendingPalletAdmin::<Test>::get(), None);
 	});
@@ -802,11 +828,23 @@ fn feed_creation_permissioning() {
 	new_test_ext().execute_with(|| {
 		let admin = FeedModuleId::get().into_account();
 		let new_creator = 15;
-		assert_noop!(FeedBuilder::new().owner(new_creator).build_and_store(), Error::<Test>::NotFeedCreator);
-		assert_ok!(ChainlinkFeed::set_feed_creator(Origin::signed(admin), new_creator));
+		assert_noop!(
+			FeedBuilder::new().owner(new_creator).build_and_store(),
+			Error::<Test>::NotFeedCreator
+		);
+		assert_ok!(ChainlinkFeed::set_feed_creator(
+			Origin::signed(admin),
+			new_creator
+		));
 		assert_ok!(FeedBuilder::new().owner(new_creator).build_and_store());
-		assert_ok!(ChainlinkFeed::remove_feed_creator(Origin::signed(admin), new_creator));
-		assert_noop!(FeedBuilder::new().owner(new_creator).build_and_store(), Error::<Test>::NotFeedCreator);
+		assert_ok!(ChainlinkFeed::remove_feed_creator(
+			Origin::signed(admin),
+			new_creator
+		));
+		assert_noop!(
+			FeedBuilder::new().owner(new_creator).build_and_store(),
+			Error::<Test>::NotFeedCreator
+		);
 	});
 }
 
@@ -817,7 +855,11 @@ fn can_go_into_debt_and_repay() {
 		let owner = 1;
 		let oracle = 2;
 		let payment = 33;
-		assert_ok!(FeedBuilder::new().payment(payment).owner(owner).oracles(vec![(oracle, 3), (3, 3)]).build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.payment(payment)
+			.owner(owner)
+			.oracles(vec![(oracle, 3), (3, 3)])
+			.build_and_store());
 		assert_eq!(ChainlinkFeed::debt(), 0);
 		// ensure the fund is out of tokens
 		Balances::make_free_balance_be(&admin, ExistentialDeposit::get());

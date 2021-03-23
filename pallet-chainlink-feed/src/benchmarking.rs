@@ -25,7 +25,7 @@ fn whitelisted_account<T: Trait>(name: &'static str, counter: u32) -> T::Account
 
 fn whitelist_acc<T: Trait>(acc: &T::AccountId) {
 	frame_benchmarking::benchmarking::add_to_whitelist(
-		frame_system::Account::<T>::hashed_key_for(acc).into()
+		frame_system::Account::<T>::hashed_key_for(acc).into(),
 	);
 }
 

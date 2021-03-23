@@ -17,8 +17,9 @@ use frame_support::traits::{Currency, ExistenceRequirement, Get, ReservableCurre
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo, HasCompact},
-	ensure, Parameter, RuntimeDebug,
+	ensure,
 	weights::Weight,
+	Parameter, RuntimeDebug,
 };
 use frame_system::ensure_signed;
 use sp_arithmetic::traits::BaseArithmetic;
@@ -28,9 +29,10 @@ use sp_runtime::{
 };
 use sp_std::convert::{TryFrom, TryInto};
 
-use utils::{with_transaction_result, median};
+use utils::{median, with_transaction_result};
 
-pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub type BalanceOf<T> =
+	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 pub type RoundId = u32;
 
@@ -112,7 +114,7 @@ pub type RoundOf<T> = Round<<T as frame_system::Trait>::BlockNumber, <T as Trait
 impl<BlockNumber, Value> Round<BlockNumber, Value>
 where
 	BlockNumber: Default, // BlockNumber
-	Value: Default, // Value
+	Value: Default,       // Value
 {
 	/// Create a new Round with the given starting block.
 	fn new(started_at: BlockNumber) -> Self {
@@ -134,7 +136,6 @@ pub struct RoundDetails<Balance, BlockNumber, Value> {
 pub type RoundDetailsOf<T> =
 	RoundDetails<BalanceOf<T>, <T as frame_system::Trait>::BlockNumber, <T as Trait>::Value>;
 
-
 /// Meta data tracking withdrawable rewards and admin for an oracle.
 #[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct OracleMeta<AccountId, Balance> {
@@ -155,7 +156,9 @@ pub struct OracleStatus<Value> {
 }
 pub type OracleStatusOf<T> = OracleStatus<<T as Trait>::Value>;
 
-impl<Value> OracleStatus<Value> where Value: Default
+impl<Value> OracleStatus<Value>
+where
+	Value: Default,
 {
 	/// Create a new oracle status with the given `starting_round`.
 	fn new(starting_round: RoundId) -> Self {
@@ -181,8 +184,7 @@ pub struct RoundData<BlockNumber, Value> {
 	pub updated_at: BlockNumber,
 	pub answered_in_round: RoundId,
 }
-pub type RoundDataOf<T> =
-	RoundData<<T as frame_system::Trait>::BlockNumber, <T as Trait>::Value>;
+pub type RoundDataOf<T> = RoundData<<T as frame_system::Trait>::BlockNumber, <T as Trait>::Value>;
 
 /// Possible error when converting from `Round` to `RoundData`.
 #[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
@@ -190,9 +192,7 @@ pub enum RoundConversionError {
 	MissingField,
 }
 
-impl<B, V> TryFrom<Round<B, V>>
-	for RoundData<B, V>
-{
+impl<B, V> TryFrom<Round<B, V>> for RoundData<B, V> {
 	type Error = RoundConversionError;
 
 	fn try_from(r: Round<B, V>) -> Result<Self, Self::Error> {
@@ -232,10 +232,7 @@ pub trait FeedInterface {
 
 	/// Returns the data for a given round.
 	/// Will return `None` if there is no data for the given round.
-	fn data_at(
-		&self,
-		round: RoundId,
-	) -> Option<RoundData<Self::BlockNumber, Self::Value>>;
+	fn data_at(&self, round: RoundId) -> Option<RoundData<Self::BlockNumber, Self::Value>>;
 
 	/// Returns the latest data for the feed.
 	/// Will always return data but may contain default data if there
@@ -1053,8 +1050,14 @@ impl<T: Trait> Feed<T> {
 	/// Returns `false` for rounds not present in storage.
 	fn is_timed_out(&self, round: RoundId) -> bool {
 		// Assumption: returning false for non-existent rounds is fine.
-		let started_at = self.round(round).map(|r| r.started_at).unwrap_or(Zero::zero());
-		let timeout = self.details(round).map(|d| d.timeout).unwrap_or(Zero::zero());
+		let started_at = self
+			.round(round)
+			.map(|r| r.started_at)
+			.unwrap_or(Zero::zero());
+		let timeout = self
+			.details(round)
+			.map(|d| d.timeout)
+			.unwrap_or(Zero::zero());
 		let block_num = frame_system::Module::<T>::block_number();
 
 		started_at > Zero::zero()
@@ -1068,7 +1071,9 @@ impl<T: Trait> Feed<T> {
 	/// Check whether a round has been updated.
 	/// Returns `false` for rounds not present in storage.
 	fn was_updated(&self, round: RoundId) -> bool {
-		self.round(round).map(|r| r.updated_at.is_some()).unwrap_or(false)
+		self.round(round)
+			.map(|r| r.updated_at.is_some())
+			.unwrap_or(false)
 	}
 
 	/// Check whether the round can be superseded by the next one.
@@ -1085,7 +1090,8 @@ impl<T: Trait> Feed<T> {
 	// TODO: use [require_transactional](https://github.com/paritytech/substrate/issues/7004)
 	// after migrating to Substrate v3 for this and others.
 	fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
-		let new_count = self.oracle_count()
+		let new_count = self
+			.oracle_count()
 			// saturating is fine because we inforce a limit below
 			.saturating_add(to_add.len() as u32);
 		ensure!(
@@ -1192,10 +1198,7 @@ impl<T: Trait> Feed<T> {
 	/// Will close the previous one if it is timed out.
 	///
 	/// **Warning:** Fallible function that changes storage.
-	fn initialize_round(
-		&mut self,
-		new_round_id: RoundId,
-	) -> Result<T::BlockNumber, DispatchError> {
+	fn initialize_round(&mut self, new_round_id: RoundId) -> Result<T::BlockNumber, DispatchError> {
 		self.config.reporting_round = new_round_id;
 
 		let prev_round_id = new_round_id.saturating_sub(One::one());
@@ -1301,7 +1304,8 @@ impl<T: Trait> FeedInterface for Feed<T> {
 	///
 	/// **Warning:** Fallible function that changes storage.
 	fn request_new_round(&mut self, requester: T::AccountId) -> DispatchResult {
-		let new_round = self.reporting_round_id()
+		let new_round = self
+			.reporting_round_id()
 			.checked_add(One::one())
 			.ok_or(Error::<T>::Overflow)?;
 		ensure!(
@@ -1311,10 +1315,7 @@ impl<T: Trait> FeedInterface for Feed<T> {
 		let started_at = self.initialize_round(new_round)?;
 
 		Module::<T>::deposit_event(RawEvent::NewRound(
-			self.id,
-			new_round,
-			requester,
-			started_at,
+			self.id, new_round, requester, started_at,
 		));
 
 		Ok(())
@@ -1323,14 +1324,14 @@ impl<T: Trait> FeedInterface for Feed<T> {
 
 /// Trait for the chainlink pallet extrinsic weights.
 pub trait WeightInfo {
-	fn create_feed(o: u32, ) -> Weight;
+	fn create_feed(o: u32) -> Weight;
 	fn transfer_ownership() -> Weight;
 	fn accept_ownership() -> Weight;
 	fn submit_opening_round_answers() -> Weight;
-	fn submit_closing_answer(o: u32, ) -> Weight;
-	fn change_oracles(o: u32, ) -> Weight;
+	fn submit_closing_answer(o: u32) -> Weight;
+	fn change_oracles(o: u32) -> Weight;
 	fn update_future_rounds() -> Weight;
-	fn prune(r: u32, ) -> Weight;
+	fn prune(r: u32) -> Weight;
 	fn set_requester() -> Weight;
 	fn remove_requester() -> Weight;
 	fn request_new_round() -> Weight;
