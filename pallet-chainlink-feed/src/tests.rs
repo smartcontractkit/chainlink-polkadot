@@ -276,6 +276,58 @@ fn submit_should_work() {
 }
 
 #[test]
+fn details_are_cleared() {
+	new_test_ext().execute_with(|| {
+		let payment = 20;
+		let timeout = 10;
+		let min_submissions = 2;
+		let oracle = 2;
+		let snd_oracle = 3;
+		let oracles = vec![(1, 4), (oracle, 4), (snd_oracle, 4)];
+		assert_ok!(FeedBuilder::new()
+			.payment(payment)
+			.timeout(timeout)
+			.min_submissions(min_submissions)
+			.oracles(oracles)
+			.build_and_store());
+
+		let feed_id = 0;
+		{ // round 1
+			let r = 1;
+			let submission = 42;
+			let answer = submission;
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, r, submission));
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(snd_oracle), feed_id, r, submission));
+			let round = ChainlinkFeed::round(feed_id, r).unwrap();
+			assert_eq!(round.answer, Some(answer));
+			let details = ChainlinkFeed::round_details(feed_id, r).unwrap();
+			assert_eq!(details.submissions, vec![submission, submission]);
+			let oracle_status =
+			ChainlinkFeed::oracle_status(feed_id, oracle).unwrap();
+			assert_eq!(oracle_status.latest_submission, Some(submission));
+		}
+		{ // round 2
+			let r = 2;
+			let submission = 21;
+			let answer = submission;
+			// switch the order because `oracle` is not allowed
+			// to start a new round
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(snd_oracle), feed_id, r, submission));
+			assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), feed_id, r, submission));
+			let round = ChainlinkFeed::round(feed_id, r).unwrap();
+			assert_eq!(round.answer, Some(answer));
+			let details = ChainlinkFeed::round_details(feed_id, r).unwrap();
+			assert_eq!(details.submissions, vec![submission, submission]);
+			let oracle_status =
+			ChainlinkFeed::oracle_status(feed_id, oracle).unwrap();
+			assert_eq!(oracle_status.latest_submission, Some(submission));
+			// old round details should be gone
+			assert_eq!(ChainlinkFeed::round_details(feed_id, 1), None);
+		}
+	});
+}
+
+#[test]
 fn submit_failure_cases() {
 	new_test_ext().execute_with(|| {
 		let oracle = 2;

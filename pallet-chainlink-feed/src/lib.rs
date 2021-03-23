@@ -589,6 +589,11 @@ decl_module! {
 					if feed.config.first_valid_round.is_none() {
 						feed.config.first_valid_round = Some(round_id);
 					}
+					// the previous rounds is not eligible for answers any more, so we close it
+					let prev_round_id = round_id.saturating_sub(1);
+					if prev_round_id > 0 {
+						Details::<T>::remove(feed_id, prev_round_id);
+					}
 
 					Self::deposit_event(RawEvent::AnswerUpdated(
 						feed_id, round_id, new_answer, updated_at));
