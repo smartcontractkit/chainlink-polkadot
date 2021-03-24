@@ -78,7 +78,7 @@ const MIN_RESERVE: u64 = 100;
 parameter_types! {
 	pub const FeedModuleId: ModuleId = ModuleId(*b"linkfeed");
 	pub const MinimumReserve: u64 = MIN_RESERVE;
-	pub const StringLimit: u32 = 30;
+	pub const StringLimit: u32 = 15;
 	pub const OracleLimit: u32 = 10;
 	pub const FeedLimit: u16 = 10;
 	pub const PruningWindow: u32 = 3;
@@ -109,6 +109,7 @@ struct FeedBuilder {
 	timeout: Option<BlockNumber>,
 	value_bounds: Option<(Value, Value)>,
 	min_submissions: Option<u32>,
+	description: Option<Vec<u8>>,
 	restart_delay: Option<RoundId>,
 	oracles: Option<Vec<(AccountId, AccountId)>>,
 }
@@ -143,6 +144,11 @@ impl FeedBuilder {
 		self
 	}
 
+	fn description(mut self, d: Vec<u8>) -> Self {
+		self.description = Some(d);
+		self
+	}
+
 	fn restart_delay(mut self, d: RoundId) -> Self {
 		self.restart_delay = Some(d);
 		self
@@ -160,9 +166,9 @@ impl FeedBuilder {
 		let value_bounds = self.value_bounds.unwrap_or((1, 1_000));
 		let min_submissions = self.min_submissions.unwrap_or(2);
 		let decimals = 5;
-		let description = b"desc".to_vec();
-		let restart_delay = self.restart_delay.unwrap_or(1);
+		let description = self.description.unwrap_or(b"desc".to_vec());
 		let oracles = self.oracles.unwrap_or(vec![(2, 4), (3, 4), (4, 4)]);
+		let restart_delay = self.restart_delay.unwrap_or(oracles.len().saturating_sub(1) as u32);
 		ChainlinkFeed::create_feed(
 			owner,
 			payment,
@@ -213,6 +219,24 @@ fn feed_creation_should_work() {
 			2,
 			vec![(1, 4), (2, 4), (3, 4)],
 		));
+	});
+}
+
+#[test]
+fn feed_creation_failure_cases() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(FeedBuilder::new().owner(123).build_and_store(), Error::<Test>::NotFeedCreator);
+		assert_noop!(FeedBuilder::new().description(b"waaaaaaaaaaaaaaaaay too long".to_vec()).build_and_store(), Error::<Test>::DescriptionTooLong);
+		let too_many_oracles = (0..(OracleLimit::get() + 1)).into_iter().map(|i| (i as u64, i as u64)).collect();
+		assert_noop!(FeedBuilder::new().oracles(too_many_oracles).build_and_store(), Error::<Test>::OraclesLimitExceeded);
+		assert_noop!(FeedBuilder::new().min_submissions(3).oracles(vec![(1, 2)]).build_and_store(), Error::<Test>::WrongBounds);
+		assert_noop!(FeedBuilder::new().min_submissions(0).oracles(vec![(1, 2)]).build_and_store(), Error::<Test>::WrongBounds);
+		assert_noop!(FeedBuilder::new().oracles(vec![(1, 2), (2, 3), (3, 4)]).restart_delay(3).build_and_store(), Error::<Test>::DelayExceededTotal);
+
+		for _feed in 0..FeedLimit::get() {
+			assert_ok!(FeedBuilder::new().build_and_store());
+		}
+		assert_noop!(FeedBuilder::new().build_and_store(), Error::<Test>::FeedLimitReached);
 	});
 }
 
