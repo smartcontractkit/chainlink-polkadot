@@ -630,7 +630,7 @@ decl_module! {
 
 		/// Disable and add oracles for the given feed.
 		/// Limited to the owner of a feed.
-		#[weight = T::WeightInfo::change_oracles((to_disable.len() + to_add.len()) as u32)]
+		#[weight = T::WeightInfo::change_oracles(to_disable.len() as u32, to_add.len() as u32)]
 		pub fn change_oracles(
 			origin,
 			feed_id: T::FeedId,
@@ -1329,7 +1329,7 @@ pub trait WeightInfo {
 	fn accept_ownership() -> Weight;
 	fn submit_opening_round_answers() -> Weight;
 	fn submit_closing_answer(o: u32) -> Weight;
-	fn change_oracles(o: u32) -> Weight;
+	fn change_oracles(d: u32, n: u32) -> Weight;
 	fn update_future_rounds() -> Weight;
 	fn prune(r: u32) -> Weight;
 	fn set_requester() -> Weight;
