@@ -193,14 +193,15 @@ benchmarks! {
 	}
 
 	change_oracles {
-		let o in 1 .. T::OracleCountLimit::get();
+		let d in 1 .. T::OracleCountLimit::get();
+		let n in 1 .. T::OracleCountLimit::get();
 
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
 		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
-		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
-		let oracles_after: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("new_oracle", n, SEED), admin.clone())).collect();
+		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..d).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
+		let oracles_after: Vec<(T::AccountId, T::AccountId)> = (0..n).map(|n| (account("new_oracle", n, SEED), admin.clone())).collect();
 		let description = vec![1; T::StringLimit::get() as usize];
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -222,7 +223,7 @@ benchmarks! {
 			oracles_after
 		)
 	verify {
-		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").oracle_count, o);
+		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").oracle_count, n);
 	}
 
 	update_future_rounds {
