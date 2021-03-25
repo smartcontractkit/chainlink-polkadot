@@ -1014,7 +1014,7 @@ fn feed_oracle_trait_should_work() {
 #[test]
 fn payment_withdrawal_should_work() {
 	new_test_ext().execute_with(|| {
-		let amount = 50;
+		let amount = ExistentialDeposit::get();
 		let oracle = 3;
 		let admin = 4;
 		let recipient = 5;
@@ -1027,9 +1027,25 @@ fn payment_withdrawal_should_work() {
 			},
 		);
 		assert_noop!(
+			ChainlinkFeed::withdraw_payment(Origin::signed(admin), 123, recipient, amount),
+			Error::<Test>::OracleNotFound
+		);
+		assert_noop!(
+			ChainlinkFeed::withdraw_payment(Origin::signed(123), oracle, recipient, amount),
+			Error::<Test>::NotAdmin
+		);
+		assert_noop!(
 			ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, 2 * amount),
 			Error::<Test>::InsufficientFunds
 		);
+		let fund = FeedModuleId::get().into_account();
+		let fund_balance = Balances::free_balance(&fund);
+		Balances::make_free_balance_be(&fund, ExistentialDeposit::get());
+		assert!(
+			ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, amount).is_err()
+		);
+		Balances::make_free_balance_be(&fund, fund_balance);
+
 		assert_ok!(ChainlinkFeed::withdraw_payment(
 			Origin::signed(admin),
 			oracle,
