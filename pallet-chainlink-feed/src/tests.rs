@@ -730,6 +730,16 @@ fn admin_transfer_should_work() {
 			.build_and_store());
 
 		let new_admin = 42;
+		assert_noop!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			123,
+			new_admin
+		), Error::<Test>::OracleNotFound);
+		assert_noop!(ChainlinkFeed::transfer_admin(
+			Origin::signed(123),
+			oracle,
+			new_admin
+		), Error::<Test>::NotAdmin);
 		assert_ok!(ChainlinkFeed::transfer_admin(
 			Origin::signed(old_admin),
 			oracle,
@@ -737,6 +747,14 @@ fn admin_transfer_should_work() {
 		));
 		let oracle_meta = ChainlinkFeed::oracle(oracle).expect("oracle should be present");
 		assert_eq!(oracle_meta.pending_admin, Some(new_admin));
+		assert_noop!(ChainlinkFeed::accept_admin(
+			Origin::signed(new_admin),
+			123,
+		), Error::<Test>::OracleNotFound);
+		assert_noop!(ChainlinkFeed::accept_admin(
+			Origin::signed(123),
+			oracle
+		), Error::<Test>::NotPendingAdmin);
 		assert_ok!(ChainlinkFeed::accept_admin(
 			Origin::signed(new_admin),
 			oracle
