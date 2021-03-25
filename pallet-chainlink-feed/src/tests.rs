@@ -766,11 +766,18 @@ fn request_new_round_should_work() {
 
 		let feed_id = 0;
 		let requester = 22;
+		let snd_requester = 33;
 		let delay = 4;
 		assert_ok!(ChainlinkFeed::set_requester(
 			Origin::signed(owner),
 			feed_id,
 			requester,
+			delay
+		));
+		assert_ok!(ChainlinkFeed::set_requester(
+			Origin::signed(owner),
+			feed_id,
+			snd_requester,
 			delay
 		));
 		let requester_meta =
@@ -782,10 +789,34 @@ fn request_new_round_should_work() {
 				last_started_round: None
 			}
 		);
+		// failure cases
+		assert_noop!(ChainlinkFeed::request_new_round(
+			Origin::signed(123),
+			feed_id
+		), Error::<Test>::NotAuthorizedRequester);
+		// non existent feed is not present but also not authorized
+		assert_noop!(ChainlinkFeed::request_new_round(
+			Origin::signed(requester),
+			123
+		), Error::<Test>::NotAuthorizedRequester);
+
+		// actually request new round
 		assert_ok!(ChainlinkFeed::request_new_round(
 			Origin::signed(requester),
 			feed_id
 		));
+		// need to wait `delay` rounds before requesting again
+		assert_noop!(ChainlinkFeed::request_new_round(
+			Origin::signed(requester),
+			feed_id
+		), Error::<Test>::CannotRequestRoundYet);
+		// round does not have data and is not timed out
+		// --> not supersedable
+		assert_noop!(ChainlinkFeed::request_new_round(
+			Origin::signed(snd_requester),
+			feed_id
+		), Error::<Test>::RoundNotSupersedable);
+
 		let round_id = 1;
 		let round = ChainlinkFeed::round(feed_id, round_id).expect("first round should be present");
 		assert_eq!(
