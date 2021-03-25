@@ -948,6 +948,7 @@ fn prune_should_work() {
 		System::set_block_number(3);
 		submit_a(2);
 		System::set_block_number(5);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 3), Error::<Test>::NothingToPrune);
 		// submit the valid rounds
 		submit_a_and_b(3);
 		submit_a_and_b(4);
@@ -957,7 +958,17 @@ fn prune_should_work() {
 		// simulate an unfinished round so reporting_round != latest_round
 		submit_a(8);
 
-		assert_ok!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 5));
+		let first_to_prune = 1;
+		let keep_round = 5;
+		// failure cases
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 0, keep_round), Error::<Test>::CannotPruneRoundZero);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 6, keep_round), Error::<Test>::NothingToPrune);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), 23, first_to_prune, keep_round), Error::<Test>::FeedNotFound);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(23), feed_id, first_to_prune, keep_round), Error::<Test>::NotFeedOwner);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 6, 7), Error::<Test>::NothingToPrune);
+
+		// do the successful prune
+		assert_ok!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, first_to_prune, keep_round));
 		// we try to prune until 5, but limits are set up in a way that we can
 		// only prune until 4
 		assert_eq!(ChainlinkFeed::round(feed_id, 3), None);
