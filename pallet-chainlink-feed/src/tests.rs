@@ -966,6 +966,7 @@ fn prune_should_work() {
 		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), 23, first_to_prune, keep_round), Error::<Test>::FeedNotFound);
 		assert_noop!(ChainlinkFeed::prune(Origin::signed(23), feed_id, first_to_prune, keep_round), Error::<Test>::NotFeedOwner);
 		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 6, 7), Error::<Test>::NothingToPrune);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 3, keep_round),Error::<Test>::PruneContiguously);
 
 		// do the successful prune
 		assert_ok!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, first_to_prune, keep_round));

@@ -402,6 +402,8 @@ decl_error! {
 		CannotPruneRoundZero,
 		/// The given pruning bounds don't cause any pruning with the current state.
 		NothingToPrune,
+		/// The pruning should leave the rounds story in a contiguous state (no gaps).
+		PruneContiguously,
 		/// The maximum number of feeds was reached.
 		FeedLimitReached,
 		/// The round cannot be superseded by a new round.
@@ -675,6 +677,11 @@ decl_module! {
 		}
 
 		/// Prune the state of a feed to reduce storage load.
+		///
+		/// - Will update the `first_valid_round` to the most recent round kept.
+		/// - Will only prune until hitting the pruning window (which makes sure to keep N rounds
+		/// of data available).
+		///
 		/// Limited to the owner of a feed.
 		#[weight = T::WeightInfo::prune(keep_round.saturating_sub(*first_to_prune))]
 		pub fn prune(
@@ -690,6 +697,7 @@ decl_module! {
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 
 			if let Some(first_valid_round) = feed.first_valid_round {
+				ensure!(first_to_prune <= first_valid_round, Error::<T>::PruneContiguously);
 				let pruning_window = T::PruningWindow::get();
 				ensure!(feed.latest_round.saturating_sub(first_to_prune) > pruning_window, Error::<T>::NothingToPrune);
 				let keep_round = feed.latest_round.saturating_sub(pruning_window).min(keep_round);
