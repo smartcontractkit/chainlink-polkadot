@@ -1246,11 +1246,25 @@ fn feed_creation_permissioning() {
 			FeedBuilder::new().owner(new_creator).build_and_store(),
 			Error::<Test>::NotFeedCreator
 		);
+		assert_noop!(
+			ChainlinkFeed::set_feed_creator(
+				Origin::signed(123),
+				new_creator
+			),
+			Error::<Test>::NotPalletAdmin
+		);
 		assert_ok!(ChainlinkFeed::set_feed_creator(
 			Origin::signed(admin),
 			new_creator
 		));
 		assert_ok!(FeedBuilder::new().owner(new_creator).build_and_store());
+		assert_noop!(
+			ChainlinkFeed::remove_feed_creator(
+				Origin::signed(123),
+				new_creator
+			),
+			Error::<Test>::NotPalletAdmin
+		);
 		assert_ok!(ChainlinkFeed::remove_feed_creator(
 			Origin::signed(admin),
 			new_creator
