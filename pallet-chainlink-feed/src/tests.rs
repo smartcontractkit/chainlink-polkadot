@@ -1104,11 +1104,18 @@ fn transfer_pallet_admin_should_work() {
 	new_test_ext().execute_with(|| {
 		let new_admin = 23;
 		let fund = FeedModuleId::get().into_account();
+		assert_noop!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(123),
+			new_admin
+		), Error::<Test>::NotPalletAdmin);
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
 			Origin::signed(fund),
 			new_admin
 		));
 		assert_eq!(PendingPalletAdmin::<Test>::get(), Some(new_admin));
+		assert_noop!(ChainlinkFeed::accept_pallet_admin(
+			Origin::signed(123)
+		), Error::<Test>::NotPendingPalletAdmin);
 		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(
 			new_admin
 		)));
