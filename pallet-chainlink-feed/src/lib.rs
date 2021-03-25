@@ -381,7 +381,7 @@ decl_error! {
 		MaxExceededTotal,
 		/// The round initiation delay cannot be equal to or greater
 		/// than the number of oracles.
-		DelayExceededTotal,
+		DelayNotBelowCount,
 		/// Sender is not admin. Admin privilege can only be transfered by the admin.
 		NotAdmin,
 		/// Only the pending admin can accept the transfer.
@@ -1172,9 +1172,8 @@ impl<T: Trait> Feed<T> {
 		// round.
 		ensure!(
 			self.oracle_count() > restart_delay,
-			Error::<T>::DelayExceededTotal
+			Error::<T>::DelayNotBelowCount
 		);
-		// require(recordedFunds.available >= requiredReserve(_paymentAmount), "insufficient funds for payment");
 		if self.oracle_count() > 0 {
 			ensure!(min > 0, Error::<T>::WrongBounds);
 		}

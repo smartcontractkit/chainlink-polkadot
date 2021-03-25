@@ -231,7 +231,7 @@ fn feed_creation_failure_cases() {
 		assert_noop!(FeedBuilder::new().oracles(too_many_oracles).build_and_store(), Error::<Test>::OraclesLimitExceeded);
 		assert_noop!(FeedBuilder::new().min_submissions(3).oracles(vec![(1, 2)]).build_and_store(), Error::<Test>::WrongBounds);
 		assert_noop!(FeedBuilder::new().min_submissions(0).oracles(vec![(1, 2)]).build_and_store(), Error::<Test>::WrongBounds);
-		assert_noop!(FeedBuilder::new().oracles(vec![(1, 2), (2, 3), (3, 4)]).restart_delay(3).build_and_store(), Error::<Test>::DelayExceededTotal);
+		assert_noop!(FeedBuilder::new().oracles(vec![(1, 2), (2, 3), (3, 4)]).restart_delay(3).build_and_store(), Error::<Test>::DelayNotBelowCount);
 
 		for _feed in 0..FeedLimit::get() {
 			assert_ok!(FeedBuilder::new().build_and_store());
@@ -239,7 +239,6 @@ fn feed_creation_failure_cases() {
 		assert_noop!(FeedBuilder::new().build_and_store(), Error::<Test>::FeedLimitReached);
 	});
 }
-
 #[test]
 fn submit_should_work() {
 	new_test_ext().execute_with(|| {
@@ -426,21 +425,74 @@ fn change_oracles_should_work() {
 			);
 		}
 		let feed_id = 0;
+		let owner = 1;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.oracle_count, 3);
 
 		let to_disable: Vec<u64> = initial_oracles
-			.into_iter()
+			.iter().cloned()
 			.take(2)
 			.map(|(o, _a)| o)
 			.collect();
 		let to_add = vec![(6, 9), (7, 9), (8, 9)];
+		// failing cases
+		assert_noop!(ChainlinkFeed::change_oracles(
+			Origin::signed(owner),
+			123,
+			to_disable.clone(),
+			to_add.clone(),
+		), Error::<Test>::FeedNotFound);
+		assert_noop!(ChainlinkFeed::change_oracles(
+			Origin::signed(123),
+			feed_id,
+			to_disable.clone(),
+			to_add.clone(),
+		), Error::<Test>::NotFeedOwner);
+		// we cannot disable the oracles before adding them
+		let cannot_disable = to_add.iter().cloned().take(2).map(|(o, _a)| o).collect();
+		assert_noop!(ChainlinkFeed::change_oracles(
+			Origin::signed(owner),
+			feed_id,
+			cannot_disable,
+			to_add.clone(),
+		), Error::<Test>::OracleNotFound);
+		let too_many_oracles = (0..(OracleLimit::get() + 1)).into_iter().map(|i| (i as u64, i as u64)).collect();
+		assert_noop!(ChainlinkFeed::change_oracles(
+			Origin::signed(owner),
+			feed_id,
+			to_disable.clone(),
+			too_many_oracles,
+		), Error::<Test>::OraclesLimitExceeded);
+		let changed_admin = initial_oracles.iter().cloned().map(|(o, _a)| (o, 33)).collect();
+		assert_noop!(ChainlinkFeed::change_oracles(
+			Origin::signed(owner),
+			feed_id,
+			to_disable.clone(),
+			changed_admin,
+		), Error::<Test>::OwnerCannotChangeAdmin);
+
+		// successfully change oracles
 		assert_ok!(ChainlinkFeed::change_oracles(
-			Origin::signed(1),
+			Origin::signed(owner),
 			feed_id,
 			to_disable.clone(),
 			to_add.clone(),
 		));
+
+		// we cannot disable the same oracles a second time
+		assert_noop!(ChainlinkFeed::change_oracles(
+			Origin::signed(owner),
+			feed_id,
+			to_disable.clone(),
+			to_add.clone(),
+		), Error::<Test>::OracleDisabled);
+		assert_noop!(ChainlinkFeed::change_oracles(
+			Origin::signed(owner),
+			feed_id,
+			vec![],
+			to_add.clone(),
+		), Error::<Test>::AlreadyEnabled);
+
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.oracle_count, 4);
 		assert_eq!(Oracles::<Test>::iter().count(), 6);
@@ -507,19 +559,71 @@ fn update_future_rounds_should_work() {
 			.payment(old_payment)
 			.timeout(old_timeout)
 			.min_submissions(old_min)
-			.oracles(oracles)
+			.oracles(oracles.clone())
 			.build_and_store());
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.payment, old_payment);
 
+		let owner = 1;
 		let new_payment = 30;
 		let new_min = 3;
 		let new_max = 3;
 		let new_delay = 1;
 		let new_timeout = 5;
+		// failure cases
+		assert_noop!(ChainlinkFeed::update_future_rounds(
+			Origin::signed(owner),
+			5,
+			new_payment,
+			(new_min, new_max),
+			new_delay,
+			new_timeout,
+		), Error::<Test>::FeedNotFound);
+		assert_noop!(ChainlinkFeed::update_future_rounds(
+			Origin::signed(123),
+			feed_id,
+			new_payment,
+			(new_min, new_max),
+			new_delay,
+			new_timeout,
+		), Error::<Test>::NotFeedOwner);
+		assert_noop!(ChainlinkFeed::update_future_rounds(
+			Origin::signed(owner),
+			feed_id,
+			new_payment,
+			(new_max + 1, new_max),
+			new_delay,
+			new_timeout,
+		), Error::<Test>::WrongBounds);
+		assert_noop!(ChainlinkFeed::update_future_rounds(
+			Origin::signed(owner),
+			feed_id,
+			new_payment,
+			(new_min, oracles.len() as u32 + 1),
+			new_delay,
+			new_timeout,
+		), Error::<Test>::MaxExceededTotal);
+		assert_noop!(ChainlinkFeed::update_future_rounds(
+			Origin::signed(owner),
+			feed_id,
+			new_payment,
+			(new_min, new_max),
+			oracles.len() as RoundId,
+			new_timeout,
+		), Error::<Test>::DelayNotBelowCount);
+		assert_noop!(ChainlinkFeed::update_future_rounds(
+			Origin::signed(owner),
+			feed_id,
+			new_payment,
+			(0, new_max),
+			new_delay,
+			new_timeout,
+		), Error::<Test>::WrongBounds);
+
+		// successful update
 		assert_ok!(ChainlinkFeed::update_future_rounds(
-			Origin::signed(1),
+			Origin::signed(owner),
 			feed_id,
 			new_payment,
 			(new_min, new_max),
@@ -632,6 +736,21 @@ fn transfer_ownership_should_work() {
 
 		let feed_id = 0;
 		let new_owner = 42;
+		assert_noop!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			5,
+			new_owner
+		), Error::<Test>::FeedNotFound);
+		assert_noop!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(23),
+			feed_id,
+			new_owner
+		), Error::<Test>::NotFeedOwner);
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			new_owner
+		));
 		assert_ok!(ChainlinkFeed::transfer_ownership(
 			Origin::signed(old_owner),
 			feed_id,
@@ -639,6 +758,14 @@ fn transfer_ownership_should_work() {
 		));
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, Some(new_owner));
+		assert_noop!(ChainlinkFeed::accept_ownership(
+			Origin::signed(new_owner),
+			123
+		), Error::<Test>::FeedNotFound);
+		assert_noop!(ChainlinkFeed::accept_ownership(
+			Origin::signed(old_owner),
+			feed_id
+		), Error::<Test>::NotPendingOwner);
 		assert_ok!(ChainlinkFeed::accept_ownership(
 			Origin::signed(new_owner),
 			feed_id
