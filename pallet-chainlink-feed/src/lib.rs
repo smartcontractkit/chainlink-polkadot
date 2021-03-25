@@ -402,6 +402,8 @@ decl_error! {
 		CannotPruneRoundZero,
 		/// The given pruning bounds don't cause any pruning with the current state.
 		NothingToPrune,
+		/// There is no valid data, yet, so the conditions for pruning are not met.
+		NoValidRoundYet,
 		/// The pruning should leave the rounds story in a contiguous state (no gaps).
 		PruneContiguously,
 		/// The maximum number of feeds was reached.
@@ -713,7 +715,7 @@ decl_module! {
 
 				Ok(())
 			} else {
-				Err(Error::<T>::NothingToPrune.into())
+				Err(Error::<T>::NoValidRoundYet.into())
 			}
 		}
 

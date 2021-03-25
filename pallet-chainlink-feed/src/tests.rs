@@ -948,9 +948,10 @@ fn prune_should_work() {
 		System::set_block_number(3);
 		submit_a(2);
 		System::set_block_number(5);
-		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 3), Error::<Test>::NothingToPrune);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 3), Error::<Test>::NoValidRoundYet);
 		// submit the valid rounds
 		submit_a_and_b(3);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 3), Error::<Test>::NothingToPrune);
 		submit_a_and_b(4);
 		submit_a_and_b(5);
 		submit_a_and_b(6);
@@ -965,8 +966,7 @@ fn prune_should_work() {
 		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 6, keep_round), Error::<Test>::NothingToPrune);
 		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), 23, first_to_prune, keep_round), Error::<Test>::FeedNotFound);
 		assert_noop!(ChainlinkFeed::prune(Origin::signed(23), feed_id, first_to_prune, keep_round), Error::<Test>::NotFeedOwner);
-		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 6, 7), Error::<Test>::NothingToPrune);
-		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 3, keep_round),Error::<Test>::PruneContiguously);
+		assert_noop!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, 4, keep_round),Error::<Test>::PruneContiguously);
 
 		// do the successful prune
 		assert_ok!(ChainlinkFeed::prune(Origin::signed(owner), feed_id, first_to_prune, keep_round));
