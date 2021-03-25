@@ -725,6 +725,81 @@ fn request_new_round_should_work() {
 				timeout,
 			}
 		);
+		let requester_meta =
+			ChainlinkFeed::requester(feed_id, requester).expect("requester should be present");
+		assert_eq!(
+			requester_meta,
+			Requester {
+				delay,
+				last_started_round: Some(1)
+			}
+		);
+	});
+}
+
+#[test]
+fn requester_permissions() {
+	new_test_ext().execute_with(|| {
+		let owner = 1;
+		assert_ok!(FeedBuilder::new()
+			.owner(owner)
+			.build_and_store());
+
+		let feed_id = 0;
+		let requester = 22;
+		let delay = 4;
+		// failure cases
+		assert_noop!(ChainlinkFeed::set_requester(
+			Origin::signed(owner),
+			123,
+			requester,
+			delay
+		), Error::<Test>::FeedNotFound);
+		assert_noop!(ChainlinkFeed::set_requester(
+			Origin::signed(123),
+			feed_id,
+			requester,
+			delay
+		), Error::<Test>::NotFeedOwner);
+		// actually set the requester
+		assert_ok!(ChainlinkFeed::set_requester(
+			Origin::signed(owner),
+			feed_id,
+			requester,
+			delay
+		));
+		let requester_meta =
+			ChainlinkFeed::requester(feed_id, requester).expect("requester should be present");
+		assert_eq!(
+			requester_meta,
+			Requester {
+				delay,
+				last_started_round: None
+			}
+		);
+		// failure cases
+		assert_noop!(ChainlinkFeed::remove_requester(
+			Origin::signed(owner),
+			123,
+			requester
+		), Error::<Test>::FeedNotFound);
+		assert_noop!(ChainlinkFeed::remove_requester(
+			Origin::signed(123),
+			feed_id,
+			requester
+		), Error::<Test>::NotFeedOwner);
+		assert_noop!(ChainlinkFeed::remove_requester(
+			Origin::signed(owner),
+			feed_id,
+			123
+		), Error::<Test>::RequesterNotFound);
+		// actually remove the requester
+		assert_ok!(ChainlinkFeed::remove_requester(
+			Origin::signed(owner),
+			feed_id,
+			requester
+		));
+		assert_eq!(ChainlinkFeed::requester(feed_id, requester), None);
 	});
 }
 

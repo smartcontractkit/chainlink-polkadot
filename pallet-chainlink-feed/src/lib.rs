@@ -734,6 +734,7 @@ decl_module! {
 			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 
+			// Keep the `last_started_round` if the requester already existed.
 			let mut requester_meta = Self::requester(feed_id, &requester).unwrap_or_default();
 			requester_meta.delay = delay;
 			Requesters::<T>::insert(feed_id, &requester, requester_meta);
