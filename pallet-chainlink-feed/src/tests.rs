@@ -1080,6 +1080,14 @@ fn funds_withdrawal_should_work() {
 		let recipient = 5;
 		let fund = FeedModuleId::get().into_account();
 		assert_noop!(
+			ChainlinkFeed::withdraw_funds(Origin::signed(123), recipient, amount),
+			Error::<Test>::NotPalletAdmin
+		);
+		assert_noop!(
+			ChainlinkFeed::withdraw_funds(Origin::signed(fund), recipient, 101 * MIN_RESERVE),
+			Error::<Test>::InsufficientFunds
+		);
+		assert_noop!(
 			ChainlinkFeed::withdraw_funds(Origin::signed(fund), recipient, 100 * MIN_RESERVE),
 			Error::<Test>::InsufficientReserve
 		);
