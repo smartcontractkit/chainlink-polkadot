@@ -645,7 +645,7 @@ decl_module! {
 			let owner = ensure_signed(origin)?;
 
 			let mut to_disable = to_disable;
-			to_disable.sort();
+			to_disable.sort_unstable();
 			to_disable.dedup();
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				// synced on drop
