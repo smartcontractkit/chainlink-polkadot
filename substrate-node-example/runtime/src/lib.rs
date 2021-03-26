@@ -272,7 +272,7 @@ parameter_types! {
 	pub const FeedModule: ModuleId = ModuleId(*b"linkfeed");
 	pub const MinimumReserve: Balance = ExistentialDeposit::get() * 1000;
 	pub const StringLimit: u32 = 30;
-	pub const OracleCountLimit: u32 = 50;
+	pub const OracleCountLimit: u32 = 25;
 	pub const FeedLimit: FeedId = 100;
 	pub const PruningWindow: RoundId = 15;
 }
