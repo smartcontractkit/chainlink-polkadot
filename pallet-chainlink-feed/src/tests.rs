@@ -559,7 +559,7 @@ fn change_oracles_should_work() {
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.oracle_count, 4);
 		assert_eq!(Oracles::<Test>::iter().count(), 6);
-		assert_eq!(OracleStati::<Test>::iter().count(), 6);
+		assert_eq!(OracleStatuses::<Test>::iter().count(), 6);
 		for o in to_disable.iter() {
 			assert!(
 				ChainlinkFeed::oracle_status(feed_id, o)

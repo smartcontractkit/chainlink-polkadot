@@ -283,7 +283,7 @@ decl_storage! {
 		pub Oracles get(fn oracle): map hasher(blake2_128_concat) T::AccountId => Option<OracleMetaOf<T>>;
 
 		/// Feed local oracle status data.
-		pub OracleStati get(fn oracle_status): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
+		pub OracleStatuses get(fn oracle_status): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
 
 		/// Per-feed permissioning for starting new rounds.
 		pub Requesters get(fn requester): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<Requester>;
@@ -584,7 +584,7 @@ decl_module! {
 
 				oracle_status.last_reported_round = Some(round_id);
 				oracle_status.latest_submission = Some(submission);
-				OracleStati::<T>::insert(feed_id, &oracle, oracle_status);
+				OracleStatuses::<T>::insert(feed_id, &oracle, oracle_status);
 				Self::deposit_event(RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle.clone()));
 
 				// update round answer
@@ -1010,7 +1010,7 @@ impl<T: Trait> Feed<T> {
 
 	/// Return the oracle status associated with this feed.
 	fn status(&self, oracle: &T::AccountId) -> Option<OracleStatusOf<T>> {
-		OracleStati::<T>::get(self.id, oracle)
+		OracleStatuses::<T>::get(self.id, oracle)
 	}
 
 	/// Return the number of oracles that can submit data for this feed.
@@ -1125,7 +1125,7 @@ impl<T: Trait> Feed<T> {
 				}
 				Ok(())
 			})?;
-			OracleStati::<T>::try_mutate(self.id, &oracle, |maybe_status| -> DispatchResult {
+			OracleStatuses::<T>::try_mutate(self.id, &oracle, |maybe_status| -> DispatchResult {
 				// Only allow enabling oracles once in order to keep
 				// the count accurate.
 				ensure!(
@@ -1157,7 +1157,7 @@ impl<T: Trait> Feed<T> {
 			let mut status = self.status(&d).ok_or(Error::<T>::OracleNotFound)?;
 			ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);
 			status.ending_round = Some(self.reporting_round_id());
-			OracleStati::<T>::insert(self.id, &d, status);
+			OracleStatuses::<T>::insert(self.id, &d, status);
 			Module::<T>::deposit_event(RawEvent::OraclePermissionsUpdated(self.id, d, false));
 		}
 		Ok(())
