@@ -1,5 +1,7 @@
 # Chainlink pallet
 
+> NOTE: Still on Substrate pre-v2 and not compatible with the example node in this repo.
+
 ## Purpose
 
 This pallet allows to interract with [chainlink](https://chain.link/).

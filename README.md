@@ -1,51 +1,31 @@
 # Chainlink-polkadot
 
-> Outdated, TODO: update.
+This repository contains the [Chainlink](https://chain.link/) feed pallet as well as an example node showing how to integrate
+it in [Substrate](https://www.substrate.io/)-based chains.
 
-This repository contains all relevant project necessary to have [polkadot](https://polkadot.network/) and [substrate](https://www.parity.io/substrate/) chains interact with [chainlink](https://chain.link/).
+It also includes the (outdated) `pallet-chainlink` for interacting with the Chainlink job-based oracle system.
 
-This is WIP and will evolve frequently.
+## How to integrate the Chainlink feed pallet into a runtime?
+The pallet is added to the runtime like any regular pallet (see [tutorial](https://substrate.dev/docs/en/tutorials/add-a-pallet/)).
+It then needs to be configured. See the [pallet readme](./pallet-chainlink-feed/README.md) for details.
 
-## How to use `pallet-chainlink`?
+The usage is simple:
+```Rust
+let feed = T::Oracle::feed(0.into()).ok_or(Error::<T>::FeedMissing)?;
+let RoundData { answer, .. } = feed.latest_data();
+do_something_with_answer(answer);
+```
+See [the template pallet](./substrate-node-example/pallets/template/src/lib.rs) for a full example showing how to access a price feed.
 
-Complete documentation is accessible in the pallet [README](pallet-chainlink/README.md).
-
-See the full [example](substrate-node-example/runtime/src/example.rs) for more details.
 
 ## Run the example
 
-`rust-toolchain` is used to make sure the correct rust version is used. Make sure to install the WASM target using:
-
-```
-rustup target add wasm32-unknown-unknown
-```
-
-`substrate-node-example` shows off out to use `pallet-chainlink` end-to-end.
+`substrate-node-example` shows off out to use `pallet-chainlink-feed` end-to-end.
 To test:
 
-* start the chain using `make run-chain`
-* start the frontend using `make run-front-end`
+* start the chain using `make run-temp` (for temporary node which cleans up after itself)
+* connect to the chain by pointing https://polkadot.js.org/apps/ to the local dev node (or a locally hosted version)
+* specify the types by copying `substrate-node-example/types.json` into the input at `Settings > Developer`
 
-You are now ready to send test requests and see the result being provided back by an Oracle.
+You are now ready to send extrinsics to the pallet.
 
-### Send a test request using PolkadotJS
-
-```js
-const alice = ...;
-const txHash = await api.tx._exampleModule_
-  .sendRequest("ACCOUNT_ID")
-  .signAndSend(alice);
-console.log(`Submitted with hash ${txHash}`);
-```
-
-### Send a test request using PolkadotJS Apps
-
-Make sure you add the following additional to `Settings/Developer` section:
-
-```json
-{"SpecIndex": "u32",
- "RequestIdentifier": "u64",
- "DataVersion": "u64"}
-```
-
-Then in `Extrinsincs`, `example` / `sendRequest` can be submitted.
