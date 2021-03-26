@@ -425,8 +425,6 @@ decl_module! {
 		/// The account used to pay oracles and manage the funds of this pallet.
 		const FundAccount: T::AccountId = T::ModuleId::get().into_account();
 
-		// TODO: weights
-
 		// --- feed operations ---
 
 		/// Create a new oracle feed with the given config values.
@@ -628,7 +626,6 @@ decl_module! {
 					Details::<T>::insert(feed_id, round_id, details);
 				}
 
-				// TODO: answer validation
 				Ok(().into())
 			})
 		}
