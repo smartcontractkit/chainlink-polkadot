@@ -1306,3 +1306,68 @@ fn can_go_into_debt_and_repay() {
 		assert_eq!(ChainlinkFeed::debt(), 0);
 	});
 }
+
+#[test]
+fn feed_life_cylce() {
+	new_test_ext().execute_with(|| {
+		let id = 0;
+		let owner = 1;
+		let payment = 33;
+		let timeout = 10;
+		let submission_value_bounds = (1, 1_000);
+		let submission_count_bounds = (1, 3);
+		let decimals = 5;
+		let description = b"desc".to_vec();
+		let restart_delay = 1;
+		let new_config = FeedConfig {
+			owner,
+			pending_owner: None,
+			payment,
+			timeout,
+			submission_value_bounds,
+			submission_count_bounds,
+			decimals,
+			description,
+			restart_delay,
+			latest_round: Zero::zero(),
+			reporting_round: Zero::zero(),
+			first_valid_round: None,
+			oracle_count: Zero::zero(),
+		};
+		let oracles = vec![(2, 2), (3, 3), (4, 4)];
+		{
+			let mut feed = Feed::<Test>::new(id, new_config.clone());
+			assert_ok!(feed.add_oracles(oracles.clone()));
+			assert_ok!(feed.update_future_rounds(payment, submission_count_bounds, restart_delay, timeout));
+		}
+		let new_config = FeedConfig {
+			oracle_count: oracles.len() as u32,
+			..new_config.clone()
+		};
+		// config should be stored on drop
+		assert_eq!(ChainlinkFeed::feed_config(id), Some(new_config.clone()));
+		let new_timeout = 5;
+		{
+			let mut feed = Feed::<Test>::load_from(id).expect("feed should be there");
+			feed.config.timeout = new_timeout;
+		}
+		let modified_config = FeedConfig {
+			timeout: new_timeout,
+			..new_config.clone()
+		};
+		// modified config should be stored on drop
+		assert_eq!(ChainlinkFeed::feed_config(id), Some(modified_config.clone()));
+		let ignored_timeout = 23;
+		{
+			let mut feed = Feed::<Test>::read_only_from(id).expect("feed should be there");
+			feed.config.timeout = ignored_timeout;
+		}
+		// read only access should not store changes
+		assert_eq!(ChainlinkFeed::feed_config(id), Some(modified_config.clone()));
+		{
+			let mut feed = ChainlinkFeed::feed_mut(id).expect("feed should be there");
+			assert_ok!(feed.request_new_round(AccountId::default()));
+		}
+		assert_eq!(ChainlinkFeed::feed_config(id).unwrap().reporting_round, 1);
+	});
+}
