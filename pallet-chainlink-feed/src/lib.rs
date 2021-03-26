@@ -698,11 +698,11 @@ decl_module! {
 			ensure!(keep_round > first_to_prune, Error::<T>::NothingToPrune);
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
-
 			let first_valid_round = feed.first_valid_round.ok_or(Error::<T>::NoValidRoundYet)?;
 			ensure!(first_to_prune <= first_valid_round, Error::<T>::PruneContiguously);
 			let pruning_window = T::PruningWindow::get();
 			ensure!(feed.latest_round.saturating_sub(first_to_prune) > pruning_window, Error::<T>::NothingToPrune);
+
 			let keep_round = feed.latest_round.saturating_sub(pruning_window).min(keep_round);
 			let mut round = first_to_prune;
 			while round < keep_round {
