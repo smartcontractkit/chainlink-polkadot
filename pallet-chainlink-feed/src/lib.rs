@@ -209,21 +209,19 @@ impl<B, V> TryFrom<Round<B, V>> for RoundData<B, V> {
 }
 
 /// Trait for interacting with the feeds in the pallet.
-pub trait FeedOracle {
+pub trait FeedOracle<T: Trait> {
 	type FeedId: Parameter + BaseArithmetic;
-	type Feed: FeedInterface;
+	type Feed: FeedInterface<T>;
+	type MutableFeed: MutableFeedInterface<T>;
 
 	/// Return the interface for the given feed if it exists.
 	fn feed(id: Self::FeedId) -> Option<Self::Feed>;
+
+	fn feed_mut(id: Self::FeedId) -> Option<Self::MutableFeed>;
 }
 
-/// Trait for interacting with a particular feed.
-pub trait FeedInterface {
-	type AccountId: Parameter;
-	type BlockNumber: Parameter + BaseArithmetic;
-	type FeedId: Parameter + BaseArithmetic;
-	type Value: Parameter + BaseArithmetic;
-
+/// Trait for read-only access to a feed.
+pub trait FeedInterface<T: Trait> {
 	/// Returns the id of the first round that contains non-default data.
 	fn first_valid_round(&self) -> Option<RoundId>;
 
@@ -232,19 +230,22 @@ pub trait FeedInterface {
 
 	/// Returns the data for a given round.
 	/// Will return `None` if there is no data for the given round.
-	fn data_at(&self, round: RoundId) -> Option<RoundData<Self::BlockNumber, Self::Value>>;
+	fn data_at(&self, round: RoundId) -> Option<RoundData<T::BlockNumber, T::Value>>;
 
 	/// Returns the latest data for the feed.
 	/// Will always return data but may contain default data if there
 	/// has not been a valid round, yet.
 	/// Check `first_valid_round` to determine whether there is
 	/// useful data yet.
-	fn latest_data(&self) -> RoundData<Self::BlockNumber, Self::Value>;
+	fn latest_data(&self) -> RoundData<T::BlockNumber, T::Value>;
+}
 
+/// Trait for read-write access to a feed.
+pub trait MutableFeedInterface<T: Trait>: FeedInterface<T> {
 	/// Request that a new oracle round be started.
 	///
 	/// **Warning:** Fallible function that changes storage.
-	fn request_new_round(&mut self, requester: Self::AccountId) -> DispatchResult;
+	fn request_new_round(&mut self, requester: T::AccountId) -> DispatchResult;
 }
 
 decl_storage! {
@@ -1265,22 +1266,25 @@ impl<T: Trait> Drop for Feed<T> {
 	}
 }
 
-impl<T: Trait> FeedOracle for Module<T> {
+impl<T: Trait> FeedOracle<T> for Module<T> {
 	type FeedId = T::FeedId;
 	type Feed = Feed<T>;
+	type MutableFeed = Feed<T>;
 
 	/// Return a transient feed proxy object for interacting with the feed given by the id.
+	/// Provides read-only access.
 	fn feed(id: Self::FeedId) -> Option<Self::Feed> {
 		Feed::read_only_from(id)
 	}
+
+	/// Return a transient feed proxy object for interacting with the feed given by the id.
+	/// Provides read-write access.
+	fn feed_mut(id: Self::FeedId) -> Option<Self::MutableFeed> {
+		Feed::load_from(id)
+	}
 }
 
-impl<T: Trait> FeedInterface for Feed<T> {
-	type AccountId = T::AccountId;
-	type BlockNumber = T::BlockNumber;
-	type FeedId = T::FeedId;
-	type Value = T::Value;
-
+impl<T: Trait> FeedInterface<T> for Feed<T> {
 	/// Returns the id of the first round that contains non-default data.
 	fn first_valid_round(&self) -> Option<RoundId> {
 		self.config.first_valid_round
@@ -1292,12 +1296,12 @@ impl<T: Trait> FeedInterface for Feed<T> {
 	}
 
 	/// Returns the data for a given round.
-	fn data_at(&self, round: RoundId) -> Option<RoundData<Self::BlockNumber, Self::Value>> {
+	fn data_at(&self, round: RoundId) -> Option<RoundData<T::BlockNumber, T::Value>> {
 		self.round(round)?.try_into().ok()
 	}
 
 	/// Returns the latest data for the feed.
-	fn latest_data(&self) -> RoundData<Self::BlockNumber, Self::Value> {
+	fn latest_data(&self) -> RoundData<T::BlockNumber, T::Value> {
 		let latest_round = self.latest_round();
 		self.data_at(latest_round).unwrap_or_else(|| {
 			debug_assert!(false, "The latest round data should always be available.");
@@ -1308,7 +1312,9 @@ impl<T: Trait> FeedInterface for Feed<T> {
 			RoundData::default()
 		})
 	}
+}
 
+impl<T: Trait> MutableFeedInterface<T> for Feed<T> {
 	/// Requests that a new round be started for the feed.
 	/// Returns `Ok` on success and `Err` in case the round could not be started.
 	///
