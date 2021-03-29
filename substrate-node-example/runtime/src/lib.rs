@@ -289,6 +289,7 @@ impl pallet_chainlink_feed::Trait for Runtime {
 	type OracleCountLimit = OracleCountLimit;
 	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;
+	type OnAnswerHandler = TemplateModule;
 	type WeightInfo = ChainlinkWeightInfo;
 }
 

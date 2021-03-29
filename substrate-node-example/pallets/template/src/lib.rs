@@ -7,7 +7,7 @@
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, traits::Get};
 use frame_system::ensure_signed;
 
-use pallet_chainlink_feed::{FeedInterface, FeedOracle, RoundData};
+use pallet_chainlink_feed::{FeedInterface, FeedOracle, OnAnswerHandler, RoundData, Trait as FeedTrait};
 
 #[cfg(test)]
 mod mock;
@@ -43,11 +43,13 @@ decl_event!(
 	where
 		AccountId = <T as frame_system::Trait>::AccountId,
 		Value = <<<T as Trait>::Oracle as FeedOracle>::Feed as FeedInterface>::Value,
+		FeedValue = <T as FeedTrait>::Value,
 	{
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		SomethingStored(u32, AccountId),
 		NewData(Value),
+		NewFeedValue(FeedValue),
 	}
 );
 
@@ -120,5 +122,13 @@ decl_module! {
 				},
 			}
 		}
+	}
+}
+
+impl<T: Trait + FeedTrait> OnAnswerHandler<T> for Module<T> {
+	fn on_answer(feed: <T as FeedTrait>::FeedId, round_data: RoundData<T::BlockNumber, <T as FeedTrait>::Value>) {
+		let RoundData { answer, .. } = round_data;
+		frame_support::debug::info!("feed: {:?}, new data: {:?}", feed, answer);
+		Self::deposit_event(RawEvent::NewData(answer));
 	}
 }

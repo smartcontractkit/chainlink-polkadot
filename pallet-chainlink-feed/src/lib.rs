@@ -66,6 +66,8 @@ pub trait Trait: frame_system::Trait {
 	/// Number of rounds to keep around per feed.
 	type PruningWindow: Get<RoundId>;
 
+	type OnAnswerHandler: OnAnswerHandler<Self>;
+
 	/// The weight for this pallet's extrinsics.
 	type WeightInfo: WeightInfo;
 }
@@ -205,6 +207,16 @@ impl<B, V> TryFrom<Round<B, V>> for RoundData<B, V> {
 			updated_at: r.updated_at.unwrap(),
 			answered_in_round: r.answered_in_round.unwrap(),
 		})
+	}
+}
+
+pub trait OnAnswerHandler<T: Trait> {
+	fn on_answer(feed: T::FeedId, new_data: RoundData<T::BlockNumber, T::Value>);
+}
+
+impl<T: Trait> OnAnswerHandler<T> for () {
+	fn on_answer(_feed: T::FeedId, _new_data: RoundData<T::BlockNumber, T::Value>) {
+		// noop
 	}
 }
 
@@ -596,6 +608,7 @@ decl_module! {
 					let updated_at = frame_system::Module::<T>::block_number();
 					round.updated_at = Some(updated_at);
 					round.answered_in_round = Some(round_id);
+					let round_data = round.clone().try_into().expect("round does not have empty fields and will therefore convert; qed");
 					Rounds::<T>::insert(feed_id, round_id, round);
 
 					feed.config.latest_round = round_id;
@@ -608,8 +621,11 @@ decl_module! {
 						Details::<T>::remove(feed_id, prev_round_id);
 					}
 
+					T::OnAnswerHandler::on_answer(feed_id, round_data);
+
 					Self::deposit_event(RawEvent::AnswerUpdated(
 						feed_id, round_id, new_answer, updated_at));
+
 				}
 
 				// update oracle rewards and try to reserve them
