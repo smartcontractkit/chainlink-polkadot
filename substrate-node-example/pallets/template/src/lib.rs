@@ -7,7 +7,7 @@
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, traits::Get};
 use frame_system::ensure_signed;
 
-use pallet_chainlink_feed::{FeedInterface, FeedOracle, RoundData};
+use pallet_chainlink_feed::{FeedInterface, FeedOracle, MutableFeedInterface, RoundData, RoundId};
 
 #[cfg(test)]
 mod mock;
@@ -20,7 +20,7 @@ pub trait Trait: frame_system::Trait {
 	/// Because this pallet emits events, it depends on the runtime's definition of an event.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
-	type Oracle: FeedOracle;
+	type Oracle: FeedOracle<Self>;
 }
 
 // The pallet's runtime storage items.
@@ -42,12 +42,14 @@ decl_event!(
 	pub enum Event<T>
 	where
 		AccountId = <T as frame_system::Trait>::AccountId,
-		Value = <<<T as Trait>::Oracle as FeedOracle>::Feed as FeedInterface>::Value,
+		BlockNumber = <T as frame_system::Trait>::BlockNumber,
+		Value = <<<T as Trait>::Oracle as FeedOracle<T>>::Feed as FeedInterface<T>>::Value,
 	{
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
 		SomethingStored(u32, AccountId),
 		NewData(Value),
+		RoundData(Value, BlockNumber, RoundId),
 	}
 );
 
@@ -64,24 +66,39 @@ decl_error! {
 
 // Dispatchable functions allows users to interact with the pallet and invoke state changes.
 // These functions materialize as "extrinsics", which are often compared to transactions.
-// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+// Dispatchable functions must be annotated with a weight and return a DispatchResult (explicitly
+// or implicitly).
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		// Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
 
-		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 
-		#[weight = 100]
+		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		fn read_value(origin) {
+			let _sender = ensure_signed(origin)?;
 			let feed = T::Oracle::feed(0.into()).ok_or(Error::<T>::FeedMissing)?;
 
-			let RoundData {
-				answer, ..
-			} = feed.latest_data();
+			// we can read the latest data
+			let RoundData { answer, .. } = feed.latest_data();
 
 			Self::deposit_event(RawEvent::NewData(answer));
+
+			// or read data from a specific round
+			let round = feed.latest_round().saturating_sub(3);
+			if let Some(RoundData { answer, updated_at, answered_in_round, .. }) = feed.data_at(round) {
+				Self::deposit_event(RawEvent::RoundData(answer, updated_at, answered_in_round));
+			}
+		}
+
+		#[weight = 10_000 + T::DbWeight::get().writes(1)]
+		fn request_new_round(origin) {
+			let requester = ensure_signed(origin)?;
+			// if we get a mutable instance of the feed
+			let mut feed = T::Oracle::feed_mut(0.into()).ok_or(Error::<T>::FeedMissing)?;
+
+			// we can request a new round
+			feed.request_new_round(requester)?;
 		}
 
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to

@@ -209,10 +209,10 @@ impl<B, V> TryFrom<Round<B, V>> for RoundData<B, V> {
 }
 
 /// Trait for interacting with the feeds in the pallet.
-pub trait FeedOracle {
+pub trait FeedOracle<T: frame_system::Trait> {
 	type FeedId: Parameter + BaseArithmetic;
-	type Feed: FeedInterface;
-	type MutableFeed: MutableFeedInterface;
+	type Feed: FeedInterface<T>;
+	type MutableFeed: MutableFeedInterface<T>;
 
 	/// Return the interface for the given feed if it exists.
 	fn feed(id: Self::FeedId) -> Option<Self::Feed>;
@@ -221,8 +221,7 @@ pub trait FeedOracle {
 }
 
 /// Trait for read-only access to a feed.
-pub trait FeedInterface {
-	type BlockNumber: Parameter + BaseArithmetic;
+pub trait FeedInterface<T: frame_system::Trait> {
 	type Value: Parameter + BaseArithmetic;
 
 	/// Returns the id of the first round that contains non-default data.
@@ -233,24 +232,22 @@ pub trait FeedInterface {
 
 	/// Returns the data for a given round.
 	/// Will return `None` if there is no data for the given round.
-	fn data_at(&self, round: RoundId) -> Option<RoundData<Self::BlockNumber, Self::Value>>;
+	fn data_at(&self, round: RoundId) -> Option<RoundData<T::BlockNumber, Self::Value>>;
 
 	/// Returns the latest data for the feed.
 	/// Will always return data but may contain default data if there
 	/// has not been a valid round, yet.
 	/// Check `first_valid_round` to determine whether there is
 	/// useful data yet.
-	fn latest_data(&self) -> RoundData<Self::BlockNumber, Self::Value>;
+	fn latest_data(&self) -> RoundData<T::BlockNumber, Self::Value>;
 }
 
 /// Trait for read-write access to a feed.
-pub trait MutableFeedInterface: FeedInterface {
-	type AccountId: Parameter;
-
+pub trait MutableFeedInterface<T: frame_system::Trait>: FeedInterface<T> {
 	/// Request that a new oracle round be started.
 	///
 	/// **Warning:** Fallible function that changes storage.
-	fn request_new_round(&mut self, requester: Self::AccountId) -> DispatchResult;
+	fn request_new_round(&mut self, requester: T::AccountId) -> DispatchResult;
 }
 
 decl_storage! {
@@ -1299,7 +1296,7 @@ impl<T: Trait> Drop for Feed<T> {
 	}
 }
 
-impl<T: Trait> FeedOracle for Module<T> {
+impl<T: Trait> FeedOracle<T> for Module<T> {
 	type FeedId = T::FeedId;
 	type Feed = Feed<T>;
 	type MutableFeed = Feed<T>;
@@ -1317,8 +1314,7 @@ impl<T: Trait> FeedOracle for Module<T> {
 	}
 }
 
-impl<T: Trait> FeedInterface for Feed<T> {
-	type BlockNumber = T::BlockNumber;
+impl<T: Trait> FeedInterface<T> for Feed<T> {
 	type Value = T::Value;
 
 	/// Returns the id of the first round that contains non-default data.
@@ -1350,9 +1346,7 @@ impl<T: Trait> FeedInterface for Feed<T> {
 	}
 }
 
-impl<T: Trait> MutableFeedInterface for Feed<T> {
-	type AccountId = T::AccountId;
-
+impl<T: Trait> MutableFeedInterface<T> for Feed<T> {
 	/// Requests that a new round be started for the feed.
 	/// Returns `Ok` on success and `Err` in case the round could not be started.
 	///
