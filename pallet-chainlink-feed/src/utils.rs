@@ -21,6 +21,8 @@ pub(crate) fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) ->
 }
 
 /// Determine the median of a slice of values.
+///
+/// **Warning:** Will panic if passed an empty slice.
 pub(crate) fn median<T: Copy + BaseArithmetic>(numbers: &mut [T]) -> T {
 	numbers.sort_unstable();
 
@@ -38,4 +40,11 @@ fn median_works() {
 	assert_eq!(median(&mut values), 5);
 	let mut values = vec![4u32, 6, 2, 7, 9];
 	assert_eq!(median(&mut values), 6);
+}
+
+#[test]
+#[should_panic]
+fn median_panics_on_empty_slice() {
+	let mut empty: Vec<u32> = Vec::new();
+	median(&mut empty);
 }
