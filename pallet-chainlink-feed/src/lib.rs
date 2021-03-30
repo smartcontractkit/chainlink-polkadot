@@ -268,26 +268,38 @@ decl_storage! {
 		pub FeedCounter get(fn feed_counter): T::FeedId;
 
 		/// Configuration for a feed.
-		pub Feeds get(fn feed_config): map hasher(twox_64_concat) T::FeedId => Option<FeedConfigOf<T>>;
+		pub Feeds get(fn feed_config):
+			map hasher(twox_64_concat) T::FeedId => Option<FeedConfigOf<T>>;
 
 		/// Accounts allowed to create feeds.
 		pub FeedCreators: map hasher(blake2_128_concat) T::AccountId => Option<()>;
 
 		/// User-facing round data.
-		pub Rounds get(fn round): double_map hasher(twox_64_concat) T::FeedId, hasher(twox_64_concat) RoundId => Option<RoundOf<T>>;
+		pub Rounds get(fn round):
+			double_map hasher(twox_64_concat) T::FeedId,
+			           hasher(twox_64_concat) RoundId => Option<RoundOf<T>>;
 
 		/// Operator-facing round data.
-		pub Details get(fn round_details): double_map hasher(twox_64_concat) T::FeedId, hasher(twox_64_concat) RoundId => Option<RoundDetailsOf<T>>;
+		pub Details get(fn round_details):
+			double_map hasher(twox_64_concat) T::FeedId,
+			           hasher(twox_64_concat) RoundId => Option<RoundDetailsOf<T>>;
 
 		/// Global oracle meta data including admin and withdrawable funds.
-		pub Oracles get(fn oracle): map hasher(blake2_128_concat) T::AccountId => Option<OracleMetaOf<T>>;
+		pub Oracles get(fn oracle):
+			map hasher(blake2_128_concat) T::AccountId => Option<OracleMetaOf<T>>;
 
 		/// Feed local oracle status data.
-		pub OracleStatuses get(fn oracle_status): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
+		pub OracleStatuses get(fn oracle_status):
+			double_map hasher(twox_64_concat) T::FeedId,
+			           hasher(blake2_128_concat) T::AccountId => Option<OracleStatusOf<T>>;
 
 		/// Per-feed permissioning for starting new rounds.
-		pub Requesters get(fn requester): double_map hasher(twox_64_concat) T::FeedId, hasher(blake2_128_concat) T::AccountId => Option<Requester>;
+		pub Requesters get(fn requester):
+			double_map hasher(twox_64_concat) T::FeedId,
+			           hasher(blake2_128_concat) T::AccountId => Option<Requester>;
+
 	} add_extra_genesis {
+		// accounts configured at genesis to be allowed to create new feeds
 		config(feed_creators): Vec<T::AccountId>;
 		build(|config: &GenesisConfig<T>| {
 			for creator in &config.feed_creators {
@@ -297,6 +309,7 @@ decl_storage! {
 	}
 }
 
+/// Minimum and Maximum number of submissions allowed per round.
 pub type SubmissionBounds = (u32, u32);
 
 decl_event!(
@@ -522,7 +535,10 @@ decl_module! {
 			let new_owner = ensure_signed(origin)?;
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 
-			ensure!(feed.pending_owner.filter(|p| p == &new_owner).is_some(), Error::<T>::NotPendingOwner);
+			ensure!(
+				feed.pending_owner.filter(|p| p == &new_owner).is_some(),
+				Error::<T>::NotPendingOwner
+			);
 
 			feed.pending_owner = None;
 			feed.owner = new_owner.clone();
@@ -556,7 +572,8 @@ decl_module! {
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-				let mut oracle_status = Self::oracle_status(feed_id, &oracle).ok_or(Error::<T>::NotOracle)?;
+				let mut oracle_status = Self::oracle_status(feed_id, &oracle)
+					.ok_or(Error::<T>::NotOracle)?;
 				feed.ensure_valid_round(&oracle, round_id)?;
 
 				let (min_val, max_val) = feed.config.submission_value_bounds;
@@ -575,19 +592,22 @@ decl_module! {
 				if round_id == new_round_id && eligible_to_start {
 					let started_at = feed.initialize_round(new_round_id)?;
 
-					Self::deposit_event(RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
+					Self::deposit_event(
+						RawEvent::NewRound(feed_id, new_round_id, oracle.clone(), started_at));
 
 					oracle_status.last_started_round = Some(new_round_id);
 				}
 
 				// record submission
-				let mut details = Details::<T>::take(feed_id, round_id).ok_or(Error::<T>::NotAcceptingSubmissions)?;
+				let mut details = Details::<T>::take(feed_id, round_id)
+					.ok_or(Error::<T>::NotAcceptingSubmissions)?;
 				details.submissions.push(submission);
 
 				oracle_status.last_reported_round = Some(round_id);
 				oracle_status.latest_submission = Some(submission);
 				OracleStatuses::<T>::insert(feed_id, &oracle, oracle_status);
-				Self::deposit_event(RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle.clone()));
+				Self::deposit_event(
+					RawEvent::SubmissionReceived(feed_id, round_id, submission, oracle.clone()));
 
 				// update round answer
 				let (min_count, max_count) = details.submission_count_bounds;
@@ -616,13 +636,14 @@ decl_module! {
 
 				// update oracle rewards and try to reserve them
 				let payment = details.payment;
-				T::Currency::reserve(&T::ModuleId::get().into_account(), payment).or_else(|_| -> DispatchResult {
-					// track the debt in case we cannot reserve
-					Debt::<T>::try_mutate(|debt| {
-						*debt = debt.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
-						Ok(())
-					})
-				})?;
+				T::Currency::reserve(&T::ModuleId::get().into_account(), payment)
+					.or_else(|_| -> DispatchResult {
+						// track the debt in case we cannot reserve
+						Debt::<T>::try_mutate(|debt| {
+							*debt = debt.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
+							Ok(())
+						})
+					})?;
 				let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 				oracle_meta.withdrawable = oracle_meta.withdrawable
 					.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
@@ -702,7 +723,10 @@ decl_module! {
 			let first_valid_round = feed.first_valid_round.ok_or(Error::<T>::NoValidRoundYet)?;
 			ensure!(first_to_prune <= first_valid_round, Error::<T>::PruneContiguously);
 			let pruning_window = T::PruningWindow::get();
-			ensure!(feed.latest_round.saturating_sub(first_to_prune) > pruning_window, Error::<T>::NothingToPrune);
+			ensure!(
+				feed.latest_round.saturating_sub(first_to_prune) > pruning_window,
+				Error::<T>::NothingToPrune
+			);
 
 			let keep_round = feed.latest_round.saturating_sub(pruning_window).min(keep_round);
 			let mut round = first_to_prune;
@@ -755,9 +779,12 @@ decl_module! {
 			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 
-			let requester_meta = Requesters::<T>::take(feed_id, &requester).ok_or(Error::<T>::RequesterNotFound)?;
+			let requester_meta = Requesters::<T>::take(feed_id, &requester)
+				.ok_or(Error::<T>::RequesterNotFound)?;
 
-			Self::deposit_event(RawEvent::RequesterPermissionsSet(feed_id, requester, false, requester_meta.delay));
+			Self::deposit_event(
+				RawEvent::RequesterPermissionsSet(feed_id, requester, false, requester_meta.delay)
+			);
 
 			Ok(().into())
 		}
@@ -770,15 +797,21 @@ decl_module! {
 			feed_id: T::FeedId,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			let mut requester = Self::requester(feed_id, &sender).ok_or(Error::<T>::NotAuthorizedRequester)?;
+			let mut requester = Self::requester(feed_id, &sender)
+				.ok_or(Error::<T>::NotAuthorizedRequester)?;
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 
-				let new_round = feed.reporting_round_id().checked_add(One::one()).ok_or(Error::<T>::Overflow)?;
+				let new_round = feed.reporting_round_id()
+					.checked_add(One::one()).ok_or(Error::<T>::Overflow)?;
 				let last_started = requester.last_started_round.unwrap_or(Zero::zero());
-				let next_allowed_round = last_started.checked_add(requester.delay).ok_or(Error::<T>::Overflow)?;
-				ensure!(requester.last_started_round.is_none() || new_round > next_allowed_round, Error::<T>::CannotRequestRoundYet);
+				let next_allowed_round = last_started
+					.checked_add(requester.delay).ok_or(Error::<T>::Overflow)?;
+				ensure!(
+					requester.last_started_round.is_none() || new_round > next_allowed_round,
+					Error::<T>::CannotRequestRoundYet
+				);
 
 				requester.last_started_round = Some(new_round);
 				Requesters::<T>::insert(feed_id, &sender, requester);
@@ -841,7 +874,10 @@ decl_module! {
 			let new_admin = ensure_signed(origin)?;
 			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 
-			ensure!(oracle_meta.pending_admin.filter(|p| p == &new_admin).is_some(), Error::<T>::NotPendingAdmin);
+			ensure!(
+				oracle_meta.pending_admin.filter(|p| p == &new_admin).is_some(),
+				Error::<T>::NotPendingAdmin
+			);
 
 			oracle_meta.pending_admin = None;
 			oracle_meta.admin = new_admin.clone();
