@@ -11,6 +11,7 @@ services:
       - CARGO_HOME=/var/www/node-template/.cargo
     volumes:
       - .:/var/www/node-template
+      - ../pallet-chainlink-feed:/var/www/pallet-chainlink-feed
       - type: bind
         source: ./.local
         target: /root/.local
