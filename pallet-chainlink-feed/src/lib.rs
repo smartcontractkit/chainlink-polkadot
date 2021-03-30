@@ -351,6 +351,8 @@ decl_error! {
 		OracleNotEnabled,
 		/// The oracle has an ending round lower than the current round.
 		OracleDisabled,
+		/// More oracles were passed for disabling than are present.
+		NotEnoughOracles,
 		/// The oracle cannot report for past rounds.
 		ReportingOrder,
 		/// Requested feed not present.
@@ -646,9 +648,6 @@ decl_module! {
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
 
-			let mut to_disable = to_disable;
-			to_disable.sort_unstable();
-			to_disable.dedup();
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				// synced on drop
 				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
@@ -1149,10 +1148,9 @@ impl<T: Trait> Feed<T> {
 	/// **Warning:** Fallible function that changes storage.
 	fn disable_oracles(&mut self, to_disable: Vec<T::AccountId>) -> DispatchResult {
 		let disabled_count = to_disable.len() as u32;
-		debug_assert!(self.config.oracle_count >= disabled_count);
-		// This should be fine as we assert on every oracle
-		// in the loop that it exists and we deduplicate.
-		self.config.oracle_count = self.config.oracle_count.saturating_sub(disabled_count);
+		self.config.oracle_count = self.config.oracle_count
+			.checked_sub(disabled_count)
+			.ok_or(Error::<T>::NotEnoughOracles)?;
 		for d in to_disable {
 			let mut status = self.status(&d).ok_or(Error::<T>::OracleNotFound)?;
 			ensure!(status.ending_round.is_none(), Error::<T>::OracleDisabled);

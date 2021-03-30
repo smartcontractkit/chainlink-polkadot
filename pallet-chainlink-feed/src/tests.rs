@@ -532,6 +532,26 @@ fn change_oracles_should_work() {
 			),
 			Error::<Test>::OwnerCannotChangeAdmin
 		);
+		let many_duplicates: Vec<AccountId> = initial_oracles.iter().cloned().chain(initial_oracles.iter().cloned()).map(|(o, _a)| o).collect();
+		assert_noop!(
+			ChainlinkFeed::change_oracles(
+				Origin::signed(owner),
+				feed_id,
+				many_duplicates.clone(),
+				to_add.clone(),
+			),
+			Error::<Test>::NotEnoughOracles
+		);
+		let duplicates = vec![1, 1, 1];
+		assert_noop!(
+			ChainlinkFeed::change_oracles(
+				Origin::signed(owner),
+				feed_id,
+				duplicates.clone(),
+				to_add.clone(),
+			),
+			Error::<Test>::OracleDisabled
+		);
 
 		// successfully change oracles
 		assert_ok!(ChainlinkFeed::change_oracles(
@@ -575,39 +595,6 @@ fn change_oracles_should_work() {
 				"oracle should be present"
 			);
 		}
-	});
-}
-
-#[test]
-fn oracle_deduplication() {
-	new_test_ext().execute_with(|| {
-		let initial_oracles = vec![(1, 4), (2, 4), (3, 4)];
-
-		assert_ok!(FeedBuilder::new()
-			.oracles(initial_oracles.clone())
-			.build_and_store());
-		let feed_id = 0;
-		let mut to_disable = vec![1, 2, 1];
-		let to_add = vec![];
-		assert_ok!(ChainlinkFeed::change_oracles(
-			Origin::signed(1),
-			feed_id,
-			to_disable.clone(),
-			to_add.clone(),
-		));
-		to_disable.sort();
-		to_disable.dedup();
-		for o in to_disable.iter() {
-			assert!(
-				ChainlinkFeed::oracle_status(feed_id, o)
-					.unwrap()
-					.ending_round
-					.is_some(),
-				"oracle should be disabled"
-			);
-		}
-		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
-		assert_eq!(feed.oracle_count, 1);
 	});
 }
 
