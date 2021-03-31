@@ -42,13 +42,14 @@ impl pallet_chainlink_feed::Trait for Runtime {
 ```
 
 ## Usage in Pallet
-You need to inject the pallet into the consuming pallet in a similar way to how the feed pallet depends on a pallet implementing the `Currency` trait.
+You need to inject the pallet into the consuming pallet in a similar way to how the feed pallet
+depends on a pallet implementing the `Currency` trait.
 Define an associated `Oracle` type implementing the `FeedOracle` trait.
 
 ```Rust
 pub trait Trait: frame_system::Trait {
     // -- snip --
-    type Oracle: FeedOracle;
+    type Oracle: FeedOracle<Self>;
 }
 ```
 

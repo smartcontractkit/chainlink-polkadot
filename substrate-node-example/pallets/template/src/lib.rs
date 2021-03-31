@@ -74,7 +74,9 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		#[weight = 10_000 + T::DbWeight::get().writes(1)]
+		/// Reads the latest value from oracle feed 0 and emits it as an event.
+		/// Reads the value 3 rounds ago and emits it as an event.
+		#[weight = 10_000 + T::DbWeight::get().reads(2)]
 		fn read_value(origin) {
 			let _sender = ensure_signed(origin)?;
 			let feed = T::Oracle::feed(0.into()).ok_or(Error::<T>::FeedMissing)?;
@@ -91,6 +93,7 @@ decl_module! {
 			}
 		}
 
+		/// Requests a new round of data for feed 0 for the sender.
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
 		fn request_new_round(origin) {
 			let requester = ensure_signed(origin)?;

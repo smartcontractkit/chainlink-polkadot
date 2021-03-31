@@ -192,6 +192,7 @@ pub enum RoundConversionError {
 	MissingField,
 }
 
+// Implements a conversion from `Round` to `RoundData` so answered rounds can be converted easily.
 impl<B, V> TryFrom<Round<B, V>> for RoundData<B, V> {
 	type Error = RoundConversionError;
 
@@ -214,9 +215,14 @@ pub trait FeedOracle<T: frame_system::Trait> {
 	type Feed: FeedInterface<T>;
 	type MutableFeed: MutableFeedInterface<T>;
 
-	/// Return the interface for the given feed if it exists.
+	/// Return the read-only interface for the given feed.
+	///
+	/// Returns `None` if the feed does not exist.
 	fn feed(id: Self::FeedId) -> Option<Self::Feed>;
 
+	/// Return the read-write interface for the given feed.
+	///
+	/// Returns `None` if the feed does not exist.
 	fn feed_mut(id: Self::FeedId) -> Option<Self::MutableFeed>;
 }
 
@@ -225,20 +231,23 @@ pub trait FeedInterface<T: frame_system::Trait> {
 	type Value: Parameter + BaseArithmetic;
 
 	/// Returns the id of the first round that contains non-default data.
+	///
+	/// Check this if you want to make sure that the data returned by `latest_data` is sensible.
 	fn first_valid_round(&self) -> Option<RoundId>;
 
 	/// Returns the id of the latest oracle round.
 	fn latest_round(&self) -> RoundId;
 
 	/// Returns the data for a given round.
+	///
 	/// Will return `None` if there is no data for the given round.
 	fn data_at(&self, round: RoundId) -> Option<RoundData<T::BlockNumber, Self::Value>>;
 
 	/// Returns the latest data for the feed.
-	/// Will always return data but may contain default data if there
-	/// has not been a valid round, yet.
-	/// Check `first_valid_round` to determine whether there is
-	/// useful data yet.
+	///
+	/// Will always return data but may contain default data if there has not
+	/// been a valid round, yet.
+	/// Check `first_valid_round` to determine whether there is useful data, yet.
 	fn latest_data(&self) -> RoundData<T::BlockNumber, Self::Value>;
 }
 
@@ -561,9 +570,9 @@ decl_module! {
 		)]
 		pub fn submit(
 			origin,
-			feed_id: T::FeedId,
-			round_id: RoundId,
-			submission: T::Value,
+			#[compact] feed_id: T::FeedId,
+			#[compact] round_id: RoundId,
+			#[compact] submission: T::Value,
 		) -> DispatchResultWithPostInfo {
 			let oracle = ensure_signed(origin)?;
 
