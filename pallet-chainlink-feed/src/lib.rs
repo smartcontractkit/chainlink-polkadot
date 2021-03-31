@@ -1357,6 +1357,7 @@ impl<T: Trait> FeedInterface<T> for Feed<T> {
 
 impl<T: Trait> MutableFeedInterface<T> for Feed<T> {
 	/// Requests that a new round be started for the feed.
+	///
 	/// Returns `Ok` on success and `Err` in case the round could not be started.
 	///
 	/// **Warning:** Fallible function that changes storage.

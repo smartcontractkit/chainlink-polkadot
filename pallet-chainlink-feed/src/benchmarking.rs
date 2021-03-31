@@ -108,13 +108,18 @@ benchmarks! {
 		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").owner, new_owner);
 	}
 
+	// The submit call opening a round is more expensive than a regular submission because of
+	// the round init code as well as the closing of previous rounds.
+	// It is most expensive in case it also directly closes the round.
 	submit_opening_round_answers {
 		let o = 3;
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
 		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
-		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
+		let oracle = whitelisted_account::<T>("oracle", 0);
+		let other_oracle: T::AccountId = account("oracle", 1, SEED);
+		let oracles: Vec<(T::AccountId, T::AccountId)> = vec![(oracle.clone(), admin.clone()), (other_oracle.clone(), admin.clone())];
 		let description = vec![1; T::StringLimit::get() as usize];
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -128,10 +133,20 @@ benchmarks! {
 			oracles.clone(),
 		));
 		let feed: T::FeedId = Zero::zero();
-		let round: RoundId = One::one();
+		let prev_round: RoundId = 1;
 		let answer: T::Value = 5u8.into();
-		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
+		// create the previous round that will be closed
+		assert_is_ok(ChainlinkFeed::<T>::submit(
+			RawOrigin::Signed(other_oracle.clone()).into(),
+			feed,
+			prev_round,
+			answer
+		));
+		let round: RoundId = 2;
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), None);
+		// make sure we hit the `Debt` storage item
+		let fund_account = T::ModuleId::get().into_account();
+		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 	}: submit(
 			RawOrigin::Signed(oracle.clone()),
 			feed,
@@ -139,15 +154,21 @@ benchmarks! {
 			answer
 		)
 	verify {
+		let f = Feed::<T>::read_only_from(feed).unwrap();
+		// previous round should be cleared
+		assert_eq!(f.details(prev_round), None);
 		let expected_round = Round {
 			started_at: One::one(),
 			answer: Some(answer),
 			updated_at: Some(One::one()),
-			answered_in_round: Some(1u8.into())
+			answered_in_round: Some(2)
 		};
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
 	}
 
+	// The closing answer is expensive because it induces the largest median calculation and
+	// includes the bookkeeping for closing the round.
+	// It is most expensive when there are `OracleCountLimit` answers.
 	submit_closing_answer {
 		let o in 2 .. T::OracleCountLimit::get();
 
@@ -169,13 +190,24 @@ benchmarks! {
 			oracles.clone(),
 		));
 		let feed: T::FeedId = Zero::zero();
-		let round: RoundId = One::one();
+		let prev_round: RoundId = 1;
 		let answer: T::Value = 42u8.into();
-		for (o, _a) in oracles.iter().skip(1) {
-			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, 1u8.into(), answer));
-		}
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
-		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(Round::new(Zero::zero())));
+		let other_oracle = oracles.iter().nth(1).map(|(o, _a)| o.clone()).expect("there should be a second oracle");
+		// create the previous round that will be closed
+		for (o, _a) in oracles.iter() {
+			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, prev_round, answer));
+		}
+		// advance the block number so we can supersede the prev round
+		frame_system::Module::<T>::set_block_number(1u8.into());
+		let round: RoundId = 2;
+		for (o, _a) in oracles.iter().skip(1) {
+			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, round, answer));
+		}
+		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(Round::new(One::one())));
+		// make sure we hit the `Debt` storage item
+		let fund_account = T::ModuleId::get().into_account();
+		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 	}: submit(
 			RawOrigin::Signed(oracle.clone()),
 			feed,
@@ -184,10 +216,10 @@ benchmarks! {
 		)
 	verify {
 		let expected_round = Round {
-			started_at: Zero::zero(),
+			started_at: One::one(),
 			answer: Some(answer),
 			updated_at: Some(One::one()),
-			answered_in_round: Some(1u8.into())
+			answered_in_round: Some(2)
 		};
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
 	}
