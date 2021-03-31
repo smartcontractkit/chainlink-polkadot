@@ -23,8 +23,8 @@ See [the template pallet](./substrate-node-example/pallets/template/src/lib.rs) 
 `substrate-node-example` shows off out to use `pallet-chainlink-feed` end-to-end.
 To test:
 
-* start the chain using `make run-temp` (for temporary node which cleans up after itself)
-* connect to the chain by pointing https://polkadot.js.org/apps/ to the local dev node (or a locally hosted version)
+* start the chain using `make run-temp` (for a temporary node which cleans up after itself)
+* connect to the chain by pointing https://polkadot.js.org/apps/ (or a locally hosted version) to the local dev node 
 * specify the types by copying `substrate-node-example/types.json` into the input at `Settings > Developer`
 
 You are now ready to send extrinsics to the pallet.
