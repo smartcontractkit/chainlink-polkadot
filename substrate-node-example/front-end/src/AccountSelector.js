@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { CopyToClipboard } from 'react-copy-to-clipboard';
 
 import {
   Menu,
+  Button,
   Dropdown,
   Container,
   Icon,
@@ -11,8 +13,8 @@ import {
 
 import { useSubstrate } from './substrate-lib';
 
-export default function AccountSelector (props) {
-  const { api, keyring } = useSubstrate();
+function Main (props) {
+  const { keyring } = useSubstrate();
   const { setAccountAddress } = props;
   const [accountSelected, setAccountSelected] = useState('');
 
@@ -29,8 +31,8 @@ export default function AccountSelector (props) {
 
   // Set the initial address
   useEffect(() => {
-    setAccountSelected(initialAddress);
     setAccountAddress(initialAddress);
+    setAccountSelected(initialAddress);
   }, [setAccountAddress, initialAddress]);
 
   const onChange = address => {
@@ -52,27 +54,42 @@ export default function AccountSelector (props) {
     >
       <Container>
         <Menu.Menu>
-          <Image src='Substrate-Logo.png' size='mini' />
+          <Image src={`${process.env.PUBLIC_URL}/assets/substrate-logo.png`} size='mini' />
         </Menu.Menu>
-        <Menu.Menu position='right'>
-          <Icon
-            name='users'
-            size='large'
-            circular
-            color={accountSelected ? 'green' : 'red'}
-          />
+        <Menu.Menu position='right' style={{ alignItems: 'center' }}>
+          { !accountSelected
+            ? <span>
+              Add your account with the{' '}
+              <a
+                target='_blank'
+                rel='noopener noreferrer'
+                href='https://github.com/polkadot-js/extension'
+              >
+                Polkadot JS Extension
+              </a>
+            </span>
+            : null }
+          <CopyToClipboard text={accountSelected}>
+            <Button
+              basic
+              circular
+              size='large'
+              icon='user'
+              color={accountSelected ? 'green' : 'red'}
+            />
+          </CopyToClipboard>
           <Dropdown
             search
             selection
             clearable
             placeholder='Select an account'
             options={keyringOptions}
-            onChange={(_, dropdown) => { onChange(dropdown.value); }}
+            onChange={(_, dropdown) => {
+              onChange(dropdown.value);
+            }}
             value={accountSelected}
           />
-          {api.query.balances && api.query.balances.freeBalance
-            ? <BalanceAnnotation accountSelected={accountSelected} />
-            : null}
+          <BalanceAnnotation accountSelected={accountSelected} />
         </Menu.Menu>
       </Container>
     </Menu>
@@ -90,22 +107,26 @@ function BalanceAnnotation (props) {
 
     // If the user has selected an address, create a new subscription
     accountSelected &&
-      api.query.balances.freeBalance(accountSelected, balance => {
-        setAccountBalance(balance.toString());
-      }).then(unsub => {
-        unsubscribe = unsub;
-      }).catch(console.error);
+      api.query.system.account(accountSelected, balance => {
+        setAccountBalance(balance.data.free.toHuman());
+      })
+        .then(unsub => {
+          unsubscribe = unsub;
+        })
+        .catch(console.error);
 
     return () => unsubscribe && unsubscribe();
-  }, [accountSelected, api.query.balances]);
+  }, [api, accountSelected]);
 
-  return accountSelected
-    ? <Label pointing='left'>
-      <Icon
-        name='money bill alternate'
-        color={accountBalance > 0 ? 'green' : 'red'}
-      />
+  return accountSelected ? (
+    <Label pointing='left'>
+      <Icon name='money' color='green' />
       {accountBalance}
     </Label>
-    : null;
+  ) : null;
+}
+
+export default function AccountSelector (props) {
+  const { api, keyring } = useSubstrate();
+  return keyring.getPairs && api.query ? <Main {...props} /> : null;
 }

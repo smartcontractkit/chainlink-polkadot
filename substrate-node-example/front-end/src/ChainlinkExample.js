@@ -7,18 +7,24 @@ import { TxButton } from './substrate-lib/components';
 function Main (props) {
   const { api } = useSubstrate();
   const [status, setStatus] = useState(null);
-  const [formState, setFormState] = useState({ addressTo: null });
+  const [formState, setFormState] = useState({ addressTo: null, specId: null });
   const { accountPair } = props;
 
   const onChange = (_, data) =>
     setFormState(prevState => ({ ...formState, [data.state]: data.value }));
 
-  const { addressTo } = formState;
+  const { addressTo, specId } = formState;
 
   return (
     <Grid.Column>
       <h1>Chainlink</h1>
       <Form>
+        <Form.Field>
+          <Input
+            fluid label='Jobid' type='text' placeholder='jobid'
+            state='specId' onChange={onChange}
+          />
+        </Form.Field>
         <Form.Field>
           <Input
             fluid label='To' type='text' placeholder='address'
@@ -30,10 +36,12 @@ function Main (props) {
             accountPair={accountPair}
             label='Initiate Request'
             setStatus={setStatus}
-            type='TRANSACTION'
+            type='SIGNED-TX'
             attrs={{
-              params: [addressTo],
-              tx: api.tx.example.sendRequest
+              palletRpc: 'example',
+              callable: 'sendRequest',
+              inputParams: [addressTo, specId],
+              paramFields: [true, true]
             }}
           />
         </Form.Field>

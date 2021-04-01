@@ -46,7 +46,7 @@ async function main() {
     const api = await ApiPromise.create({
         provider: wsProvider,
         types: {
-            SpecIndex: "u32",
+            SpecIndex: "Vec<u8>",
             RequestIdentifier: "u64",
             DataVersion: "u64"
         }
@@ -88,7 +88,7 @@ async function main() {
     await registerOperatorIfNeeded(api, operatorAccount);
 
     // Then simulate a call from alice
-    await api.tx.example.sendRequest(operatorAccount.address).signAndSend(aliceAccount);
+    await api.tx.example.sendRequest(operatorAccount.address, "").signAndSend(aliceAccount);
     console.log(`Request sent`);
 }
 
