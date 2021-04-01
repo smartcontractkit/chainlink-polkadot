@@ -453,9 +453,12 @@ fn submit_failure_cases() {
 #[test]
 fn change_oracles_should_work() {
 	new_test_ext().execute_with(|| {
-		let initial_oracles = vec![(1, 4), (2, 4), (3, 4)];
+		let oracle = 2;
+		let admin = 4;
+		let initial_oracles = vec![(1, admin), (oracle, admin), (3, admin)];
 		assert_ok!(FeedBuilder::new()
 			.oracles(initial_oracles.clone())
+			.min_submissions(1)
 			.build_and_store());
 		for (o, _a) in initial_oracles.iter() {
 			assert!(
@@ -467,6 +470,15 @@ fn change_oracles_should_work() {
 		let owner = 1;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.oracle_count, 3);
+
+		let round = 1;
+		let submission = 42;
+		assert_ok!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			feed_id,
+			round,
+			submission
+		));
 
 		let to_disable: Vec<u64> = initial_oracles
 			.iter()
@@ -553,6 +565,9 @@ fn change_oracles_should_work() {
 			Error::<Test>::OracleDisabled
 		);
 
+		{
+			assert_ok!(ChainlinkFeed::feed_mut(feed_id).unwrap().request_new_round(AccountId::default()));
+		}
 		// successfully change oracles
 		assert_ok!(ChainlinkFeed::change_oracles(
 			Origin::signed(owner),
@@ -595,6 +610,23 @@ fn change_oracles_should_work() {
 				"oracle should be present"
 			);
 		}
+		assert_ok!(ChainlinkFeed::change_oracles(
+			Origin::signed(owner),
+			feed_id,
+			vec![],
+			vec![(oracle, admin)],
+		));
+		let expected_status = OracleStatus {
+			starting_round: 2,
+			ending_round: None,
+			last_reported_round: Some(1),
+			last_started_round: Some(1),
+			latest_submission: Some(submission),
+		};
+		assert_eq!(
+			ChainlinkFeed::oracle_status(feed_id, oracle),
+			Some(expected_status)
+		);
 	});
 }
 
