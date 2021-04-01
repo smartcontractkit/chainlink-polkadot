@@ -1152,23 +1152,21 @@ impl<T: Trait> Feed<T> {
 		);
 		self.config.oracle_count = new_count;
 		for (oracle, admin) in to_add {
-			// Initialize the oracle if it is not tracked, yet.
-			Oracles::<T>::try_mutate(&oracle, |maybe_meta| -> DispatchResult {
-				match maybe_meta {
-					None => {
-						*maybe_meta = Some(OracleMeta {
-							withdrawable: Zero::zero(),
-							admin,
-							..Default::default()
-						});
-					}
-					Some(meta) => ensure!(meta.admin == admin, Error::<T>::OwnerCannotChangeAdmin),
-				}
-				Ok(())
-			})?;
+			if let Some(meta) = Oracles::<T>::get(&oracle) {
+				// Make sure the admin is correct in case the oracle
+				// is already tracked.
+				ensure!(meta.admin == admin, Error::<T>::OwnerCannotChangeAdmin);
+			} else {
+				// Initialize the oracle if it is not tracked, yet.
+				Oracles::<T>::insert(&oracle, OracleMeta {
+					withdrawable: Zero::zero(),
+					admin,
+					..Default::default()
+				});
+			}
 			OracleStatuses::<T>::try_mutate(self.id, &oracle, |maybe_status| -> DispatchResult {
-				// Only allow enabling oracles once in order to keep
-				// the count accurate.
+				// Only allow enabling non-existent or disabled oracles
+				// in order to keep the count accurate.
 				ensure!(
 					maybe_status
 						.as_ref()
@@ -1176,7 +1174,13 @@ impl<T: Trait> Feed<T> {
 						.unwrap_or(true),
 					Error::<T>::AlreadyEnabled
 				);
-				*maybe_status = Some(OracleStatus::new(self.reporting_round_id()));
+				if let Some(status) = maybe_status.as_mut() {
+					// overwrite the starting and ending round
+					status.starting_round = self.reporting_round_id();
+					status.ending_round = None;
+				} else {
+					*maybe_status = Some(OracleStatus::new(self.reporting_round_id()));
+				}
 				Ok(())
 			})?;
 			Module::<T>::deposit_event(RawEvent::OraclePermissionsUpdated(self.id, oracle, true));
