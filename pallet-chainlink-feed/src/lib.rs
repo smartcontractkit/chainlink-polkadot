@@ -1115,8 +1115,7 @@ impl<T: Trait> Feed<T> {
 		started_at > Zero::zero()
 			&& timeout > Zero::zero()
 			&& started_at
-				.checked_add(&timeout)
-				.expect("started_at and timeout should have sane values -> no overflow; qed")
+				.saturating_add(timeout)
 				< block_num
 	}
 
