@@ -28,7 +28,7 @@ use sp_version::NativeVersion;
 pub use sp_runtime::BuildStorage;
 pub use pallet_timestamp::Call as TimestampCall;
 pub use pallet_balances::Call as BalancesCall;
-pub use sp_runtime::{Permill, Perbill};
+pub use sp_runtime::{ModuleId, Permill, Perbill};
 pub use frame_support::{
 	construct_runtime, parameter_types, StorageValue,
 	traits::{KeyOwnerProofSystem, Randomness},
@@ -38,10 +38,11 @@ pub use frame_support::{
 	},
 };
 
-/// Import the example pallet.
-pub use example_pallet;
+pub mod weights;
 
-pub use example_pallet::Call as ExampleCall;
+/// Import the template pallet.
+pub use pallet_template;
+pub use pallet_chainlink_feed;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -263,20 +264,38 @@ impl pallet_sudo::Trait for Runtime {
 	type Call = Call;
 }
 
-impl example_pallet::Trait for Runtime {
-	type Event = Event;
-	type Callback = ExampleCall<Runtime>;
-}
-
-impl pallet_chainlink::Trait for Runtime {
-	type Event = Event;
-	type Currency = Balances;
-	type Callback = ExampleCall<Runtime>;
-	type ValidityPeriod = ValidityPeriod;
-}
+pub use pallet_chainlink_feed::RoundId;
+pub type FeedId = u32;
+pub type Value = u128;
 
 parameter_types! {
-	pub const ValidityPeriod: u32 = 50;
+	pub const FeedModule: ModuleId = ModuleId(*b"linkfeed");
+	pub const MinimumReserve: Balance = ExistentialDeposit::get() * 1000;
+	pub const StringLimit: u32 = 30;
+	pub const OracleCountLimit: u32 = 25;
+	pub const FeedLimit: FeedId = 100;
+	pub const PruningWindow: RoundId = 15;
+}
+
+use weights::pallet_chainlink_feed::WeightInfo as ChainlinkWeightInfo;
+impl pallet_chainlink_feed::Trait for Runtime {
+	type Event = Event;
+	type FeedId = FeedId;
+	type Value = Value;
+	type Currency = Balances;
+	type ModuleId = FeedModule;
+	type MinimumReserve = MinimumReserve;
+	type StringLimit = StringLimit;
+	type OracleCountLimit = OracleCountLimit;
+	type FeedLimit = FeedLimit;
+	type PruningWindow = PruningWindow;
+	type WeightInfo = ChainlinkWeightInfo;
+}
+
+/// Configure the template pallet in pallets/template.
+impl pallet_template::Trait for Runtime {
+	type Event = Event;
+	type Oracle = ChainlinkFeed;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -295,8 +314,8 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		// Include the custom logic from the template pallet in the runtime.
-		Chainlink: pallet_chainlink::{Module, Call, Storage, Event<T>},
-		Example: example_pallet::{Module, Call, Storage},
+		ChainlinkFeed: pallet_chainlink_feed::{Module, Call, Config<T>, Storage, Event<T>},
+		TemplateModule: pallet_template::{Module, Call, Storage, Event<T>},
 	}
 );
 
@@ -363,7 +382,8 @@ impl_runtime_apis! {
 			Executive::finalize_block()
 		}
 
-		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+		fn inherent_extrinsics(data: sp_inherents::InherentData) ->
+			Vec<<Block as BlockT>::Extrinsic> {
 			data.create_extrinsics()
 		}
 
@@ -448,7 +468,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
+	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance>
+		for Runtime {
 		fn query_info(
 			uxt: <Block as BlockT>::Extrinsic,
 			len: u32,
@@ -469,15 +490,20 @@ impl_runtime_apis! {
 
 			let whitelist: Vec<TrackedStorageKey> = vec![
 				// Block Number
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac")
+					.to_vec().into(),
 				// Total Issuance
-				hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
+				hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80")
+					.to_vec().into(),
 				// Execution Phase
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a")
+					.to_vec().into(),
 				// Event Count
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850")
+					.to_vec().into(),
 				// System Events
-				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7")
+					.to_vec().into(),
 			];
 
 			let mut batches = Vec::<BenchmarkBatch>::new();
@@ -486,6 +512,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
+			add_benchmark!(params, batches, pallet_chainlink_feed, ChainlinkFeed);
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)

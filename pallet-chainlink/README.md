@@ -1,5 +1,7 @@
 # Chainlink pallet
 
+> NOTE: Still on Substrate pre-v2 and not compatible with the example node in this repo.
+
 ## Purpose
 
 This pallet allows your substrate built parachain/blockchain to interract with [chainlink](https://chain.link/). [Pallets](https://substrate.dev/docs/en/tutorials/build-a-dapp/pallet) are modular pieces of the Polkadot Substrate that make it easier for your parachain to interact with technologies. This is essential for working with any kind of external data API from outside your blockchain.
