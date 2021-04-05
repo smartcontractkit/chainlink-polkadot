@@ -21,6 +21,7 @@ services:
     volumes:
       - ../substrate-node-example/:/var/www/node-template
       - ../pallet-chainlink-feed/:/var/www/pallet-chainlink-feed
+      - "chain:/root/.local"
     command: bash -c "cargo build --release && ./target/release/node-template --dev --ws-external"
     networks:
       - fm-substrate
@@ -50,8 +51,6 @@ services:
     image: postgres:13
     container_name: postgres
     restart: on-failure
-    ports:
-      - "5432:5432"
     environment:
       - POSTGRES_MULTIPLE_DATABASES=chainlink,ei
       - POSTGRES_HOST_AUTH_METHOD=trust
@@ -109,6 +108,7 @@ services:
 volumes:
   pg:
   cl:
+  chain:
 secrets:
   node_password:
     file: ./secrets/password.txt
