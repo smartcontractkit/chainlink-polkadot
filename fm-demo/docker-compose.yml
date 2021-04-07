@@ -8,6 +8,8 @@ x-substrate-adapter-def:
     - ./adapter.env
   networks:
     - fm-substrate
+  depends_on:
+    - chain
 
 services:
   chain:
@@ -61,7 +63,7 @@ services:
       - fm-substrate
 
   external-initiator:
-    image: smartcontract/dev:fm-ei-0
+    image: smartcontract/dev:fm-ei-1
     container_name: external-initiator
     command: '{\"name\":\"substrate\",\"type\":\"substrate\",\"url\":\"ws://chain:9944/\"}'
     depends_on:

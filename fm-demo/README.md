@@ -85,92 +85,74 @@ EI_IC_SECRET=[SECRET]
 
 ```json
 {
-   "initiators":[
-      {
-         "type":"external",
-         "params":{
-            "name":"substrate",
-            "body":{
-               "endpoint":"substrate",
-               "feed_id":0,
-               "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
-               "fluxmonitor":{
-                  "requestData":{
-                     "data":{
-                        "from":"DOT",
-                        "to":"USD"
-                     }
-                  },
-                  "feeds":[
-                     {
-                        "url":"http://coingecko-adapter:8080"
-                     }
-                  ],
-                  "threshold":0.5,
-                  "absoluteThreshold":0,
-                  "precision":8,
-                  "pollTimer":{
-                     "period":"30s"
-                  },
-                  "idleTimer":{
-                     "duration":"1m"
-                  }
-               }
-            }
-         }
+  "initiators": [
+    {
+      "type": "external",
+      "params": {
+        "name": "substrate",
+        "body": {
+          "endpoint": "substrate",
+          "feed_id": 0,
+          "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+          "fluxmonitor": {
+            "requestData": {
+              "data": { "from": "DOT", "to": "USD" }
+            },
+            "feeds": [
+              { "url": "http://coingecko-adapter:8080" }
+            ],
+            "threshold": 0.5,
+            "absoluteThreshold": 0,
+            "precision": 8,
+            "pollTimer": { "period": "30s" },
+            "idleTimer": { "duration": "1m" }
+          }
+        }
       }
-   ],
-   "tasks":[
-     {"type":"multiply", "params": {
-       "times": 1e8
-     }},
-      {"type":"substrate-adapter1"}
-   ]
+    }
+  ],
+  "tasks": [
+    {
+      "type": "substrate-adapter1",
+      "params": { "multiply":1e8 }
+    }
+  ]
 }
 ```
 
 ```json
 {
-   "initiators":[
-      {
-         "type":"external",
-         "params":{
-            "name":"substrate",
-            "body":{
-               "endpoint":"substrate",
-               "feed_id":0,
-               "account_id": "0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54",
-               "fluxmonitor":{
-                  "requestData":{
-                     "data":{
-                        "from":"DOT",
-                        "to":"USD"
-                     }
-                  },
-                  "feeds":[
-                     {
-                        "url":"http://coingecko-adapter:8080"
-                     }
-                  ],
-                  "threshold":0.5,
-                  "absoluteThreshold":0,
-                  "precision":8,
-                  "pollTimer":{
-                     "period":"30s"
-                  },
-                  "idleTimer":{
-                     "duration":"1m"
-                  }
-               }
-            }
-         }
+  "initiators": [
+    {
+      "type": "external",
+      "params": {
+        "name": "substrate",
+        "body": {
+          "endpoint": "substrate",
+          "feed_id": 0,
+          "account_id": "0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54",
+          "fluxmonitor": {
+            "requestData": {
+              "data": { "from": "DOT", "to": "USD" }
+            },
+            "feeds": [
+              { "url": "http://coingecko-adapter:8080" }
+            ],
+            "threshold": 0.5,
+            "absoluteThreshold": 0,
+            "precision": 8,
+            "pollTimer": { "period": "30s" },
+            "idleTimer": { "duration": "1m" }
+          }
+        }
       }
-   ],
-   "tasks":[
-     {"type":"multiply", "params": {
-       "times": 1e8
-     }},
-      {"type":"substrate-adapter2"}
-   ]
+    }
+  ],
+  "tasks": [
+    {
+      "type": "substrate-adapter2",
+      "params": { "multiply":1e8 }
+    }
+  ]
 }
 ```
