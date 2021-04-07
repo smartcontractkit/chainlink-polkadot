@@ -78,8 +78,6 @@ services:
 
   substrate-adapter1:
     <<: *substrate-adapter-def
-    ports:
-      - 8081:8080
     container_name: substrate-adapter1
     environment:
       - "SA_PRIVATE_KEY=0x2875481aae0807cf598d6097c901a33b36241c761158c85852a6d79a8f20bc62"
