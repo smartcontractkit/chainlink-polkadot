@@ -341,7 +341,7 @@ decl_event!(
 		OracleAdminUpdateRequested(AccountId, AccountId, AccountId),
 		/// The admin change was executed. \[oracle, new_admin\]
 		OracleAdminUpdated(AccountId, AccountId),
-		/// The submission permissions for the given feed and oralce have been updated. \[feed, oracle, enabled\]
+		/// The submission permissions for the given feed and oracle have been updated. \[feed, oracle, enabled\]
 		OraclePermissionsUpdated(FeedId, AccountId, bool),
 		/// The requester permissions have been updated (set or removed). \[feed, requester, authorized, delays\]
 		RequesterPermissionsSet(FeedId, AccountId, bool, RoundId),
@@ -409,7 +409,7 @@ decl_error! {
 		/// The round initiation delay cannot be equal to or greater
 		/// than the number of oracles.
 		DelayNotBelowCount,
-		/// Sender is not admin. Admin privilege can only be transfered by the admin.
+		/// Sender is not admin. Admin privilege can only be transferred by the admin.
 		NotAdmin,
 		/// Only the pending admin can accept the transfer.
 		NotPendingAdmin,
@@ -1143,7 +1143,7 @@ impl<T: Trait> Feed<T> {
 	fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
 		let new_count = self
 			.oracle_count()
-			// saturating is fine because we inforce a limit below
+			// saturating is fine because we enforce a limit below
 			.saturating_add(to_add.len() as u32);
 		ensure!(
 			new_count <= T::OracleCountLimit::get(),
