@@ -3,10 +3,10 @@
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::weights::{Weight, constants::RocksDbWeight as DbWeight};
+use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::WeightInfo for () {
-	fn create_feed(o: u32, ) -> Weight {
+	fn create_feed(o: u32) -> Weight {
 		(305_438_000 as Weight)
 			.saturating_add((62_577_000 as Weight).saturating_mul(o as Weight))
 			.saturating_add(DbWeight::get().reads(2 as Weight))
@@ -29,13 +29,13 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(7 as Weight))
 			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
-	fn submit_closing_answer(o: u32, ) -> Weight {
+	fn submit_closing_answer(o: u32) -> Weight {
 		(362_642_000 as Weight)
 			.saturating_add((1_219_000 as Weight).saturating_mul(o as Weight))
 			.saturating_add(DbWeight::get().reads(8 as Weight))
 			.saturating_add(DbWeight::get().writes(7 as Weight))
 	}
-	fn change_oracles(d: u32, n: u32, ) -> Weight {
+	fn change_oracles(d: u32, n: u32) -> Weight {
 		(0 as Weight)
 			.saturating_add((74_485_000 as Weight).saturating_mul(d as Weight))
 			.saturating_add((85_010_000 as Weight).saturating_mul(n as Weight))
@@ -51,7 +51,7 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(1 as Weight))
 	}
-	fn prune(r: u32, ) -> Weight {
+	fn prune(r: u32) -> Weight {
 		(64_989_000 as Weight)
 			.saturating_add((21_359_000 as Weight).saturating_mul(r as Weight))
 			.saturating_add(DbWeight::get().reads(1 as Weight))

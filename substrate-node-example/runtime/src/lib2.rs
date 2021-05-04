@@ -12,6 +12,7 @@ pub use frame_support::{
 	},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
+use frame_system::SetCode;
 pub use pallet_balances::Call as BalancesCall;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_grandpa::fg_primitives;
@@ -334,7 +335,7 @@ construct_runtime!(
 );
 
 /// The address format for describing accounts.
-pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
+pub type Address = AccountId;
 /// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
@@ -387,30 +388,30 @@ impl_runtime_apis! {
 		}
 	}
 
-    impl sp_block_builder::BlockBuilder<Block> for Runtime {
-        fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
-            Executive::apply_extrinsic(extrinsic)
-        }
+	impl sp_block_builder::BlockBuilder<Block> for Runtime {
+		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
+			Executive::apply_extrinsic(extrinsic)
+		}
 
-        fn finalize_block() -> <Block as BlockT>::Header {
-            Executive::finalize_block()
-        }
+		fn finalize_block() -> <Block as BlockT>::Header {
+			Executive::finalize_block()
+		}
 
-        fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-            data.create_extrinsics()
-        }
+		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+			data.create_extrinsics()
+		}
 
-        fn check_inherents(
-            block: Block,
-            data: sp_inherents::InherentData,
-        ) -> sp_inherents::CheckInherentsResult {
-            data.check_extrinsics(&block)
-        }
+		fn check_inherents(
+			block: Block,
+			data: sp_inherents::InherentData,
+		) -> sp_inherents::CheckInherentsResult {
+			data.check_extrinsics(&block)
+		}
 
-        fn random_seed() -> <Block as BlockT>::Hash {
-            RandomnessCollectiveFlip::random_seed().0
-        }
-    }
+		fn random_seed() -> <Block as BlockT>::Hash {
+			RandomnessCollectiveFlip::random_seed()
+		}
+	}
 
 	impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(
@@ -422,14 +423,14 @@ impl_runtime_apis! {
 	}
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-        fn offchain_worker(header: &<Block as BlockT>::Header) {
-            Executive::offchain_worker(header)
-        }
-    }
+		fn offchain_worker(header: &<Block as BlockT>::Header) {
+			Executive::offchain_worker(header)
+		}
+	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-		fn slot_duration() -> sp_consensus_aura::SlotDuration {
-			sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+		fn slot_duration() -> u64 {
+			Aura::slot_duration()
 		}
 
 		fn authorities() -> Vec<AuraId> {

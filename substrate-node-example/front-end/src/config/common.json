@@ -1,8 +1,5 @@
 {
   "APP_NAME": "substrate-front-end-tutorial",
   "DEVELOPMENT_KEYRING": true,
-  "RPC": {},
-  "CUSTOM_TYPES": {"SpecIndex": "Vec<u8>",
-                   "RequestIdentifier": "u64",
-                   "DataVersion": "u64"}
+  "RPC": {}
 }
