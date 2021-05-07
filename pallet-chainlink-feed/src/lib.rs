@@ -91,7 +91,7 @@ pub mod pallet {
 		Value: Default,       // Value
 	{
 		/// Create a new Round with the given starting block.
-		fn new(started_at: BlockNumber) -> Self {
+		pub fn new(started_at: BlockNumber) -> Self {
 			Self {
 				started_at,
 				..Default::default()
@@ -1250,7 +1250,7 @@ pub mod pallet {
 		}
 
 		/// Return the round details (including submissions).
-		fn details(&self, round: RoundId) -> Option<RoundDetailsOf<T>> {
+		pub fn details(&self, round: RoundId) -> Option<RoundDetailsOf<T>> {
 			Details::<T>::get(self.id, round)
 		}
 
