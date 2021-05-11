@@ -1,7 +1,6 @@
 version: "3.6"
 
-x-substrate-adapter-def:
-  &substrate-adapter-def
+x-substrate-adapter-def: &substrate-adapter-def
   image: smartcontract/substrate-adapter:latest
   restart: on-failure
   env_file:
@@ -47,7 +46,17 @@ services:
       - "cl:/chainlink"
     networks:
       - fm-substrate
-    entrypoint: [ "chainlink", "node", "start", "-d", "-p", "/run/secrets/node_password", "-a", "/run/secrets/apicredentials" ]
+    entrypoint:
+      [
+        "chainlink",
+        "node",
+        "start",
+        "-d",
+        "-p",
+        "/run/secrets/node_password",
+        "-a",
+        "/run/secrets/apicredentials",
+      ]
 
   postgres:
     image: postgres:13
@@ -79,6 +88,8 @@ services:
   substrate-adapter1:
     <<: *substrate-adapter-def
     container_name: substrate-adapter1
+    ports:
+      - "8081:8080"
     environment:
       - "SA_PRIVATE_KEY=0x2875481aae0807cf598d6097c901a33b36241c761158c85852a6d79a8f20bc62"
     # Secret phrase `dry squeeze youth enjoy provide blouse claw engage host what horn next` is account:
@@ -90,6 +101,8 @@ services:
   substrate-adapter2:
     <<: *substrate-adapter-def
     container_name: substrate-adapter2
+    ports:
+      - "8082:8080"
     environment:
       - "SA_PRIVATE_KEY=0x00ed255f936202d04c70c02737ba322a7aaf961e94bb22c3e15d4ec7f44ab407"
     # Secret phrase `price trip nominee recycle walk park borrow sausage crucial only wheel joke` is account:
@@ -102,6 +115,8 @@ services:
     image: coingecko-adapter
     container_name: coingecko-adapter
     restart: on-failure
+    ports:
+      - "8083:8080"
     networks:
       - fm-substrate
 
