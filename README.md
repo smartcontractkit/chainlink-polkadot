@@ -20,7 +20,7 @@ See [the template pallet](./substrate-node-example/pallets/template/src/lib.rs) 
 
 ## Run the example
 
-`substrate-node-example` shows off out to use `pallet-chainlink-feed` end-to-end.
+`substrate-node-example` demonstrates how to use `pallet-chainlink-feed` end-to-end.
 To test:
 
 * start the chain using `make run-temp` (for a temporary node which cleans up after itself)

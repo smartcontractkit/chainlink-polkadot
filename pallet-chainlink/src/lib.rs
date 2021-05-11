@@ -2,7 +2,7 @@
 //!
 //! \## Overview
 //!
-//! `pallet-chainlink` allows to request external data from chainlink operators. This is done by emiting a well-known event (`OracleEvent`)
+//! `pallet-chainlink` allows to request external data from chainlink operators. This is done by emitting a well-known event (`OracleEvent`)
 //! embedding all required data. This event is listened by operators that in turns call back the `callback` function with the associated data.
 //!
 //! To initiate a request, users call `initiate_request` with the relevant details, the `operator` AccountId and the `fee` they agree to spend to get the result.
@@ -42,7 +42,7 @@ pub trait Trait: frame_system::Trait {
 	type ValidityPeriod: Get<Self::BlockNumber>;
 }
 
-// REVIEW: Use this for transfering currency.
+// REVIEW: Use this for transferring currency.
 pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 // Uniquely identify a request's specification understood by an Operator
@@ -71,10 +71,10 @@ decl_storage! {
 
 decl_event!(
 	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId, Balance = BalanceOf<T> {
-		// A request has been accepted. Corresponding fee paiement is reserved
+		// A request has been accepted. Corresponding fee payment is reserved
 		OracleRequest(AccountId, SpecIndex, RequestIdentifier, AccountId, DataVersion, Vec<u8>, Vec<u8>, Balance),
 
-		// A request has been answered. Corresponding fee paiement is transfered
+		// A request has been answered. Corresponding fee payment is transferred
 		OracleAnswer(AccountId, RequestIdentifier, AccountId, Vec<u8>, Balance),
 
 		// A new operator has been registered
@@ -199,7 +199,7 @@ decl_module! {
 			//         Substrate's Currency module well enough to tell.
 			// REVIEW: This happens *after* the request is `take`n from storage. Is that intended?
 			//         See ["verify first, write last"](https://substrate.dev/recipes/2-appetizers/1-hello-substrate.html#inside-a-dispatchable-call) motto.
-			// TODO chec whether to use BalanceStatus::Reserved or Free?
+			// TODO check whether to use BalanceStatus::Reserved or Free?
 			T::Currency::repatriate_reserved(&who, &operator, fee.into(), BalanceStatus::Free)?;
 
 			// Dispatch the result to the original callback registered by the caller
