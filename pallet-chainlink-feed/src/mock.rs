@@ -93,6 +93,12 @@ parameter_types! {
 type FeedId = u16;
 type Value = u64;
 
+impl pallet_chainlink_feed::traits::OnAnswerHandler<Test> for Test {
+	fn on_answer(feed: FeedId, new_data: RoundData<BlockNumber, Value>) {
+		ChainlinkFeed::deposit_event(pallet_chainlink_feed::Event::NewData(feed, new_data));
+	}
+}
+
 impl pallet_chainlink_feed::Config for Test {
 	type Event = Event;
 	type FeedId = FeedId;
@@ -101,6 +107,7 @@ impl pallet_chainlink_feed::Config for Test {
 	type PalletId = FeedPalletId;
 	type MinimumReserve = MinimumReserve;
 	type StringLimit = StringLimit;
+	type OnAnswerHandler = Self;
 	type OracleCountLimit = OracleLimit;
 	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;

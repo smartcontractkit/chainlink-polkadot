@@ -300,6 +300,7 @@ impl pallet_chainlink_feed::Config for Runtime {
 	type PalletId = FeedPalletId;
 	type MinimumReserve = MinimumReserve;
 	type StringLimit = StringLimit;
+    type OnAnswerHandler = ();
 	type OracleCountLimit = OracleCountLimit;
 	type FeedLimit = FeedLimit;
 	type PruningWindow = PruningWindow;

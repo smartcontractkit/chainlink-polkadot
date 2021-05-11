@@ -137,6 +137,60 @@ fn submit_should_work() {
 }
 
 #[test]
+fn on_answer_callback_works() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		let payment = 20;
+		let timeout = 10;
+		let min_submissions = 1;
+		let oracles = vec![(1, 4), (2, 4)];
+		assert_ok!(FeedBuilder::new()
+			.payment(payment)
+			.timeout(timeout)
+			.min_submissions(min_submissions)
+			.oracles(oracles)
+			.build_and_store());
+
+		let feed_id = 0;
+		let round_id = 1;
+		let oracle = 2;
+		let submission = 42;
+		assert_ok!(ChainlinkFeed::submit(
+			Origin::signed(oracle),
+			feed_id,
+			round_id,
+			submission
+		));
+
+		assert_eq!(
+			System::events()
+				.into_iter()
+				.map(|r| r.event)
+				.filter_map(|e| {
+					if let mock::Event::pallet_chainlink_feed(crate::Event::NewData(feed, data)) = e
+					{
+						Some((feed, data))
+					} else {
+						None
+					}
+				})
+				.last()
+				.unwrap(),
+			(
+				0,
+				RoundData {
+					started_at: 1,
+					answer: 42,
+					updated_at: 1,
+					answered_in_round: 1
+				}
+			)
+		);
+	});
+}
+
+#[test]
 fn details_are_cleared() {
 	new_test_ext().execute_with(|| {
 		let payment = 20;

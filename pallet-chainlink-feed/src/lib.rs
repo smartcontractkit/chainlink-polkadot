@@ -10,6 +10,7 @@ mod benchmarking;
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod traits;
 
 pub mod default_weights;
 mod utils;
@@ -35,7 +36,10 @@ pub mod pallet {
 	use sp_std::convert::{TryFrom, TryInto};
 	use sp_std::prelude::*;
 
-	use crate::utils::{median, with_transaction_result};
+	use crate::{
+		traits::OnAnswerHandler,
+		utils::{median, with_transaction_result},
+	};
 
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -191,6 +195,19 @@ pub mod pallet {
 		}
 	}
 
+	impl<B, V> RoundData<B, V> {
+		/// Hard to use `Into` trait directly due to:
+		/// https://doc.rust-lang.org/reference/items/traits.html#object-safety
+		fn into_round(self) -> Round<B, V> {
+			Round {
+				started_at: self.started_at,
+				answer: Some(self.answer),
+				updated_at: Some(self.updated_at),
+				answered_in_round: Some(self.answered_in_round),
+			}
+		}
+	}
+
 	/// Trait for interacting with the feeds in the pallet.
 	pub trait FeedOracle<T: frame_system::Config> {
 		type FeedId: Parameter + BaseArithmetic;
@@ -275,6 +292,9 @@ pub mod pallet {
 
 		/// Number of rounds to keep around per feed.
 		type PruningWindow: Get<RoundId>;
+
+		/// This callback will trigger when the round answer updates
+		type OnAnswerHandler: OnAnswerHandler<Self>;
 
 		/// The weight for this pallet's extrinsics.
 		type WeightInfo: WeightInfo;
@@ -420,6 +440,13 @@ pub mod pallet {
 		FeedCreator(T::AccountId),
 		/// The account is no longer allowed to create feeds. \[previously_creator\]
 		FeedCreatorRemoved(T::AccountId),
+		#[cfg(test)]
+		/// New round data
+		///
+		/// Note:
+		///
+		/// This is only for tests
+		NewData(T::FeedId, RoundData<T::BlockNumber, T::Value>),
 	}
 
 	#[pallet::error]
@@ -704,14 +731,18 @@ pub mod pallet {
 				// update round answer
 				let (min_count, max_count) = details.submission_count_bounds;
 				if details.submissions.len() >= min_count as usize {
-					let new_answer = median(&mut details.submissions);
-					let mut round =
-						Self::round(feed_id, round_id).ok_or(Error::<T>::RoundNotFound)?;
-					round.answer = Some(new_answer);
 					let updated_at = frame_system::Pallet::<T>::block_number();
-					round.updated_at = Some(updated_at);
-					round.answered_in_round = Some(round_id);
-					Rounds::<T>::insert(feed_id, round_id, round);
+					let new_answer = median(&mut details.submissions);
+					let round = RoundData {
+						started_at: Self::round(feed_id, round_id)
+							.ok_or(Error::<T>::RoundNotFound)?
+							.started_at,
+						answer: new_answer,
+						updated_at,
+						answered_in_round: round_id,
+					};
+
+					Rounds::<T>::insert(feed_id, round_id, round.clone().into_round());
 
 					feed.config.latest_round = round_id;
 					if feed.config.first_valid_round.is_none() {
@@ -723,6 +754,7 @@ pub mod pallet {
 						Details::<T>::remove(feed_id, prev_round_id);
 					}
 
+					T::OnAnswerHandler::on_answer(feed_id, round);
 					Self::deposit_event(Event::AnswerUpdated(
 						feed_id, round_id, new_answer, updated_at,
 					));
