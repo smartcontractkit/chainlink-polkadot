@@ -1,7 +1,7 @@
 version: "3.6"
 
 x-substrate-adapter-def: &substrate-adapter-def
-  image: smartcontract/substrate-adapter:latest
+  image: ebarakos/substrate-adapter:latest
   restart: on-failure
   env_file:
     - ./adapter.env
@@ -72,7 +72,7 @@ services:
       - fm-substrate
 
   external-initiator:
-    image: smartcontract/dev:fm-ei-1
+    image: ebarakos/external-initiator:latest
     container_name: external-initiator
     command: '{\"name\":\"substrate\",\"type\":\"substrate\",\"url\":\"ws://chain:9944/\"}'
     depends_on:
