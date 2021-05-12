@@ -116,7 +116,7 @@ services:
     container_name: coingecko-adapter
     restart: on-failure
     ports:
-      - "8083:8080"
+      - "8086:8080"
     networks:
       - fm-substrate
 
