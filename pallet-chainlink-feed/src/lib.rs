@@ -24,6 +24,7 @@ pub mod pallet {
 		dispatch::{DispatchError, DispatchResult, HasCompact},
 		ensure,
 		pallet_prelude::*,
+		require_transactional,
 		weights::Weight,
 		PalletId, Parameter, RuntimeDebug,
 	};
@@ -821,13 +822,20 @@ pub mod pallet {
 			timeout: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			// synced on drop
-			let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			feed.ensure_owner(&owner)?;
+			with_transaction_result(|| {
+				// synced on drop
+				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+				feed.ensure_owner(&owner)?;
 
-			feed.update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)?;
+				feed.update_future_rounds(
+					payment,
+					submission_count_bounds,
+					restart_delay,
+					timeout,
+				)?;
 
-			Ok(().into())
+				Ok(().into())
+			})
 		}
 
 		/// Prune the state of a feed to reduce storage load.
@@ -1372,10 +1380,7 @@ pub mod pallet {
 		// --- mutators ---
 
 		/// Add the given oracles to the feed.
-		///
-		/// **Warning:** Fallible function that changes storage.
-		// TODO: use [require_transactional](https://github.com/paritytech/substrate/issues/7004)
-		// after migrating to Substrate v3 for this and others.
+		#[require_transactional]
 		pub fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
 			let new_count = self
 				.oracle_count()
@@ -1432,8 +1437,7 @@ pub mod pallet {
 		}
 
 		/// Disable the given oracles.
-		///
-		/// **Warning:** Fallible function that changes storage.
+		#[require_transactional]
 		fn disable_oracles(&mut self, to_disable: Vec<T::AccountId>) -> DispatchResult {
 			let disabled_count = to_disable.len() as u32;
 			self.config.oracle_count = self
@@ -1453,8 +1457,7 @@ pub mod pallet {
 
 		/// Update the configuration for future oracle rounds.
 		/// (Past and present rounds are unaffected.)
-		///
-		/// **Warning:** Fallible function that changes storage.
+		#[require_transactional]
 		pub fn update_future_rounds(
 			&mut self,
 			payment: BalanceOf<T>,
@@ -1494,8 +1497,7 @@ pub mod pallet {
 
 		/// Initialize a new round.
 		/// Will close the previous one if it is timed out.
-		///
-		/// **Warning:** Fallible function that changes storage.
+		#[require_transactional]
 		fn initialize_round(
 			&mut self,
 			new_round_id: RoundId,
@@ -1524,8 +1526,7 @@ pub mod pallet {
 		}
 
 		/// Close a timed out round and remove its details.
-		///
-		/// **Warning:** Fallible function that changes storage.
+		#[require_transactional]
 		fn close_timed_out_round(&self, timed_out_id: RoundId) -> DispatchResult {
 			let prev_id = timed_out_id.saturating_sub(One::one());
 			let prev_round = self.round(prev_id).ok_or(Error::<T>::RoundNotFound)?;
@@ -1611,8 +1612,7 @@ pub mod pallet {
 		/// Requests that a new round be started for the feed.
 		///
 		/// Returns `Ok` on success and `Err` in case the round could not be started.
-		///
-		/// **Warning:** Fallible function that changes storage.
+		#[require_transactional]
 		fn request_new_round(&mut self, requester: T::AccountId) -> DispatchResult {
 			let new_round = self
 				.reporting_round_id()

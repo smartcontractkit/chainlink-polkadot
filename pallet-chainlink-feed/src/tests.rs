@@ -1,8 +1,9 @@
 use super::*;
-use crate::{mock::*, Error};
-use frame_support::sp_runtime::traits::AccountIdConversion;
-use frame_support::traits::Currency;
-use frame_support::{assert_noop, assert_ok, sp_runtime::traits::Zero};
+use crate::{mock::*, utils::with_transaction_result, Error};
+use frame_support::{
+	assert_noop, assert_ok, sp_runtime::traits::AccountIdConversion, sp_runtime::traits::Zero,
+	traits::Currency,
+};
 
 type Balances = pallet_balances::Pallet<Test>;
 
@@ -424,7 +425,7 @@ fn change_oracles_should_work() {
 		);
 
 		{
-			assert_ok!(ChainlinkFeed::feed_mut(feed_id)
+			tx_assert_ok!(ChainlinkFeed::feed_mut(feed_id)
 				.unwrap()
 				.request_new_round(AccountId::default()));
 		}
@@ -582,7 +583,7 @@ fn update_future_rounds_should_work() {
 		);
 
 		// successful update
-		assert_ok!(ChainlinkFeed::update_future_rounds(
+		tx_assert_ok!(ChainlinkFeed::update_future_rounds(
 			Origin::signed(owner),
 			feed_id,
 			new_payment,
@@ -891,7 +892,7 @@ fn feed_oracle_trait_should_work() {
 				}
 			);
 
-			assert_ok!(feed.request_new_round(AccountId::default()));
+			tx_assert_ok!(feed.request_new_round(AccountId::default()));
 		}
 		let round_id = 2;
 		let round =
@@ -1210,8 +1211,8 @@ fn feed_life_cylce() {
 		let oracles = vec![(2, 2), (3, 3), (4, 4)];
 		{
 			let mut feed = Feed::<Test>::new(id, new_config.clone());
-			assert_ok!(feed.add_oracles(oracles.clone()));
-			assert_ok!(feed.update_future_rounds(
+			tx_assert_ok!(feed.add_oracles(oracles.clone()));
+			tx_assert_ok!(feed.update_future_rounds(
 				payment,
 				submission_count_bounds,
 				restart_delay,
@@ -1250,7 +1251,7 @@ fn feed_life_cylce() {
 		);
 		{
 			let mut feed = ChainlinkFeed::feed_mut(id).expect("feed should be there");
-			assert_ok!(feed.request_new_round(AccountId::default()));
+			tx_assert_ok!(feed.request_new_round(AccountId::default()));
 		}
 		assert_eq!(ChainlinkFeed::feed_config(id).unwrap().reporting_round, 1);
 	});
