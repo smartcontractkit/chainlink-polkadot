@@ -13,7 +13,7 @@ x-substrate-adapter-def: &substrate-adapter-def
 services:
   chain:
     container_name: chain
-    image: paritytech/ci-linux:974ba3ac-20201006
+    image: paritytech/ci-linux:production
     working_dir: /var/www/node-template
     ports:
       - "9944:9944"
