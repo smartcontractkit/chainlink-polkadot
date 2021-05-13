@@ -112,7 +112,7 @@ services:
     #  SS58 Address:     5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ
 
   coingecko-adapter:
-    image: coingecko-adapter
+    image: ebarakos/coingecko-adapter:0.04
     container_name: coingecko-adapter
     restart: on-failure
     ports:
