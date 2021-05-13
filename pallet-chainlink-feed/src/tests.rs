@@ -20,6 +20,7 @@ fn feed_creation_should_work() {
 			b"desc".to_vec(),
 			2,
 			vec![(1, 4), (2, 4), (3, 4)],
+			None,
 		));
 	});
 }
@@ -1153,6 +1154,7 @@ fn feed_creation_permissioning() {
 #[test]
 fn can_go_into_debt_and_repay() {
 	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
 		let admin: AccountId = FeedPalletId::get().into_account();
 		let owner = 1;
 		let oracle = 2;
@@ -1161,23 +1163,24 @@ fn can_go_into_debt_and_repay() {
 			.payment(payment)
 			.owner(owner)
 			.oracles(vec![(oracle, 3), (3, 3)])
+			.max_debt(42)
 			.build_and_store());
-		assert_eq!(ChainlinkFeed::debt(), 0);
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), 0);
 		// ensure the fund is out of tokens
 		Balances::make_free_balance_be(&admin, ExistentialDeposit::get());
 		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), 0, 1, 42));
-		assert_eq!(ChainlinkFeed::debt(), payment);
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment);
 		let new_funds = 2 * payment;
 		Balances::make_free_balance_be(&admin, new_funds);
 		// should be possible to reduce debt partially
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), 10));
+		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), 0, 10));
 		assert_eq!(Balances::free_balance(admin), new_funds - 10);
-		assert_eq!(ChainlinkFeed::debt(), payment - 10);
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment - 10);
 		// should be possible to overshoot in passing the amount correcting debt...
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(42), payment));
+		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(42), 0, payment));
 		// ... but will only correct the debt
 		assert_eq!(Balances::free_balance(admin), new_funds - payment);
-		assert_eq!(ChainlinkFeed::debt(), 0);
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), 0);
 	});
 }
 
@@ -1207,6 +1210,8 @@ fn feed_life_cylce() {
 			reporting_round: Zero::zero(),
 			first_valid_round: None,
 			oracle_count: Zero::zero(),
+			debt: Zero::zero(),
+			max_debt: None,
 		};
 		let oracles = vec![(2, 2), (3, 3), (4, 4)];
 		{

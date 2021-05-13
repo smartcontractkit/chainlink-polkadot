@@ -124,6 +124,7 @@ pub(crate) struct FeedBuilder {
 	description: Option<Vec<u8>>,
 	restart_delay: Option<RoundId>,
 	oracles: Option<Vec<(AccountId, AccountId)>>,
+	max_debt: Option<Balance>,
 }
 
 impl FeedBuilder {
@@ -171,6 +172,11 @@ impl FeedBuilder {
 		self
 	}
 
+	pub fn max_debt(mut self, v: Balance) -> Self {
+		self.max_debt = Some(v);
+		self
+	}
+
 	pub fn build_and_store(self) -> DispatchResultWithPostInfo {
 		let owner = Origin::signed(self.owner.unwrap_or(1));
 		let payment = self.payment.unwrap_or(20);
@@ -183,6 +189,7 @@ impl FeedBuilder {
 		let restart_delay = self
 			.restart_delay
 			.unwrap_or(oracles.len().saturating_sub(1) as u32);
+		let max_debt = self.max_debt;
 		ChainlinkFeed::create_feed(
 			owner,
 			payment,
@@ -193,6 +200,7 @@ impl FeedBuilder {
 			description,
 			restart_delay,
 			oracles,
+			max_debt,
 		)
 	}
 }

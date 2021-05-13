@@ -55,19 +55,39 @@ pub mod pallet {
 		BlockNumber: Parameter,
 		Value: Parameter,
 	> {
+		/// Owner of this feed
 		pub owner: AccountId,
+		/// The pending owner of this feed
 		pub pending_owner: Option<AccountId>,
+		/// Value bounds of oracle submissions
 		pub submission_value_bounds: (Value, Value),
+		/// Count bounds of oracle submissions
 		pub submission_count_bounds: (u32, u32),
+		/// Payment of oracle rounds
 		pub payment: Balance,
+		/// Timeout of rounds
 		pub timeout: BlockNumber,
+		/// Represents the number of decimals with which the feed is configured
 		pub decimals: u8,
+		/// The description of this feed
 		pub description: Vec<u8>,
+		/// The round initiation delay
 		pub restart_delay: RoundId,
+		/// The round oracles are currently reporting data for
 		pub reporting_round: RoundId,
+		/// The id of the latest round
 		pub latest_round: RoundId,
+		/// The id of the first round that contains non-default data
 		pub first_valid_round: Option<RoundId>,
+		/// The amount of the oracles in this feed
 		pub oracle_count: u32,
+		/// Tracks the amount of debt accumulated by the feed
+		/// towards the oracles.
+		pub debt: Balance,
+		/// The maximum allowed debt a feed can accumulate
+		///
+		/// If this is a `None` value, the feed is not allowed to accumulate any debt
+		pub max_debt: Option<Balance>,
 	}
 
 	pub type FeedConfigOf<T> = FeedConfig<
@@ -316,11 +336,6 @@ pub mod pallet {
 	pub type PendingPalletAdmin<T: Config> = StorageValue<_, T::AccountId>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn debt)]
-	/// Tracks the amount of debt accrued by the pallet towards the oracles.
-	pub type Debt<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn feed_counter)]
 	/// A running counter used internally to determine the next feed id.
 	pub type FeedCounter<T: Config> = StorageValue<_, T::FeedId, ValueQuery>;
@@ -531,10 +546,28 @@ pub mod pallet {
 		InvalidRound,
 		/// The calling account is not allowed to create feeds.
 		NotFeedCreator,
+		/// The maximum debt of feeds was reached.
+		MaxDebtReached,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+	impl<T: Config> Pallet<T> {
+		/// Shortcut for getting account ID
+		fn account_id() -> T::AccountId {
+			T::PalletId::get().into_account()
+		}
+
+		/// Get debt by FeedId
+		pub fn debt(feed_id: T::FeedId) -> Result<BalanceOf<T>, Error<T>> {
+			if let Some(feed_config) = <Feeds<T>>::get(feed_id) {
+				Ok(feed_config.debt)
+			} else {
+				Err(<Error<T>>::FeedNotFound)
+			}
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -554,6 +587,7 @@ pub mod pallet {
 			description: Vec<u8>,
 			restart_delay: RoundId,
 			oracles: Vec<(T::AccountId, T::AccountId)>,
+			max_debt: Option<BalanceOf<T>>,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
 			ensure!(
@@ -587,6 +621,8 @@ pub mod pallet {
 					reporting_round: Zero::zero(),
 					first_valid_round: None,
 					oracle_count: Zero::zero(),
+					debt: Zero::zero(),
+					max_debt,
 				};
 				let mut feed = Feed::<T>::new(id, new_config); // synced on drop
 				let started_at = frame_system::Pallet::<T>::block_number();
@@ -763,15 +799,22 @@ pub mod pallet {
 
 				// update oracle rewards and try to reserve them
 				let payment = details.payment;
-				T::Currency::reserve(&T::PalletId::get().into_account(), payment).or_else(
+				// track the debt in case we cannot reserve
+				T::Currency::reserve(&Self::account_id(), payment).or_else(
 					|_| -> DispatchResult {
 						// track the debt in case we cannot reserve
-						Debt::<T>::try_mutate(|debt| {
-							*debt = debt.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
-							Ok(())
-						})
+						let mut new_debt = feed.config.debt;
+						new_debt = new_debt.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
+
+						if let Some(max_debt) = feed.config.max_debt {
+							ensure!(new_debt < max_debt, <Error<T>>::MaxDebtReached);
+						}
+
+						feed.config.debt = new_debt;
+						Ok(())
 					},
 				)?;
+
 				let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 				oracle_meta.withdrawable = oracle_meta
 					.withdrawable
@@ -1089,16 +1132,16 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::reduce_debt())]
 		pub fn reduce_debt(
 			origin: OriginFor<T>,
+			feed_id: T::FeedId,
 			amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let _sender = ensure_signed(origin)?;
-			Debt::<T>::try_mutate(|debt| -> DispatchResult {
-				let to_reserve = amount.min(*debt);
-				T::Currency::reserve(&T::PalletId::get().into_account(), to_reserve)?;
-				// it's fine if we saturate to 0 debt
-				*debt = debt.saturating_sub(amount);
-				Ok(())
-			})?;
+			let mut feed = <Feed<T>>::load_from(feed_id).ok_or(<Error<T>>::FeedNotFound)?;
+
+			let to_reserve = amount.min(feed.config.debt);
+			T::Currency::reserve(&Self::account_id(), to_reserve)?;
+			// it's fine if we saturate to 0 debt
+			feed.config.debt = feed.config.debt.saturating_sub(amount);
 
 			Ok(().into())
 		}
