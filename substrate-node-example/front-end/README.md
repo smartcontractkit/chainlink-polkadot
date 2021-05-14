@@ -7,9 +7,7 @@ configuration. To learn about Substrate itself, visit the
 
 The template is built with [Create React App](https://github.com/facebook/create-react-app)
 and [Polkadot js API](https://polkadot.js.org/api/). Familiarity with these tools
-will be helpful, but the template strives to be self-explanatory. To learn how
-this template was built, visit the
-[Substrate Front-End Tutorial](https://substrate.dev/docs/en/tutorials/substrate-front-end/).
+will be helpful, but the template strives to be self-explanatory.
 
 ## Using The Template
 
@@ -20,7 +18,7 @@ The codebase is installed using [git](https://git-scm.com/) and [yarn](https://y
 ```bash
 # Clone the repository
 git clone https://github.com/substrate-developer-hub/substrate-front-end-template.git
-cd ./substrate-front-end-template
+cd substrate-front-end-template
 yarn install
 ```
 
@@ -60,7 +58,7 @@ More on [React environment variables](https://create-react-app.dev/docs/adding-c
 
 When writing and deploying your own front end, you should configure:
 
-* `CUSTOM_TYPES` in `src/config/common.json`. See
+* Custom types as JSON in `src/config/types.json`. See
   [Extending types](https://polkadot.js.org/api/start/types.extend.html).
 * `PROVIDER_SOCKET` in `src/config/production.json` pointing to your own
   deployed node.
