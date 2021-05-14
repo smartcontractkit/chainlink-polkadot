@@ -8,8 +8,8 @@ import { DeveloperConsole } from './substrate-lib/components';
 import AccountSelector from './AccountSelector';
 import Balances from './Balances';
 import BlockNumber from './BlockNumber';
-import ChainlinkExample from './ChainlinkExample';
 import Events from './Events';
+import ChainlinkExample from './ChainlinkExample';
 import Interactor from './Interactor';
 import Metadata from './Metadata';
 import NodeInfo from './NodeInfo';
@@ -35,7 +35,7 @@ function Main () {
       <Grid.Column>
         <Message negative compact floating
           header='Error Connecting to Substrate'
-          content={`${err}`}
+          content={`${JSON.stringify(err, null, 4)}`}
         />
       </Grid.Column>
     </Grid>;

@@ -1,10 +1,11 @@
 use super::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
-use frame_support::traits::Get;
+use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
-use sp_std::fmt::Debug;
+use sp_runtime::traits::{AccountIdConversion, One, Zero};
+use sp_std::{fmt::Debug, vec, vec::Vec};
 
-use crate::Module as ChainlinkFeed;
+use crate::Pallet as ChainlinkFeed;
 
 const SEED: u32 = 0;
 
@@ -17,20 +18,20 @@ fn assert_is_ok<T: Debug, E: Debug>(r: Result<T, E>) {
 	assert!(r.is_ok());
 }
 
-fn whitelisted_account<T: Trait>(name: &'static str, counter: u32) -> T::AccountId {
+fn whitelisted_account<T: Config>(name: &'static str, counter: u32) -> T::AccountId {
 	let acc = account(name, counter, SEED);
 	whitelist_acc::<T>(&acc);
 	acc
 }
 
-fn whitelist_acc<T: Trait>(acc: &T::AccountId) {
+fn whitelist_acc<T: Config>(acc: &T::AccountId) {
 	frame_benchmarking::benchmarking::add_to_whitelist(
 		frame_system::Account::<T>::hashed_key_for(acc).into(),
 	);
 }
 
 benchmarks! {
-	_ {}
+	// _ {}
 
 	create_feed {
 		let o in 1 .. T::OracleCountLimit::get();
@@ -145,7 +146,7 @@ benchmarks! {
 		let round: RoundId = 2;
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), None);
 		// make sure we hit the `Debt` storage item
-		let fund_account = T::ModuleId::get().into_account();
+		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 	}: submit(
 			RawOrigin::Signed(oracle.clone()),
@@ -199,14 +200,14 @@ benchmarks! {
 			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, prev_round, answer));
 		}
 		// advance the block number so we can supersede the prev round
-		frame_system::Module::<T>::set_block_number(1u8.into());
+		frame_system::Pallet::<T>::set_block_number(1u8.into());
 		let round: RoundId = 2;
 		for (o, _a) in oracles.iter().skip(1) {
 			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, round, answer));
 		}
 		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(Round::new(One::one())));
 		// make sure we hit the `Debt` storage item
-		let fund_account = T::ModuleId::get().into_account();
+		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 	}: submit(
 			RawOrigin::Signed(oracle.clone()),
@@ -467,7 +468,7 @@ benchmarks! {
 			answer
 		));
 		let recipient: T::AccountId = account("recipient", 0, SEED);
-		let fund_account = T::ModuleId::get().into_account();
+		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, payment + payment);
 	}: _(
 		RawOrigin::Signed(admin.clone()),
@@ -536,7 +537,7 @@ benchmarks! {
 		whitelist_acc::<T>(&pallet_admin);
 		let payment: BalanceOf<T> = 600u32.into(); // ExistentialDeposit is 500
 		let recipient: T::AccountId = account("recipient", 0, SEED);
-		let fund_account = T::ModuleId::get().into_account();
+		let fund_account = T::PalletId::get().into_account();
 		let multiplier = 1001u32.into();
 		T::Currency::make_free_balance_be(&fund_account, payment * multiplier);
 	}: _(
@@ -570,7 +571,7 @@ benchmarks! {
 		let feed = Zero::zero();
 		let answer: T::Value = 42u8.into();
 		let rounds: RoundId = 4;
-		let fund_account = T::ModuleId::get().into_account();
+		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 		for round in 1..(rounds + 1) {
 			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(oracle.clone()).into(), feed, round, answer));
