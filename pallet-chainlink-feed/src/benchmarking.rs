@@ -294,53 +294,6 @@ benchmarks! {
 		assert_eq!(config.payment, payment);
 		assert_eq!(config.timeout, timeout);
 	}
-
-	prune {
-		let r in 1u32 .. 1_000u32;
-
-		let caller: T::AccountId = whitelisted_caller();
-		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
-		let oracle: T::AccountId = account("oracle", 0, SEED);
-		let admin: T::AccountId = account("oracle_admin", 0, SEED);
-		let description = vec![1; T::StringLimit::get() as usize];
-		assert_is_ok(ChainlinkFeed::<T>::create_feed(
-			RawOrigin::Signed(caller.clone()).into(),
-			600u32.into(),
-			Zero::zero(),
-			(1u8.into(), 100u8.into()),
-			1u8.into(),
-			5u8.into(),
-			description,
-			Zero::zero(),
-			vec![(oracle.clone(), admin)],
-		));
-		let feed = Zero::zero();
-		let answer: T::Value = 42u8.into();
-		let pruning_window: RoundId = T::PruningWindow::get();
-		for round in 1..(pruning_window + r + 2) {
-			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(oracle.clone()).into(), feed, round, answer));
-		}
-	}: _(
-		RawOrigin::Signed(caller.clone()),
-		feed,
-		1u8.into(),
-		r + 1
-	)
-	verify {
-		// rounds until `r` should be pruned
-		assert_eq!(ChainlinkFeed::<T>::round(feed, RoundId::one()), None);
-		assert_eq!(ChainlinkFeed::<T>::round(feed, r), None);
-		let expected_round = Round {
-			started_at: Zero::zero(),
-			answer: Some(answer),
-			updated_at: Some(Zero::zero()),
-			answered_in_round: Some(r + 1)
-		};
-		// round `r+1` should be kept
-		assert_eq!(ChainlinkFeed::<T>::round(feed, r + 1), Some(expected_round));
-	}
-
 	set_requester {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -689,13 +642,6 @@ mod tests {
 	fn update_future_rounds() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_update_future_rounds::<Test>());
-		});
-	}
-
-	#[test]
-	fn prune() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_prune::<Test>());
 		});
 	}
 
