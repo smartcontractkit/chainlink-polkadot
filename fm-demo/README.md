@@ -59,6 +59,14 @@ URL: http://substrate-adapter2:8080/
 6. Add the External Initiator to the Chainlink node
 
 ```bash
+./scripts/ei-config.sh
+```
+
+Check if `fm-demo/external_initiator.env` is populated with the new credentials
+
+(Manual steps in case the above step fails:
+
+```bash
 docker exec -it chainlink-node /bin/bash
 chainlink admin login -f /run/secrets/apicredentials
 chainlink initiators create substrate http://external-initiator:8080/jobs
@@ -72,6 +80,8 @@ EI_CI_SECRET=[OUTGOINGSECRET]
 EI_IC_ACCESSKEY=[ACCESSKEY]
 EI_IC_SECRET=[SECRET]
 ```
+
+)
 
 7. Start the external initiator
 
@@ -98,9 +108,7 @@ EI_IC_SECRET=[SECRET]
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [
-              { "url": "http://coingecko-adapter:8080" }
-            ],
+            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
@@ -114,7 +122,7 @@ EI_IC_SECRET=[SECRET]
   "tasks": [
     {
       "type": "substrate-adapter1",
-      "params": { "multiply":1e8 }
+      "params": { "multiply": 1e8 }
     }
   ]
 }
@@ -135,9 +143,7 @@ EI_IC_SECRET=[SECRET]
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [
-              { "url": "http://coingecko-adapter:8080" }
-            ],
+            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
@@ -151,7 +157,7 @@ EI_IC_SECRET=[SECRET]
   "tasks": [
     {
       "type": "substrate-adapter2",
-      "params": { "multiply":1e8 }
+      "params": { "multiply": 1e8 }
     }
   ]
 }

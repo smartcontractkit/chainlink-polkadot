@@ -1,7 +1,7 @@
 version: "3.6"
 
 x-substrate-adapter-def: &substrate-adapter-def
-  image: smartcontract/substrate-adapter:latest
+  image: smartcontract/dev:substrate-v3-adapter
   restart: on-failure
   env_file:
     - ./adapter.env
@@ -72,7 +72,7 @@ services:
       - fm-substrate
 
   external-initiator:
-    image: smartcontract/dev:fm-ei-1
+    image: smartcontract/dev:fm-ei-substrate-v3
     container_name: external-initiator
     command: '{\"name\":\"substrate\",\"type\":\"substrate\",\"url\":\"ws://chain:9944/\"}'
     depends_on:
@@ -112,7 +112,7 @@ services:
     #  SS58 Address:     5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ
 
   coingecko-adapter:
-    image: coingecko-adapter
+    image: public.ecr.aws/chainlink-staging/adapters/coingecko-adapter:develop-latest
     container_name: coingecko-adapter
     restart: on-failure
     ports:
