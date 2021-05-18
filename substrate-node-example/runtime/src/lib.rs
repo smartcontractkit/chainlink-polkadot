@@ -312,6 +312,19 @@ impl pallet_template::Config for Runtime {
 	type Oracle = ChainlinkFeed;
 }
 
+parameter_types! {
+	pub const ValidityPeriod: u32 = 10;
+}
+
+impl pallet_chainlink::Config for Runtime {
+	type Event = Event;
+	type Currency = pallet_balances::Pallet<Runtime>;
+	type Callback = module2::Call<Runtime>;
+	type ValidityPeriod = ValidityPeriod;
+}
+
+impl module2::Config for Runtime {}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -330,6 +343,8 @@ construct_runtime!(
 		// Include the custom logic from the template pallet in the runtime.
 		ChainlinkFeed: pallet_chainlink_feed::{Pallet, Call, Config<T>, Storage, Event<T>},
 		TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
+
+		Chainlink: pallet_chainlink::{Pallet, Call, Storage, Event<T>}
 	}
 );
 
@@ -529,6 +544,48 @@ impl_runtime_apis! {
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
+		}
+	}
+}
+
+pub mod module2 {
+	use super::*;
+	use codec::Decode;
+	use pallet_chainlink::CallbackWithParameter;
+
+	pub trait Config: frame_system::Config {}
+
+	frame_support::decl_module! {
+		pub struct Module<T: Config> for enum Call
+			where origin: <T as frame_system::Config>::Origin
+		{
+			#[weight = 0]
+			pub fn callback(_origin, result: Vec<u8>) -> frame_support::dispatch::DispatchResult {
+				let r : u128 = u128::decode(&mut &result[..]).map_err(|_| Error::<T>::DecodingFailed)?;
+				<Result>::put(r);
+				Ok(())
+			}
+		}
+	}
+
+	frame_support::decl_storage! {
+		trait Store for Module<T: Config> as TestStorage {
+			pub Result: u128;
+		}
+	}
+
+	frame_support::decl_error! {
+		pub enum Error for Module<T: Config> {
+			DecodingFailed
+		}
+	}
+
+	impl<T: Config> CallbackWithParameter for Call<T> {
+		fn with_result(&self, result: Vec<u8>) -> Option<Self> {
+			match *self {
+				Call::callback(_) => Some(Call::callback(result)),
+				_ => None,
+			}
 		}
 	}
 }

@@ -3734,6 +3734,7 @@ dependencies = [
  "hex-literal 0.3.1",
  "pallet-aura",
  "pallet-balances",
+ "pallet-chainlink",
  "pallet-chainlink-feed",
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
@@ -3951,6 +3952,19 @@ dependencies = [
  "frame-system",
  "log",
  "parity-scale-codec",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-chainlink"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
  "sp-runtime",
  "sp-std",
 ]
