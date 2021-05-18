@@ -95,8 +95,8 @@ impl pallet_chainlink_feed::Config for Test {
 	type StringLimit = StringLimit;
 	type OracleCountLimit = OracleLimit;
 	type FeedLimit = FeedLimit;
-	type PruningWindow = PruningWindow;
 	type WeightInfo = ();
+	type OnAnswerHandler = ();
 }
 
 impl pallet_template::Config for Test {

@@ -87,7 +87,6 @@ parameter_types! {
 	pub const StringLimit: u32 = 15;
 	pub const OracleLimit: u32 = 10;
 	pub const FeedLimit: u16 = 10;
-	pub const PruningWindow: u32 = 3;
 }
 
 type FeedId = u16;
@@ -110,7 +109,6 @@ impl pallet_chainlink_feed::Config for Test {
 	type OnAnswerHandler = Self;
 	type OracleCountLimit = OracleLimit;
 	type FeedLimit = FeedLimit;
-	type PruningWindow = PruningWindow;
 	type WeightInfo = ();
 }
 
@@ -124,6 +122,7 @@ pub(crate) struct FeedBuilder {
 	description: Option<Vec<u8>>,
 	restart_delay: Option<RoundId>,
 	oracles: Option<Vec<(AccountId, AccountId)>>,
+	pruning_window: Option<RoundId>,
 	max_debt: Option<Balance>,
 }
 
@@ -172,6 +171,11 @@ impl FeedBuilder {
 		self
 	}
 
+	pub fn pruning_window(mut self, w: RoundId) -> Self {
+		self.pruning_window = Some(w);
+		self
+	}
+
 	pub fn max_debt(mut self, v: Balance) -> Self {
 		self.max_debt = Some(v);
 		self
@@ -200,6 +204,7 @@ impl FeedBuilder {
 			description,
 			restart_delay,
 			oracles,
+			self.pruning_window,
 			max_debt,
 		)
 	}

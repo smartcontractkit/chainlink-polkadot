@@ -1,7 +1,9 @@
 use super::*;
 use crate::{mock::*, utils::with_transaction_result, Error};
 use frame_support::{
-	assert_noop, assert_ok, sp_runtime::traits::AccountIdConversion, sp_runtime::traits::Zero,
+	assert_noop, assert_ok,
+	sp_runtime::traits::AccountIdConversion,
+	sp_runtime::traits::{One, Zero},
 	traits::Currency,
 };
 
@@ -20,6 +22,7 @@ fn feed_creation_should_work() {
 			b"desc".to_vec(),
 			2,
 			vec![(1, 4), (2, 4), (3, 4)],
+			None,
 			None,
 		));
 	});
@@ -1006,19 +1009,32 @@ fn transfer_pallet_admin_should_work() {
 }
 
 #[test]
-fn prune_should_work() {
-	// ## Pruning Testing Scenario
-	//
-	// |- round zero
-	// v             v- latest round
-	// 0 1 2 3 4 5 6 7 8 <- reporting round
-	//       ^- first valid round
+fn auto_prune_should_work() {
 	new_test_ext().execute_with(|| {
 		let feed_id = 0;
 		let oracle_a = 2;
 		let oracle_b = 3;
 		let oracle_admin = 4;
 		let submission = 42;
+		let owner = 1;
+
+		assert_noop!(
+			ChainlinkFeed::create_feed(
+				Origin::signed(1),
+				20,
+				10,
+				(10, 1_000),
+				3,
+				5,
+				b"desc".to_vec(),
+				2,
+				vec![(1, 4), (2, 4), (3, 4)],
+				Some(0),
+				None,
+			),
+			Error::<Test>::CannotPruneRoundZero
+		);
+
 		let submit_a = |r| {
 			assert_ok!(ChainlinkFeed::submit(
 				Origin::signed(oracle_a),
@@ -1037,84 +1053,53 @@ fn prune_should_work() {
 			));
 		};
 
-		let owner = 1;
-		// we require min 2 oracles so that we can time out the first few
-		// so first_valid_round will be > 1
 		assert_ok!(FeedBuilder::new()
 			.owner(owner)
 			.timeout(1)
 			.min_submissions(2)
 			.restart_delay(0)
 			.oracles(vec![(oracle_a, oracle_admin), (oracle_b, oracle_admin)])
+			.pruning_window(2)
 			.build_and_store());
 
 		System::set_block_number(1);
-		// submit 2 rounds that will be timed out
-		submit_a(1);
+		submit_a_and_b(1);
+		System::set_block_number(2);
+		submit_a_and_b(2);
+
+		assert!(ChainlinkFeed::round(feed_id, 0).is_some());
+		assert!(ChainlinkFeed::round(feed_id, 1).is_some());
+		assert!(ChainlinkFeed::round(feed_id, 2).is_some());
+
+		let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+		assert_eq!(feed.first_valid_round(), Some(1));
+
 		System::set_block_number(3);
-		submit_a(2);
-		System::set_block_number(5);
-		assert_noop!(
-			ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 3),
-			Error::<Test>::NoValidRoundYet
-		);
-		// submit the valid rounds
 		submit_a_and_b(3);
-		assert_noop!(
-			ChainlinkFeed::prune(Origin::signed(owner), feed_id, 1, 3),
-			Error::<Test>::NothingToPrune
-		);
+		assert!(ChainlinkFeed::round(feed_id, 0).is_some());
+		// only oldest round is pruned
+		assert!(ChainlinkFeed::round(feed_id, 1).is_none());
+		assert!(ChainlinkFeed::round(feed_id, 2).is_some());
+		assert!(ChainlinkFeed::round(feed_id, 3).is_some());
+
+		let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+		assert_eq!(feed.first_valid_round(), Some(2));
+
+		System::set_block_number(4);
 		submit_a_and_b(4);
-		submit_a_and_b(5);
-		submit_a_and_b(6);
-		submit_a_and_b(7);
-		// simulate an unfinished round so reporting_round != latest_round
-		submit_a(8);
+		assert!(ChainlinkFeed::round(feed_id, 2).is_none());
+		let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+		assert_eq!(feed.first_valid_round(), Some(3));
 
-		let first_to_prune = 1;
-		let keep_round = 5;
-		// failure cases
-		assert_noop!(
-			ChainlinkFeed::prune(Origin::signed(owner), feed_id, 0, keep_round),
-			Error::<Test>::CannotPruneRoundZero
-		);
-		assert_noop!(
-			ChainlinkFeed::prune(Origin::signed(owner), feed_id, 6, keep_round),
-			Error::<Test>::NothingToPrune
-		);
-		assert_noop!(
-			ChainlinkFeed::prune(Origin::signed(owner), 23, first_to_prune, keep_round),
-			Error::<Test>::FeedNotFound
-		);
-		assert_noop!(
-			ChainlinkFeed::prune(Origin::signed(23), feed_id, first_to_prune, keep_round),
-			Error::<Test>::NotFeedOwner
-		);
-		assert_noop!(
-			ChainlinkFeed::prune(Origin::signed(owner), feed_id, 4, keep_round),
-			Error::<Test>::PruneContiguously
-		);
-
-		// do the successful prune
-		assert_ok!(ChainlinkFeed::prune(
+		// shrink pruning window
+		assert_ok!(ChainlinkFeed::set_pruning_window(
 			Origin::signed(owner),
 			feed_id,
-			first_to_prune,
-			keep_round
+			1
 		));
-		// we try to prune until 5, but limits are set up in a way that we can
-		// only prune until 4
-		assert_eq!(ChainlinkFeed::round(feed_id, 3), None);
-		let round = ChainlinkFeed::round(feed_id, 4).expect("fourth round should be present");
-		assert_eq!(
-			round,
-			Round {
-				started_at: 5,
-				answer: Some(submission),
-				updated_at: Some(5),
-				answered_in_round: Some(4),
-			}
-		);
+		let feed = ChainlinkFeed::feed(feed_id).expect("feed should be there");
+		assert_eq!(feed.first_valid_round(), Some(4));
+		assert!(ChainlinkFeed::round(feed_id, 3).is_none());
 	});
 }
 
@@ -1210,6 +1195,8 @@ fn feed_life_cylce() {
 			reporting_round: Zero::zero(),
 			first_valid_round: None,
 			oracle_count: Zero::zero(),
+			next_round_to_prune: One::one(),
+			pruning_window: RoundId::MAX,
 			debt: Zero::zero(),
 			max_debt: None,
 		};

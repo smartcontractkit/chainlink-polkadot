@@ -53,6 +53,8 @@ pallet-template = { default-features = false, path = '../pallets/template'}
 
 pallet-chainlink-feed = { path = '../../pallet-chainlink-feed', default-features = false }
 
+pallet-chainlink = { path = '../../pallet-chainlink', default-features = false }
+
 [features]
 default = ['std']
 runtime-benchmarks = [
@@ -96,5 +98,6 @@ std = [
     'sp-io/std',
     'sp-transaction-pool/std',
     'sp-version/std',
-    'pallet-chainlink-feed/std'
+    'pallet-chainlink-feed/std',
+    'pallet-chainlink/std'
 ]
