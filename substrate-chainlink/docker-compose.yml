@@ -1,32 +1,43 @@
 version: "3.6"
-x-chainlink-def:
-  &chainlink-def
-  image: smartcontract/chainlink:0.9.6
+x-chainlink-def: &chainlink-def
+  image: smartcontract/chainlink:0.10.3
   restart: on-failure
   secrets:
     - node_password
     - apicredentials
   env_file:
     - ./chainlink.env
-  command: 'node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials'
-x-postgres-def:
-  &postgres-def
+  command: "node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+x-postgres-def: &postgres-def
   image: postgres
   restart: on-failure
   environment:
     - "POSTGRES_MULTIPLE_DATABASES=chainlink,ei"
     - "POSTGRES_HOST_AUTH_METHOD=trust"
-x-external-initiator-def:
-  &external-initiator-def
-  image: smartcontract/external-initiator:latest
+x-external-initiator-def: &external-initiator-def
+  image: smartcontract/external-initiator:fm
   command: '{\"name\":\"substrate-node\",\"type\":\"substrate\",\"url\":\"${SA_ENDPOINT}\"}'
-x-substrate-adapter-def:
-  &substrate-adapter-def
-  image: smartcontract/substrate-adapter:substrate-2.0.0
+x-substrate-adapter-def: &substrate-adapter-def
+  image: smartcontract/dev:substrate-v3-adapter
   restart: on-failure
   env_file:
     - ./adapter.env
 services:
+  chain-runlog:
+    container_name: chain-runlog
+    image: paritytech/ci-linux:production
+    working_dir: /var/www/node-template
+    ports:
+      - "9944:9944"
+    environment:
+      - CARGO_HOME=/var/www/node-template/.cargo
+    volumes:
+      - ../substrate-node-example/:/var/www/node-template
+      - ../pallet-chainlink/:/var/www/pallet-chainlink
+      - ../pallet-chainlink-feed/:/var/www/pallet-chainlink-feed
+      - "crl:/root/.local"
+    command: bash -c "cargo build --release && ./target/release/node-template --dev --ws-external"
+
   chainlink-node1:
     <<: *chainlink-def
     depends_on:
@@ -36,12 +47,12 @@ services:
     environment:
       - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node1_1:5432/chainlink?sslmode=disable"
     volumes:
-      - 'cl1:/chainlink'
+      - "cl1:/chainlink"
   postgres-node1:
     <<: *postgres-def
     volumes:
-      - './docker-init-scripts:/docker-entrypoint-initdb.d'
-      - 'pg1:/var/lib/postgresql/data'
+      - "./docker-init-scripts:/docker-entrypoint-initdb.d"
+      - "pg1:/var/lib/postgresql/data"
   external-initiator-node1:
     <<: *external-initiator-def
     depends_on:
@@ -70,12 +81,12 @@ services:
     environment:
       - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node2_1:5432/chainlink?sslmode=disable"
     volumes:
-      - 'cl2:/chainlink'
+      - "cl2:/chainlink"
   postgres-node2:
     <<: *postgres-def
     volumes:
-      - './docker-init-scripts:/docker-entrypoint-initdb.d'
-      - 'pg2:/var/lib/postgresql/data'
+      - "./docker-init-scripts:/docker-entrypoint-initdb.d"
+      - "pg2:/var/lib/postgresql/data"
   external-initiator-node2:
     <<: *external-initiator-def
     depends_on:
@@ -104,12 +115,12 @@ services:
     environment:
       - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node3_1:5432/chainlink?sslmode=disable"
     volumes:
-      - 'cl3:/chainlink'
+      - "cl3:/chainlink"
   postgres-node3:
     <<: *postgres-def
     volumes:
-      - './docker-init-scripts:/docker-entrypoint-initdb.d'
-      - 'pg3:/var/lib/postgresql/data'
+      - "./docker-init-scripts:/docker-entrypoint-initdb.d"
+      - "pg3:/var/lib/postgresql/data"
   external-initiator-node3:
     <<: *external-initiator-def
     depends_on:
@@ -136,6 +147,7 @@ volumes:
   cl2:
   pg3:
   cl3:
+  crl:
 secrets:
   node_password:
     file: ./secrets/password.txt

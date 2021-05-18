@@ -5,6 +5,8 @@ set -e
 echo "*** Config EI ***"
 
 cd $(dirname ${BASH_SOURCE[0]})/..
+touch ./external_initiator.env
+
 cat <<EOF | docker exec -i chainlink-node sh
 chainlink admin login -f /run/secrets/apicredentials
 chainlink initiators create substrate http://external-initiator:8080/jobs > credentials
