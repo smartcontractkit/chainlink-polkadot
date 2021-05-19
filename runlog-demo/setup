@@ -4,7 +4,9 @@ source ./internal-scripts/common.sh
 
 run_setup() {
   yarn install
-
+  rm -rf external_initiator1.env
+  rm -rf external_initiator2.env
+  rm -rf external_initiator3.env
   touch external_initiator1.env
   touch external_initiator2.env
   touch external_initiator3.env

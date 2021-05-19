@@ -70,7 +70,7 @@ run_ei() {
 start_docker() {
   title "Starting Chainlink Docker containers"
 
-  docker-compose up -d chainlink-node1 chainlink-node2 chainlink-node3 substrate-adapter1 substrate-adapter2 substrate-adapter3
+  docker-compose up -d chain-runlog chainlink-node1 chainlink-node2 chainlink-node3 substrate-adapter1 substrate-adapter2 substrate-adapter3
 
   launch_chainlink "http://localhost:6691/"
   launch_chainlink "http://localhost:6692/"
