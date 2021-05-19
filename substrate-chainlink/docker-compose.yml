@@ -8,20 +8,24 @@ x-chainlink-def: &chainlink-def
   env_file:
     - ./chainlink.env
   command: "node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+
 x-postgres-def: &postgres-def
   image: postgres
   restart: on-failure
   environment:
     - "POSTGRES_MULTIPLE_DATABASES=chainlink,ei"
     - "POSTGRES_HOST_AUTH_METHOD=trust"
+
 x-external-initiator-def: &external-initiator-def
   image: smartcontract/external-initiator:fm
   command: '{\"name\":\"substrate-node\",\"type\":\"substrate\",\"url\":\"${SA_ENDPOINT}\"}'
+
 x-substrate-adapter-def: &substrate-adapter-def
   image: smartcontract/dev:substrate-v3-adapter
   restart: on-failure
   env_file:
     - ./adapter.env
+
 services:
   chain-runlog:
     container_name: chain-runlog
@@ -48,11 +52,13 @@ services:
       - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node1_1:5432/chainlink?sslmode=disable"
     volumes:
       - "cl1:/chainlink"
+
   postgres-node1:
     <<: *postgres-def
     volumes:
       - "./docker-init-scripts:/docker-entrypoint-initdb.d"
       - "pg1:/var/lib/postgresql/data"
+
   external-initiator-node1:
     <<: *external-initiator-def
     depends_on:
@@ -62,6 +68,7 @@ services:
       - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node1_1:6688/"
     env_file:
       - ./external_initiator1.env
+
   substrate-adapter1:
     <<: *substrate-adapter-def
     environment:
@@ -72,6 +79,7 @@ services:
     #  Public key (hex): 0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c
     #  Account ID:       0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c
     #  SS58 Address:     5EsiCstpHTxarfafS3tvG7WDwbrp9Bv6BbyRvpwt3fY8PCtN
+
   chainlink-node2:
     <<: *chainlink-def
     depends_on:
@@ -82,11 +90,13 @@ services:
       - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node2_1:5432/chainlink?sslmode=disable"
     volumes:
       - "cl2:/chainlink"
+
   postgres-node2:
     <<: *postgres-def
     volumes:
       - "./docker-init-scripts:/docker-entrypoint-initdb.d"
       - "pg2:/var/lib/postgresql/data"
+
   external-initiator-node2:
     <<: *external-initiator-def
     depends_on:
@@ -96,6 +106,7 @@ services:
       - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node2_1:6688/"
     env_file:
       - ./external_initiator2.env
+
   substrate-adapter2:
     <<: *substrate-adapter-def
     environment:
@@ -106,6 +117,7 @@ services:
     #  Public key (hex): 0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54
     #  Account ID:       0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54
     #  SS58 Address:     5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ
+
   chainlink-node3:
     <<: *chainlink-def
     depends_on:
@@ -116,11 +128,13 @@ services:
       - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node3_1:5432/chainlink?sslmode=disable"
     volumes:
       - "cl3:/chainlink"
+
   postgres-node3:
     <<: *postgres-def
     volumes:
       - "./docker-init-scripts:/docker-entrypoint-initdb.d"
       - "pg3:/var/lib/postgresql/data"
+
   external-initiator-node3:
     <<: *external-initiator-def
     depends_on:
@@ -130,6 +144,7 @@ services:
       - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node3_1:6688/"
     env_file:
       - ./external_initiator3.env
+
   substrate-adapter3:
     <<: *substrate-adapter-def
     environment:
@@ -140,6 +155,7 @@ services:
     #  Public key (hex): 0xfaa31acde43e8859565f7576d5a37e6e8ee1b0f6a7c1ae2e8b0ce2bf76248467
     #  Account ID:       0xfaa31acde43e8859565f7576d5a37e6e8ee1b0f6a7c1ae2e8b0ce2bf76248467
     #  SS58 Address:     5HjLHE3A9L6zxUEn6uy8mcx3tqyVxZvVXu7okovfWzemadzs
+
 volumes:
   pg1:
   cl1:
