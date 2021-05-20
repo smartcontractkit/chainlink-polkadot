@@ -35,7 +35,7 @@ docker-compose up
 ### Stuck at "waiting for localhost:669X"
 
 Check the logs of your docker container running the chainlink node:
-`docker logs -f substrate-chainlink_chainlink-node1_1`
+`docker logs -f runlog-demo_chainlink-node1_1`
 
 You need to make sure you followed the setup section
 

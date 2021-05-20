@@ -13,7 +13,7 @@ add_bridge() {
     cat <<EOF
 {
   "name": "substrate",
-  "url": "http://substrate-chainlink_substrate-adapter$1_1:8080/"
+  "url": "http://runlog-demo_substrate-adapter$1_1:8080/"
 }
 EOF
   )

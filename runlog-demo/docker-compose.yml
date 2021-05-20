@@ -49,7 +49,7 @@ services:
     ports:
       - "6691:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node1_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@runlog-demo_postgres-node1_1:5432/chainlink?sslmode=disable"
     volumes:
       - "cl1:/chainlink"
 
@@ -64,8 +64,8 @@ services:
     depends_on:
       - postgres-node1
     environment:
-      - "EI_DATABASEURL=postgresql://ei@substrate-chainlink_postgres-node1_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node1_1:6688/"
+      - "EI_DATABASEURL=postgresql://ei@runlog-demo_postgres-node1_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://runlog-demo_chainlink-node1_1:6688/"
     env_file:
       - ./external_initiator1.env
 
@@ -87,7 +87,7 @@ services:
     ports:
       - "6692:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node2_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@runlog-demo_postgres-node2_1:5432/chainlink?sslmode=disable"
     volumes:
       - "cl2:/chainlink"
 
@@ -102,8 +102,8 @@ services:
     depends_on:
       - postgres-node2
     environment:
-      - "EI_DATABASEURL=postgresql://ei@substrate-chainlink_postgres-node2_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node2_1:6688/"
+      - "EI_DATABASEURL=postgresql://ei@runlog-demo_postgres-node2_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://runlog-demo_chainlink-node2_1:6688/"
     env_file:
       - ./external_initiator2.env
 
@@ -125,7 +125,7 @@ services:
     ports:
       - "6693:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node3_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@runlog-demo_postgres-node3_1:5432/chainlink?sslmode=disable"
     volumes:
       - "cl3:/chainlink"
 
@@ -140,8 +140,8 @@ services:
     depends_on:
       - postgres-node3
     environment:
-      - "EI_DATABASEURL=postgresql://ei@substrate-chainlink_postgres-node3_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node3_1:6688/"
+      - "EI_DATABASEURL=postgresql://ei@runlog-demo_postgres-node3_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://runlog-demo_chainlink-node3_1:6688/"
     env_file:
       - ./external_initiator3.env
 
