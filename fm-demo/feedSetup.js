@@ -1,54 +1,49 @@
 const {ApiPromise, Keyring, WsProvider} = require('@polkadot/api');
 const {cryptoWaitReady} = require('@polkadot/util-crypto');
+const feedConfig = require('./feed.json');
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+// function sleep(ms) {
+//   return new Promise(resolve => setTimeout(resolve, ms));
+// }
 
-async function fundOperatorAccountIfNeeded(api, aliceAccount, operatorAccount) {
+async function fundAccountIfNeeded(api, aliceAccount, oracleAccount) {
     return new Promise(async (resolve) => {
-        const balance = await api.query.system.account(operatorAccount.address);
+        const balance = await api.query.system.account(oracleAccount.address);
         console.log(`Free balance is: ${balance.data.free}`);
         if (parseInt(balance.data.free) === 0) {
-            await api.tx.balances.transfer(operatorAccount.address, 123456666000).signAndSend(aliceAccount, async ({status}) => {
+            await api.tx.balances.transfer(oracleAccount.address, 123456666000).signAndSend(aliceAccount, async ({status}) => {
                 if (status.isFinalized) {
-                    console.log("OK!")
+                    console.log('Oracle funded');
                     resolve();
                 }
             });
-            // TODO rather than waiting arbitrarily, find a more proactive approach to
-            //  the block being included
-            await sleep(6000);
-            console.log('Operator funded');
         } else {
             resolve();
         }
     });
 }
 
-async function registerOperatorIfNeeded(api, operatorAccount) {
-    // Register the operator, this is supposed to be initiated once by the operator itself
-    console.log(`Registering operator ${operatorAccount.address}`);
+async function registerFeedCreatorIfNeeded(api, aliceAccount, operatorAccount) {
+    console.log(`Registering feed creator ${operatorAccount.address}`);
     return new Promise(async (resolve) => {
-        const operator = await api.query.chainlink.operators(operatorAccount.address);
-        if (operator.isFalse) {
-            await api.tx.chainlink.registerOperator().signAndSend(operatorAccount, async ({status}) => {
+        const feedCreator = await api.query.chainlinkFeed.feedCreators(operatorAccount.address);
+        if (feedCreator.isNone) {
+            await api.tx.chainlinkFeed.setFeedCreator(operatorAccount.address).signAndSend(aliceAccount, async ({status}) => {
                 if (status.isFinalized) {
-                    console.log('Operator registered');
+                    console.log('Feed creator registered');
                     resolve();
                 }
             });
-    
         } else {
-            console.log('Operator already registered');
+            console.log('Feed creator already registered');
             resolve();
         }
     });
 }
 async function createFeed(api, sender) {
-    console.log(`Creating feed`);
+    console.log(`Creating feed with config: ${JSON.stringify(feedConfig, null, 4)}`);
     return new Promise(async (resolve) => {
-    await api.tx.chainlinkFeed.createFeed(0.01, 600, (0, 99999999999999999999999999999999), 1, 8, "Test", 0, ["0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c", "0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54"],1,0).signAndSend(sender, ({ status, events }) => {
+    await api.tx.chainlinkFeed.createFeed(feedConfig.payment, feedConfig.timeout, (feedConfig.submissionValueBounds[0], feedConfig.submissionValueBounds[1]), feedConfig.minSubmissions, feedConfig.decimals, feedConfig.description, feedConfig.restartDelay, feedConfig.oracles,feedConfig.pruningWindow,feedConfig.maxDebt).signAndSend(sender, ({ status, events }) => {
         if (status.isInBlock || status.isFinalized) {
           events
             // find/filter for failed events
@@ -156,16 +151,24 @@ async function main() {
     // Add an account, straight from mnemonic
     const keyring = new Keyring({type: 'sr25519'});
     const operatorAccount = keyring.addFromUri(process.argv[2]);
-    console.log(`Imported operator with address ${operatorAccount.address}`);
+    const oracleAccount1 = keyring.addFromUri(process.argv[3]);
+    const oracleAccount2 = keyring.addFromUri(process.argv[4]);
 
-    // Make sure this operator has some funds
+    console.log(`Imported operator with address ${operatorAccount.address}`);
+    console.log(`Imported oracle 1 with address ${oracleAccount1.address}`);
+    console.log(`Imported oracle 2 with address ${oracleAccount2.address}`);
+
     const aliceAccount = keyring.addFromUri('//Alice');
 
-    await fundOperatorAccountIfNeeded(api, aliceAccount, operatorAccount);
+    await fundAccountIfNeeded(api, aliceAccount, operatorAccount);
 
-    await registerOperatorIfNeeded(api, operatorAccount);
+    await fundAccountIfNeeded(api, aliceAccount, oracleAccount1);
+
+    await fundAccountIfNeeded(api, aliceAccount, oracleAccount2);
+
+    await registerFeedCreatorIfNeeded(api, aliceAccount, operatorAccount);
   
-    await createFeed(api, aliceAccount);
+    await createFeed(api, operatorAccount);
 }
 
 main().catch(console.error).then(() => process.exit());
