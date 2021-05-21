@@ -14,7 +14,7 @@ _Note: Make sure you have cd-ed into this directory_
 
 This will create and start 3 Chainlink nodes, with an adapter and EI connected to each.
 
-Also it will spin up a substrate node with the RunLog pallet included.
+Also it will spin up a substrate node with the RunLog pallet included. (This node is built locally and might take some time initially. You will see a message of "API-WS: disconnected from ws://localhost:9944: 1006:: connection failed" while the node is being built. You can check the status of it by running "docker attach chain-runlog").
 
 ### Start/stop
 
