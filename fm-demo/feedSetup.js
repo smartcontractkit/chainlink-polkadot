@@ -6,14 +6,14 @@ const feedConfig = require('./feed.json');
 //   return new Promise(resolve => setTimeout(resolve, ms));
 // }
 
-async function fundAccountIfNeeded(api, aliceAccount, oracleAccount) {
+async function fundAccountIfNeeded(api, sender, receiver) {
     return new Promise(async (resolve) => {
-        const balance = await api.query.system.account(oracleAccount.address);
-        console.log(`Free balance is: ${balance.data.free}`);
+        const balance = await api.query.system.account(receiver.address);
+        console.log(`Free balance of ${receiver.address} is: ${balance.data.free}`);
         if (parseInt(balance.data.free) === 0) {
-            await api.tx.balances.transfer(oracleAccount.address, 123456666000).signAndSend(aliceAccount, async ({status}) => {
+            await api.tx.balances.transfer(receiver.address, 123456666000).signAndSend(sender, async ({status}) => {
                 if (status.isFinalized) {
-                    console.log('Oracle funded');
+                    console.log(`Account ${receiver.address} funded`);
                     resolve();
                 }
             });

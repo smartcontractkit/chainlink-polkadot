@@ -6,6 +6,8 @@ on a substrate chain using the chainlink-feed pallet.
 For the simplicity of this demo, a single Chainlink node (+ Postgres DB, External Initiator) is used, but with multiple
 accounts. In a real environment, each of these accounts would run their own Chainlink node.
 
+In order to run the demo programmatically, check the end of the document.
+
 > This is in active development. Some Docker images may be outdated and may require to be built from source.
 
 ## Setup
@@ -15,6 +17,8 @@ accounts. In a real environment, each of these accounts would run their own Chai
 ```bash
 ./scripts/run-chain.sh
 ```
+
+Wait for the chain to be ready. It might take some time if it being built for the first time.
 
 > The next step requires using the Polkadot JS web interface (https://polkadot.js.org/apps/?rpc=ws%3A%2F%2F127.0.0.1%3A9944#/settings/developer).
 > Make sure you set the additional types from the chainlink feed pallet [types.json](../substrate-node-example/types.json).
@@ -161,4 +165,10 @@ EI_IC_SECRET=[SECRET]
     }
   ]
 }
+```
+
+# Run the demo programmatically
+
+```bash
+./scripts/ei-config.sh
 ```
