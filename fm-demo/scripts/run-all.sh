@@ -5,7 +5,7 @@ set -e
 echo "*** Run all components of the integration ***"
 
 cd $(dirname ${BASH_SOURCE[0]})/..
-
+yarn
 ./scripts/run-chain.sh
 ./scripts/create-feed.sh
 ./scripts/run-chainlink.sh

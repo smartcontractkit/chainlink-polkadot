@@ -2,10 +2,6 @@ const {ApiPromise, Keyring, WsProvider} = require('@polkadot/api');
 const {cryptoWaitReady} = require('@polkadot/util-crypto');
 const feedConfig = require('./feed.json');
 
-// function sleep(ms) {
-//   return new Promise(resolve => setTimeout(resolve, ms));
-// }
-
 async function fundAccountIfNeeded(api, sender, receiver) {
     return new Promise(async (resolve) => {
         const balance = await api.query.system.account(receiver.address);

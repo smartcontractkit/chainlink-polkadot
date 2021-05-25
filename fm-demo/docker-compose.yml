@@ -21,6 +21,7 @@ services:
       - CARGO_HOME=/var/www/node-template/.cargo
     volumes:
       - ../substrate-node-example/:/var/www/node-template
+      - ../pallet-chainlink/:/var/www/pallet-chainlink
       - ../pallet-chainlink-feed/:/var/www/pallet-chainlink-feed
       - "chain:/root/.local"
     command: bash -c "cargo build --release && ./target/release/node-template --dev --ws-external"
