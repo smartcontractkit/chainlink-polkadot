@@ -54,5 +54,6 @@ function Main (props) {
 export default function ChainlinkExample (props) {
   const { api } = useSubstrate();
   return (api.query.balances && api.tx.balances.transfer
-    ? <Main {...props} /> : null);
+    ? <Main {...props} />
+    : null);
 }

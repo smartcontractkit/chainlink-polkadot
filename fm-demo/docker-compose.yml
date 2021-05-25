@@ -22,7 +22,6 @@ services:
     volumes:
       - ../substrate-node-example/:/var/www/node-template
       - ../pallet-chainlink-feed/:/var/www/pallet-chainlink-feed
-      - ../pallet-chainlink/:/var/www/pallet-chainlink
       - "chain:/root/.local"
     command: bash -c "cargo build --release && ./target/release/node-template --dev --ws-external"
     networks:
