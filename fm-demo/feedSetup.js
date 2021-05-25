@@ -146,9 +146,6 @@ async function main() {
 
     // Add an account, straight from mnemonic
     const keyring = new Keyring({type: 'sr25519'});
-    // const operatorAccount = keyring.addFromUri(process.argv[2]);
-    // const oracleAccount1 = keyring.addFromUri(process.argv[3]);
-    // const oracleAccount2 = keyring.addFromUri(process.argv[4]);
 
     for (feedConfig of feedConfigs) {
         const operatorAccount = keyring.addFromUri(feedConfig.operatorSeedPhrase);
@@ -156,9 +153,7 @@ async function main() {
         const oracleAddress2 = feedConfig.oracles[1]
     
         console.log(`Using operator with address ${operatorAccount.address}`);
-        // console.log(`Imported oracle 1 with address ${oracleAccount1.address}`);
-        // console.log(`Imported oracle 2 with address ${oracleAccount2.address}`);
-    
+       
         const aliceAccount = keyring.addFromUri('//Alice');
     
         await fundAccountIfNeeded(api, aliceAccount, operatorAccount.address);

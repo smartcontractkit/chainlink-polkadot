@@ -1,5 +1,5 @@
 {
-  "name": "runlog-demo",
+  "name": "fm-demo",
   "version": "1.0.0",
   "dependencies": {
     "@polkadot/api": "^4.10.1"
