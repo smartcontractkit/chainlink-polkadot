@@ -5,11 +5,11 @@ set -e
 echo "*** Run all components of the integration ***"
 
 cd $(dirname ${BASH_SOURCE[0]})/..
-yarn
 ./scripts/run-chain.sh
-./scripts/create-feed.sh
+yarn
+node ./feedSetup.js
 ./scripts/run-chainlink.sh
-echo "Waiting a bit for the chainlink node to be ready"
+echo "Waiting a bit for the chainlink services to be ready"
 sleep 10
 ./scripts/add-bridges.sh
 ./scripts/ei-config.sh

@@ -1,15 +1,15 @@
 const {ApiPromise, Keyring, WsProvider} = require('@polkadot/api');
 const {cryptoWaitReady} = require('@polkadot/util-crypto');
-const feedConfig = require('./feed.json');
+const feedConfigs = require('./feeds.json');
 
-async function fundAccountIfNeeded(api, sender, receiver) {
+async function fundAccountIfNeeded(api, senderAccount, receiverAddress) {
     return new Promise(async (resolve) => {
-        const balance = await api.query.system.account(receiver.address);
-        console.log(`Free balance of ${receiver.address} is: ${balance.data.free}`);
+        const balance = await api.query.system.account(receiverAddress);
+        console.log(`Free balance of ${receiverAddress} is: ${balance.data.free}`);
         if (parseInt(balance.data.free) === 0) {
-            await api.tx.balances.transfer(receiver.address, 123456666000).signAndSend(sender, async ({status}) => {
+            await api.tx.balances.transfer(receiverAddress, 123456666000).signAndSend(senderAccount, async ({status}) => {
                 if (status.isFinalized) {
-                    console.log(`Account ${receiver.address} funded`);
+                    console.log(`Account ${receiverAddress} funded`);
                     resolve();
                 }
             });
@@ -146,25 +146,32 @@ async function main() {
 
     // Add an account, straight from mnemonic
     const keyring = new Keyring({type: 'sr25519'});
-    const operatorAccount = keyring.addFromUri(process.argv[2]);
-    const oracleAccount1 = keyring.addFromUri(process.argv[3]);
-    const oracleAccount2 = keyring.addFromUri(process.argv[4]);
+    // const operatorAccount = keyring.addFromUri(process.argv[2]);
+    // const oracleAccount1 = keyring.addFromUri(process.argv[3]);
+    // const oracleAccount2 = keyring.addFromUri(process.argv[4]);
 
-    console.log(`Imported operator with address ${operatorAccount.address}`);
-    console.log(`Imported oracle 1 with address ${oracleAccount1.address}`);
-    console.log(`Imported oracle 2 with address ${oracleAccount2.address}`);
-
-    const aliceAccount = keyring.addFromUri('//Alice');
-
-    await fundAccountIfNeeded(api, aliceAccount, operatorAccount);
-
-    await fundAccountIfNeeded(api, aliceAccount, oracleAccount1);
-
-    await fundAccountIfNeeded(api, aliceAccount, oracleAccount2);
-
-    await registerFeedCreatorIfNeeded(api, aliceAccount, operatorAccount);
+    for (feedConfig of feedConfigs) {
+        const operatorAccount = keyring.addFromUri(feedConfig.operatorSeedPhrase);
+        const oracleAddress1 = feedConfig.oracles[0]
+        const oracleAddress2 = feedConfig.oracles[1]
+    
+        console.log(`Using operator with address ${operatorAccount.address}`);
+        // console.log(`Imported oracle 1 with address ${oracleAccount1.address}`);
+        // console.log(`Imported oracle 2 with address ${oracleAccount2.address}`);
+    
+        const aliceAccount = keyring.addFromUri('//Alice');
+    
+        await fundAccountIfNeeded(api, aliceAccount, operatorAccount.address);
+    
+        await fundAccountIfNeeded(api, aliceAccount, oracleAddress1);
+    
+        await fundAccountIfNeeded(api, aliceAccount, oracleAddress2);
+    
+        await registerFeedCreatorIfNeeded(api, aliceAccount, operatorAccount);
+      
+        await createFeed(api, operatorAccount);
+    }
   
-    await createFeed(api, operatorAccount);
 }
 
 main().catch(console.error).then(() => process.exit());
