@@ -8,7 +8,6 @@ This pallet allows your substrate built parachain/blockchain to interract with [
 
 Essentially, a pallet is a lego piece you can add to another blockchain built on the Substrate/Polkadot infrastructure.
 
-
 ## Installation
 
 Using `pallet-chainlink` is fairly straightforward and requires a couple easy steps:
