@@ -112,9 +112,9 @@ services:
     #  Account ID:       0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54
     #  SS58 Address:     5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ
 
-  coingecko-adapter:
-    image: public.ecr.aws/chainlink-staging/adapters/coingecko-adapter:develop-latest
-    container_name: coingecko-adapter
+  adapter1:
+    image: public.ecr.aws/chainlink-staging/adapters/coinpaprika-adapter:develop-latest
+    container_name: adapter1
     restart: on-failure
     ports:
       - "8083:8080"

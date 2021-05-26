@@ -110,7 +110,7 @@ EI_IC_SECRET=[SECRET]
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
+            "feeds": [{ "url": "http://adapter1:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
@@ -145,7 +145,7 @@ EI_IC_SECRET=[SECRET]
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
+            "feeds": [{ "url": "http://adapter1:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
@@ -172,5 +172,3 @@ EI_IC_SECRET=[SECRET]
 ```
 
 On first run, `chain` image is being built. Might take several minutes while getting "API-WS: disconnected from ws://localhost:9944: 1006:: connection failed". You can check the progress with `docker attach chain`
-
-

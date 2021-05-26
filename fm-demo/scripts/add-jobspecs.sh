@@ -24,12 +24,12 @@ cat <<EOF
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
+            "feeds": [{ "url": "http://adapter1:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
-            "pollTimer": { "period": "30s" },
-            "idleTimer": { "duration": "1m" }
+            "pollTimer": { "period": "5s" },
+            "idleTimer": { "duration": "15s" }
           }
         }
       }
@@ -61,12 +61,12 @@ cat <<EOF
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
+            "feeds": [{ "url": "http://adapter1:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
-            "pollTimer": { "period": "30s" },
-            "idleTimer": { "duration": "1m" }
+            "pollTimer": { "period": "5s" },
+            "idleTimer": { "duration": "15s" }
           }
         }
       }

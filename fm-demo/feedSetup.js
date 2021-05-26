@@ -39,7 +39,7 @@ async function registerFeedCreatorIfNeeded(api, aliceAccount, operatorAccount) {
 async function createFeed(api, sender) {
     console.log(`Creating feed with config: ${JSON.stringify(feedConfig, null, 4)}`);
     return new Promise(async (resolve) => {
-    await api.tx.chainlinkFeed.createFeed(feedConfig.payment, feedConfig.timeout, (feedConfig.submissionValueBounds[0], feedConfig.submissionValueBounds[1]), feedConfig.minSubmissions, feedConfig.decimals, feedConfig.description, feedConfig.restartDelay, feedConfig.oracles,feedConfig.pruningWindow,feedConfig.maxDebt).signAndSend(sender, ({ status, events }) => {
+    await api.tx.chainlinkFeed.createFeed(feedConfig.payment, feedConfig.timeout, feedConfig.submissionValueBounds, feedConfig.minSubmissions, feedConfig.decimals, feedConfig.description, feedConfig.restartDelay, feedConfig.oracles,feedConfig.pruningWindow,feedConfig.maxDebt).signAndSend(sender, ({ status, events }) => {
         if (status.isInBlock || status.isFinalized) {
           events
             // find/filter for failed events
