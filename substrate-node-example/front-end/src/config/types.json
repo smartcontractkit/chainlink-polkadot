@@ -1,4 +1,7 @@
 {
+  "SpecIndex": "Vec<u8>",
+  "RequestIdentifier": "u64",
+  "DataVersion": "u64",
   "Address": "MultiAddress",
   "LookupSource": "MultiAddress",
   "FeedId": "u32",
@@ -59,6 +62,5 @@
     "answered_in_round": "RoundId"
   },
   "RoundDataOf": "RoundData",
-  "SubmissionBounds": "(u32, u32)",
-  "RequestIdentifier": "u64"
+  "SubmissionBounds": "(u32, u32)"
 }
