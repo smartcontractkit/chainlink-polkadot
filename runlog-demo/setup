@@ -4,12 +4,14 @@ source ./internal-scripts/common.sh
 
 run_setup() {
   yarn install
-
+  rm -rf external_initiator1.env
+  rm -rf external_initiator2.env
+  rm -rf external_initiator3.env
   touch external_initiator1.env
   touch external_initiator2.env
   touch external_initiator3.env
 
-  SA_ENDPOINT="ws://host.docker.internal:9944/"
+  SA_ENDPOINT="ws://chain-runlog:9944/"
 
   if [ "$1" != "" ]; then
     SA_ENDPOINT=$1
