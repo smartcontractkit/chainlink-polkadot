@@ -1,5 +1,7 @@
 # Chainlink pallet
 
+> NOTE: Still on Substrate pre-v2 and not compatible with the example node in this repo.
+
 ## Purpose
 
 This pallet allows your substrate built parachain/blockchain to interract with [chainlink](https://chain.link/). [Pallets](https://substrate.dev/docs/en/tutorials/build-a-dapp/pallet) are modular pieces of the Polkadot Substrate that make it easier for your parachain to interact with technologies. This is essential for working with any kind of external data API from outside your blockchain.
@@ -41,8 +43,8 @@ Edit `lib.rs` to that it references `pallet-chainlink`:
 
 ```rust
 ...
-// Add the chainlink Config Trait
-impl chainlink::Config for Runtime {
+// Add the chainlink Trait
+impl chainlink::Trait for Runtime {
   type Event = Event;
   type Currency = balances::Module<Runtime>;
   type Callback = example_module::Call<Runtime>;
@@ -57,7 +59,7 @@ parameter_types! {
 ...
 construct_runtime!(
     ...
-    Chainlink: chainlink::{Pallet, Call, Storage, Event<T>},
+    Chainlink: chainlink::{Module, Call, Storage, Event<T>},
   }
 );
 ```
@@ -65,11 +67,11 @@ construct_runtime!(
 Add necessary `use` declarations:
 
 ```rust
-use chainlink::{CallbackWithParameter, Event, Config as ChainlinkConfig};
+use chainlink::{CallbackWithParameter, Event, Trait as ChainlinkTrait};
 
-pub trait Config: chainlink::Config + ChainlinkTrait {
-    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
-    type Callback: From<Call<Self>> + Into<<Self as ChainlinkConfig>::Callback>;
+pub trait Trait: chainlink::Trait + ChainlinkTrait {
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Callback: From<Call<Self>> + Into<<Self as ChainlinkTrait>::Callback>;
 }
 ```
 
@@ -78,8 +80,8 @@ You can now call the right chainlink Extrinsic:
 ```rust
 pub fn send_request(origin, operator: T::AccountId) -> DispatchResult {
     let parameters = ("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "path", "RAW.ETH.USD.PRICE", "times", "100000000");
-    let call: <T as Config>::Callback = Call::callback(vec![]).into();
-    chainlink::Pallet::<T>::initiate_request(origin, operator, 1, 0, parameters.encode(), 100, call.into())?;
+    let call: <T as Trait>::Callback = Call::callback(vec![]).into();
+    <chainlink::Module<T>>::initiate_request(origin, operator, 1, 0, parameters.encode(), 100, call.into())?;
 
     Ok(())
 }
@@ -96,7 +98,7 @@ pub fn callback(origin, result: u128) -> DispatchResult {
     Ok(())
 }
 
-impl <T: Config> CallbackWithParameter for Call<T> {
+impl <T: Trait> CallbackWithParameter for Call<T> {
     fn with_result(&self, result: u128) -> Option<Self> {
         match *self {
             Call::callback(_) => Some(Call::callback(result)),
