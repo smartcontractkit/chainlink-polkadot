@@ -580,9 +580,9 @@ pub mod pallet {
 			min_submissions: u32,
 			decimals: u8,
 			description: Vec<u8>,
-			restart_delay: RoundId,
+			restart_delay: u32,
 			oracles: Vec<(T::AccountId, T::AccountId)>,
-			pruning_window: Option<RoundId>,
+			pruning_window: Option<u32>,
 			max_debt: Option<BalanceOf<T>>,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
@@ -597,7 +597,7 @@ pub mod pallet {
 
 			let pruning_window = pruning_window.unwrap_or(RoundId::MAX);
 			ensure!(
-				pruning_window > RoundId::zero(),
+				pruning_window > Zero::zero(),
 				Error::<T>::CannotPruneRoundZero
 			);
 
@@ -624,7 +624,7 @@ pub mod pallet {
 					first_valid_round: None,
 					oracle_count: Zero::zero(),
 					pruning_window,
-					next_round_to_prune: RoundId::one(),
+					next_round_to_prune: One::one(),
 					debt: Zero::zero(),
 					max_debt,
 				};
@@ -709,7 +709,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
 			ensure!(
-				pruning_window > RoundId::zero(),
+				pruning_window > Zero::zero(),
 				Error::<T>::CannotPruneRoundZero
 			);
 
@@ -1365,8 +1365,7 @@ pub mod pallet {
 				Error::<T>::InvalidRound
 			);
 			ensure!(
-				round_id == RoundId::one()
-					|| self.is_supersedable(round_id.saturating_sub(One::one())),
+				round_id == RoundId::one() || self.is_supersedable(round_id.saturating_sub(One::one())),
 				Error::<T>::NotSupersedable
 			);
 			Ok(())
@@ -1402,7 +1401,7 @@ pub mod pallet {
 		/// Check whether the round can be superseded by the next one.
 		/// Returns `false` for rounds not present in storage.
 		fn is_supersedable(&self, round: RoundId) -> bool {
-			round == RoundId::zero() || self.was_updated(round) || self.is_timed_out(round)
+			round.is_zero() || self.was_updated(round) || self.is_timed_out(round)
 		}
 
 		// --- mutators ---

@@ -59,5 +59,6 @@
     "answered_in_round": "RoundId"
   },
   "RoundDataOf": "RoundData",
-  "SubmissionBounds": "(u32, u32)"
+  "SubmissionBounds": "(u32, u32)",
+  "RequestIdentifier": "u64"
 }
