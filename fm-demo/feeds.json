@@ -1,7 +1,7 @@
 [
     { 
         "operatorSeedPhrase": "fruit start corn kingdom leg public thumb scrub negative jazz pig critic volcano voice suspect",
-        "payment" : 0.01,
+        "payment" : 0,
         "timeout" : 600,
         "submissionValueBounds": ["0", "99999999999999999999999999999999"],
         "minSubmissions" : 1,
@@ -10,7 +10,7 @@
         "restartDelay": 0,
         "oracles": ["0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c", "0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54"],
         "pruningWindow" : 56,
-        "maxDebt" : 0 
+        "maxDebt" : 1
     }
 ]
  

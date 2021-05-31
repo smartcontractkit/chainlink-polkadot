@@ -12,18 +12,18 @@ async function main() {
         provider: wsProvider,
         types
     });
+    for (feedId = 0; feedId < feedConfigs.length; feedId++) {
+        console.log(`Feed ID: ${feedId}`)
+        const feed = (await api.query.chainlinkFeed.feeds(feedId)).unwrap()
 
-    const feed = (await api.query.chainlinkFeed.feeds(0)).unwrap()
-    console.log(feed)
+        const latestRoundNumber = feed['latest_round'].words[0]
 
-    const latestRoundNumber = feed['latest_round'].words[0]
-    console.log(latestRoundNumber)
+        const latestRound = (await api.query.chainlinkFeed.rounds(0, latestRoundNumber)).unwrap()
 
-    const latestRound = (await api.query.chainlinkFeed.rounds(0, latestRoundNumber)).unwrap()
-    console.log(latestRound)
-
-    const latestAnswer = latestRound.answer.unwrap().words
-    console.log(latestAnswer)
+        const latestAnswer = latestRound.answer.unwrap().toNumber()
+        console.log("Latest answer on chain: ")
+        console.log(latestAnswer)
+    }
   
 }
 
