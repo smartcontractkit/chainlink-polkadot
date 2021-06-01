@@ -82,9 +82,9 @@ cat <<EOF
 EOF
 )
 
-JOBID=$(curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs")
+JOBID=$(curl -s -b ./cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs")
 echo $JOBID
 
-JOBID=$(curl -s -b ./tmp/cookiefile -d "$payload2" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs")
+JOBID=$(curl -s -b ./cookiefile -d "$payload2" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs")
 echo $JOBID
 echo "Jobspecs has been added to Chainlink node"

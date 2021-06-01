@@ -18,7 +18,7 @@ add_bridge() {
 EOF
   )
 
-  curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/bridge_types" &>/dev/null
+  curl -s -b ./cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/bridge_types" &>/dev/null
 
   echo "EA has been added to Chainlink node"
   title "Done adding EA #$1"

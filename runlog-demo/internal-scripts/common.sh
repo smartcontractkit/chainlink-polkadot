@@ -42,9 +42,9 @@ login_cl() {
     fi
   done <"./secrets/apicredentials"
 
-  echo "" >./tmp/cookiefile
+  echo "" >./cookiefile
 
-  curl -s -c ./tmp/cookiefile -d "{\"email\":\"${username}\", \"password\":\"${password}\"}" -X POST -H 'Content-Type: application/json' "$CL_URL/sessions" &>/dev/null
+  curl -s -c ./cookiefile -d "{\"email\":\"${username}\", \"password\":\"${password}\"}" -X POST -H 'Content-Type: application/json' "$CL_URL/sessions" &>/dev/null
 }
 
 run_ei() {
