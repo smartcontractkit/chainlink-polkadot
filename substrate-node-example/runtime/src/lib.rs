@@ -36,7 +36,6 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-pub use example::Call as ExampleCall;
 pub use pallet_chainlink_feed;
 pub use pallet_chainlink_feed::RoundId;
 /// Import the template pallet.
@@ -46,8 +45,6 @@ use weights::pallet_chainlink_feed::WeightInfo as ChainlinkWeightInfo;
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-
-mod example;
 
 pub mod weights;
 
@@ -284,11 +281,6 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
-impl example::Config for Runtime {
-	type Event = Event;
-	type Callback = ExampleCall<Runtime>;
-}
-
 pub type FeedId = u32;
 pub type Value = u128;
 
@@ -326,10 +318,12 @@ parameter_types! {
 
 impl pallet_chainlink::Config for Runtime {
 	type Event = Event;
-	type Currency = Balances;
-	type Callback = ExampleCall<Runtime>;
+	type Currency = pallet_balances::Pallet<Runtime>;
+	type Callback = module2::Call<Runtime>;
 	type ValidityPeriod = ValidityPeriod;
 }
+
+impl module2::Config for Runtime {}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -350,7 +344,6 @@ construct_runtime!(
 		ChainlinkFeed: pallet_chainlink_feed::{Pallet, Call, Config<T>, Storage, Event<T>},
 		TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
 
-		Example: example::{Pallet, Call, Storage},
 		Chainlink: pallet_chainlink::{Pallet, Call, Storage, Event<T>}
 	}
 );
@@ -427,6 +420,10 @@ impl_runtime_apis! {
 			data: sp_inherents::InherentData,
 		) -> sp_inherents::CheckInherentsResult {
 			data.check_extrinsics(&block)
+		}
+
+		fn random_seed() -> <Block as BlockT>::Hash {
+			RandomnessCollectiveFlip::random_seed().0
 		}
 	}
 
@@ -547,6 +544,48 @@ impl_runtime_apis! {
 
 			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
 			Ok(batches)
+		}
+	}
+}
+
+pub mod module2 {
+	use super::*;
+	use codec::Decode;
+	use pallet_chainlink::CallbackWithParameter;
+
+	pub trait Config: frame_system::Config {}
+
+	frame_support::decl_module! {
+		pub struct Module<T: Config> for enum Call
+			where origin: <T as frame_system::Config>::Origin
+		{
+			#[weight = 0]
+			pub fn callback(_origin, result: Vec<u8>) -> frame_support::dispatch::DispatchResult {
+				let r : u128 = u128::decode(&mut &result[..]).map_err(|_| Error::<T>::DecodingFailed)?;
+				<Result>::put(r);
+				Ok(())
+			}
+		}
+	}
+
+	frame_support::decl_storage! {
+		trait Store for Module<T: Config> as TestStorage {
+			pub Result: u128;
+		}
+	}
+
+	frame_support::decl_error! {
+		pub enum Error for Module<T: Config> {
+			DecodingFailed
+		}
+	}
+
+	impl<T: Config> CallbackWithParameter for Call<T> {
+		fn with_result(&self, result: Vec<u8>) -> Option<Self> {
+			match *self {
+				Call::callback(_) => Some(Call::callback(result)),
+				_ => None,
+			}
 		}
 	}
 }

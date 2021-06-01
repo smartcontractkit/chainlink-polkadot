@@ -1,11 +1,11 @@
-# Chainlink Price Feed Pallet
+# Chainlink Price Feed Module
 
 This pallet provides Chainlink price feed functionality to Substrate-based chains that include it.
 
 It aims to mostly port the [FluxAggregator](https://github.com/smartcontractkit/chainlink/blob/dabada25f5dd7bbc49a76ed1d172a83083cdd8f0/evm-contracts/src/v0.6/FluxAggregator.sol)
 Solidity contract but changes the design in the following ways:
-+ **Storage Pruning:** It is usually not advisable to keep all oracle state around, so a feed supports 
-  automatic storage pruning.
++ **Storage Pruning:** It is usually not advisable to keep all oracle state around, so we add storage pruning logic
+  to the pallet. (See the `prune` extrinsic.)
 + **View Functions:** Substrate does not have an exact equivalent of Solidity view functions. We will instead make the
   client side smarter to read and interpret storage to surface the same information.
 + **Contracts --> Feeds:** Vanilla Substrate does not have contracts. We will thus replace the deployment of a contract with
@@ -27,7 +27,7 @@ The following snippet shows an example:
 ```Rust
 parameter_types! {
     // Used to generate the fund account that pools oracle payments.
-	pub const FeedModule: PalletId = PalletId(*b"linkfeed");
+	pub const FeedModule: ModuleId = ModuleId(*b"linkfeed");
     // The minimum amount of tokens to keep in reserve for oracle payment.
 	pub const MinimumReserve: Balance = ExistentialDeposit::get() * 1000;
     // Maximum length of the feed description.
@@ -36,26 +36,26 @@ parameter_types! {
 	pub const OracleCountLimit: u32 = 25;
     // Maximum number of feeds.
 	pub const FeedLimit: FeedId = 100;
+    // Minimum amount of rounds to keep when pruning.
+	pub const PruningWindow: RoundId = 15;
 }
 
-impl pallet_chainlink_feed::Config for Runtime {
-    type Event = Event;
-    type FeedId = FeedId;
-    type Value = Value;
+impl pallet_chainlink_feed::Trait for Runtime {
+	type Event = Event;
+	type FeedId = FeedId;
+	type Value = Value;
     // A module that provides currency functionality to manage
     // oracle rewards. Balances in this example.
-    type Currency = Balances;
-    type PalletId = FeedPalletId;
-    type MinimumReserve = MinimumReserve;
-    type StringLimit = StringLimit;
-    type OracleCountLimit = OracleCountLimit;
-    type FeedLimit = FeedLimit;
-    // Provide your custom callback that gets called once a new value is available
-    // `()` is a noop
-    type OnAnswerHandler = ();
+	type Currency = Balances;
+	type ModuleId = FeedModule;
+	type MinimumReserve = MinimumReserve;
+	type StringLimit = StringLimit;
+	type OracleCountLimit = OracleCountLimit;
+	type FeedLimit = FeedLimit;
+	type PruningWindow = PruningWindow;
     // Implementation of the WeightInfo trait for your runtime.
     // Default weights available in the pallet but not recommended for production.
-    type WeightInfo = ChainlinkWeightInfo;
+	type WeightInfo = ChainlinkWeightInfo;
 }
 ```
 
@@ -65,7 +65,7 @@ depends on a pallet implementing the `Currency` trait.
 Define an associated `Oracle` type implementing the `FeedOracle` trait.
 
 ```Rust
-pub trait Config: frame_system::Config {
+pub trait Trait: frame_system::Trait {
     // -- snip --
     type Oracle: FeedOracle<Self>;
 }
@@ -101,6 +101,7 @@ Pallet-global values:
 ```
 PalletAdmin
 PendingPalletAdmin
+Debt
 FeedCounter
 ```
 

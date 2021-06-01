@@ -3,7 +3,7 @@
 This repository contains the [Chainlink](https://chain.link/) feed pallet as well as an example node showing how to integrate
 it in [Substrate](https://www.substrate.io/)-based chains.
 
-It also includes the `pallet-chainlink` for interacting with the Chainlink job-based oracle system.
+It also includes the (outdated) `pallet-chainlink` for interacting with the Chainlink job-based oracle system.
 
 ## How to integrate the Chainlink feed pallet into a runtime?
 The pallet is added to the runtime like any regular pallet (see [tutorial](https://substrate.dev/docs/en/tutorials/add-a-pallet/)).
