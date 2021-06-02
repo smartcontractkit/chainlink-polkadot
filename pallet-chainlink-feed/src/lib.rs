@@ -42,6 +42,15 @@ pub mod pallet {
 		utils::{median, with_transaction_result},
 	};
 
+	/// Explicit enum to denote if the submitter pays fee for `submit` extrinsic or not.
+	pub enum SubmitterPaysFee {
+		/// Submitter always pays the fee.
+		Always,
+		/// `submit` is free for the submitter if the submission is valid,
+		/// otherwise the submitter pays the regular fee.
+		FreeForValidSubmission,
+	}
+
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -320,6 +329,9 @@ pub mod pallet {
 
 		/// The weight for this pallet's extrinsics.
 		type WeightInfo: WeightInfo;
+
+		/// Denote if the submitter pays a fee for valid submission in `submit` or not.
+		type SubmitterPaysFee: Get<SubmitterPaysFee>;
 	}
 
 	#[pallet::pallet]
@@ -701,7 +713,7 @@ pub mod pallet {
 		/// Updates the pruning window of an existing feed
 		///
 		/// - Will prune rounds if the given window is smaller than the existing one.
-		#[pallet::weight(1_000)]
+		#[pallet::weight(T::WeightInfo::set_pruning_window(Feed::<T>::load_from(*feed_id).map(|feed|feed.current_window()).unwrap_or_default().saturating_sub(*pruning_window)))]
 		pub fn set_pruning_window(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
@@ -737,9 +749,9 @@ pub mod pallet {
 		/// - Removes the details for the previous round if it was superseded.
 		///
 		/// Limited to the oracles of a feed.
-		#[pallet::weight(T::WeightInfo::submit_opening_round_answers().max(
-		T::WeightInfo::submit_closing_answer(T::OracleCountLimit::get())
-		))]
+		#[pallet::weight((T::WeightInfo::submit_opening_round_answers().max(
+		    T::WeightInfo::submit_closing_answer(T::OracleCountLimit::get())
+		), DispatchClass::Operational))]
 		pub fn submit(
 			origin: OriginFor<T>,
 			#[pallet::compact] feed_id: T::FeedId,
@@ -862,7 +874,14 @@ pub mod pallet {
 					Details::<T>::insert(feed_id, round_id, details);
 				}
 
-				Ok(().into())
+				Ok((
+					None,
+					match T::SubmitterPaysFee::get() {
+						SubmitterPaysFee::Always => Pays::Yes,
+						SubmitterPaysFee::FreeForValidSubmission => Pays::No,
+					},
+				)
+					.into())
 			})
 		}
 
@@ -1341,7 +1360,11 @@ pub mod pallet {
 		}
 
 		/// Make sure that the given oracle can submit data for the given round.
-		fn ensure_valid_round(&self, oracle: &T::AccountId, round_id: RoundId) -> DispatchResult {
+		pub fn ensure_valid_round(
+			&self,
+			oracle: &T::AccountId,
+			round_id: RoundId,
+		) -> DispatchResult {
 			let o = self.status(oracle).ok_or(Error::<T>::NotOracle)?;
 
 			ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);
@@ -1523,13 +1546,20 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Count current the old rounds of an existing feed
+		fn current_window(&self) -> u32 {
+			self.config
+				.latest_round
+				.saturating_sub(self.config.next_round_to_prune)
+		}
+
 		/// Prune the state of a feed to reduce storage load.
 		///
 		/// Returns `true` if round was pruned, `false otherwise`
 		fn prune_oldest(&mut self) -> bool {
 			let prune_next = self.config.next_round_to_prune;
 			// only prune if window is exceeded
-			if self.config.latest_round.saturating_sub(prune_next) >= self.config.pruning_window {
+			if self.current_window() >= self.config.pruning_window {
 				Rounds::<T>::remove(self.id, prune_next);
 				Details::<T>::remove(self.id, prune_next);
 				// update oldest round
@@ -1544,8 +1574,6 @@ pub mod pallet {
 		/// Initialize a new round.
 		/// Will close the previous one if it is timed out.
 		/// Will prune the oldest round that is outside the pruning window
-		///
-		/// **Warning:** Fallible function that changes storage.
 		#[require_transactional]
 		fn initialize_round(
 			&mut self,
@@ -1684,6 +1712,7 @@ pub mod pallet {
 		fn create_feed(o: u32) -> Weight;
 		fn transfer_ownership() -> Weight;
 		fn accept_ownership() -> Weight;
+		fn set_pruning_window(n: u32) -> Weight;
 		fn submit_opening_round_answers() -> Weight;
 		fn submit_closing_answer(o: u32) -> Weight;
 		fn change_oracles(d: u32, n: u32) -> Weight;

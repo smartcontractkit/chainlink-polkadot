@@ -3,4 +3,5 @@
 pallet-chainlink**/Cargo.lock
 **/node_modules
 **/yarn.lock
+**/*.DS_Store
 external_initiator.env

@@ -224,7 +224,7 @@ fn details_are_cleared() {
 				submission
 			));
 			assert_ok!(ChainlinkFeed::submit(
-				Origin::signed(snd_oracle),
+				Origin::signed(snd_oracle.clone()),
 				feed_id,
 				r,
 				submission
@@ -293,7 +293,7 @@ fn submit_failure_cases() {
 		let invalid_round = 1337;
 		assert_noop!(
 			ChainlinkFeed::submit(Origin::signed(oracle), feed_id, invalid_round, submission),
-			Error::<Test>::InvalidRound
+			Error::<Test>::InvalidRound,
 		);
 		let low_value = 0;
 		assert_noop!(
