@@ -42,6 +42,14 @@ pub mod pallet {
 		utils::{median, with_transaction_result},
 	};
 
+	/// Configuration for submiting paysfee
+	pub enum SubmitterPaysFee {
+		/// Always pays for the transaction
+		Always,
+		/// No pays for valid submission
+		FreeForValidSubmission,
+	}
+
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -320,6 +328,9 @@ pub mod pallet {
 
 		/// The weight for this pallet's extrinsics.
 		type WeightInfo: WeightInfo;
+
+		/// If enable PaysFee in submit call
+		type SubmitterPaysFee: Get<SubmitterPaysFee>;
 	}
 
 	#[pallet::pallet]
@@ -737,9 +748,9 @@ pub mod pallet {
 		/// - Removes the details for the previous round if it was superseded.
 		///
 		/// Limited to the oracles of a feed.
-		#[pallet::weight(T::WeightInfo::submit_opening_round_answers().max(
-		T::WeightInfo::submit_closing_answer(T::OracleCountLimit::get())
-		))]
+		#[pallet::weight((T::WeightInfo::submit_opening_round_answers().max(
+		    T::WeightInfo::submit_closing_answer(T::OracleCountLimit::get())
+		), DispatchClass::Operational))]
 		pub fn submit(
 			origin: OriginFor<T>,
 			#[pallet::compact] feed_id: T::FeedId,
@@ -862,7 +873,14 @@ pub mod pallet {
 					Details::<T>::insert(feed_id, round_id, details);
 				}
 
-				Ok(().into())
+				Ok((
+					None,
+					match T::SubmitterPaysFee::get() {
+						SubmitterPaysFee::Always => Pays::Yes,
+						SubmitterPaysFee::FreeForValidSubmission => Pays::No,
+					},
+				)
+					.into())
 			})
 		}
 
@@ -1341,7 +1359,11 @@ pub mod pallet {
 		}
 
 		/// Make sure that the given oracle can submit data for the given round.
-		fn ensure_valid_round(&self, oracle: &T::AccountId, round_id: RoundId) -> DispatchResult {
+		pub fn ensure_valid_round(
+			&self,
+			oracle: &T::AccountId,
+			round_id: RoundId,
+		) -> DispatchResult {
 			let o = self.status(oracle).ok_or(Error::<T>::NotOracle)?;
 
 			ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);

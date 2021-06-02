@@ -31,8 +31,6 @@ fn whitelist_acc<T: Config>(acc: &T::AccountId) {
 }
 
 benchmarks! {
-	// _ {}
-
 	create_feed {
 		let o in 1 .. T::OracleCountLimit::get();
 
@@ -43,20 +41,22 @@ benchmarks! {
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
 		let description = vec![1; T::StringLimit::get() as usize];
 	}: _(
-			RawOrigin::Signed(caller.clone()),
-			600u32.into(),
-			Zero::zero(),
-			(1u8.into(), 100u8.into()),
-			1u8.into(),
-			5u8.into(),
-			description,
-			Zero::zero(),
-			oracles
-		)
-	verify {
-		let feed: T::FeedId = Zero::zero();
-		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").oracle_count, o);
-	}
+		RawOrigin::Signed(caller.clone()),
+		600u32.into(),
+		Zero::zero(),
+		(1u8.into(), 100u8.into()),
+		1u8.into(),
+		5u8.into(),
+		description,
+		Zero::zero(),
+		oracles,
+		None,
+		None
+	)
+		verify {
+			let feed: T::FeedId = Zero::zero();
+			assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").oracle_count, o);
+		}
 
 	transfer_ownership {
 		let caller: T::AccountId = whitelisted_caller();
@@ -75,13 +75,15 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let new_owner: T::AccountId = account("new_owner", 0, SEED);
 	}: _(RawOrigin::Signed(caller.clone()), feed, new_owner.clone())
-	verify {
-		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").pending_owner, Some(new_owner));
-	}
+		verify {
+			assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").pending_owner, Some(new_owner));
+		}
 
 	accept_ownership {
 		let caller: T::AccountId = whitelisted_caller();
@@ -100,14 +102,16 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let new_owner: T::AccountId = account("new_owner", 0, SEED);
 		assert_is_ok(ChainlinkFeed::<T>::transfer_ownership(RawOrigin::Signed(caller.clone()).into(), feed, new_owner.clone()));
 	}: _(RawOrigin::Signed(new_owner.clone()), feed)
-	verify {
-		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").owner, new_owner);
-	}
+		verify {
+			assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").owner, new_owner);
+		}
 
 	// The submit call opening a round is more expensive than a regular submission because of
 	// the round init code as well as the closing of previous rounds.
@@ -132,6 +136,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let prev_round: RoundId = 1;
@@ -149,23 +155,23 @@ benchmarks! {
 		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 	}: submit(
-			RawOrigin::Signed(oracle.clone()),
-			feed,
-			round,
-			answer
-		)
-	verify {
-		let f = Feed::<T>::read_only_from(feed).unwrap();
-		// previous round should be cleared
-		assert_eq!(f.details(prev_round), None);
-		let expected_round = Round {
-			started_at: One::one(),
-			answer: Some(answer),
-			updated_at: Some(One::one()),
-			answered_in_round: Some(2)
-		};
-		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
-	}
+		RawOrigin::Signed(oracle.clone()),
+		feed,
+		round,
+		answer
+	)
+		verify {
+			let f = Feed::<T>::read_only_from(feed).unwrap();
+			// previous round should be cleared
+			assert_eq!(f.details(prev_round), None);
+			let expected_round = Round {
+				started_at: One::one(),
+				answer: Some(answer),
+				updated_at: Some(One::one()),
+				answered_in_round: Some(2)
+			};
+			assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
+		}
 
 	// The closing answer is expensive because it induces the largest median calculation and
 	// includes the bookkeeping for closing the round.
@@ -189,6 +195,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let prev_round: RoundId = 1;
@@ -210,20 +218,20 @@ benchmarks! {
 		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, Zero::zero());
 	}: submit(
-			RawOrigin::Signed(oracle.clone()),
-			feed,
-			round,
-			answer
-		)
-	verify {
-		let expected_round = Round {
-			started_at: One::one(),
-			answer: Some(answer),
-			updated_at: Some(One::one()),
-			answered_in_round: Some(2)
-		};
-		assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
-	}
+		RawOrigin::Signed(oracle.clone()),
+		feed,
+		round,
+		answer
+	)
+		verify {
+			let expected_round = Round {
+				started_at: One::one(),
+				answer: Some(answer),
+				updated_at: Some(One::one()),
+				answered_in_round: Some(2)
+			};
+			assert_eq!(ChainlinkFeed::<T>::round(feed, round), Some(expected_round));
+		}
 
 	change_oracles {
 		let d in 1 .. T::OracleCountLimit::get();
@@ -246,18 +254,20 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let oracles_before = oracles.into_iter().map(|(o, _a)| o).collect();
 		let feed: T::FeedId = Zero::zero();
 	}: _(
-			RawOrigin::Signed(caller.clone()),
-			feed,
-			oracles_before,
-			oracles_after
-		)
-	verify {
-		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").oracle_count, n);
-	}
+		RawOrigin::Signed(caller.clone()),
+		feed,
+		oracles_before,
+		oracles_after
+	)
+		verify {
+			assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").oracle_count, n);
+		}
 
 	update_future_rounds {
 		let o = 2;
@@ -277,23 +287,25 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let payment: BalanceOf<T> = 42u32.into();
 		let timeout: T::BlockNumber = 3u8.into();
 		let feed: T::FeedId = Zero::zero();
 	}: _(
-			RawOrigin::Signed(caller.clone()),
-			feed,
-			payment,
-			(1, oracles.len() as u32),
-			1u8.into(),
-			timeout
-		)
-	verify {
-		let config = ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there");
-		assert_eq!(config.payment, payment);
-		assert_eq!(config.timeout, timeout);
-	}
+		RawOrigin::Signed(caller.clone()),
+		feed,
+		payment,
+		(1, oracles.len() as u32),
+		1u8.into(),
+		timeout
+	)
+		verify {
+			let config = ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there");
+			assert_eq!(config.payment, payment);
+			assert_eq!(config.timeout, timeout);
+		}
 	set_requester {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -311,14 +323,16 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
 		let delay: RoundId = 3;
 	}: _(RawOrigin::Signed(caller.clone()), feed, requester.clone(), delay)
-	verify {
-		assert_eq!(ChainlinkFeed::<T>::requester(feed, requester).expect("feed should be there").delay, delay);
-	}
+		verify {
+			assert_eq!(ChainlinkFeed::<T>::requester(feed, requester).expect("feed should be there").delay, delay);
+		}
 
 	remove_requester {
 		let caller: T::AccountId = whitelisted_caller();
@@ -337,15 +351,17 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
 		let delay: RoundId = 3;
 		assert_is_ok(ChainlinkFeed::<T>::set_requester(RawOrigin::Signed(caller.clone()).into(), feed, requester.clone(), delay));
 	}: _(RawOrigin::Signed(caller.clone()), feed, requester.clone())
-	verify {
-		assert_eq!(ChainlinkFeed::<T>::requester(feed, requester), None);
-	}
+		verify {
+			assert_eq!(ChainlinkFeed::<T>::requester(feed, requester), None);
+		}
 
 	request_new_round {
 		let o = 3;
@@ -365,6 +381,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let round: RoundId = One::one();
@@ -382,13 +400,13 @@ benchmarks! {
 		let delay: RoundId = 3;
 		assert_is_ok(ChainlinkFeed::<T>::set_requester(RawOrigin::Signed(caller.clone()).into(), feed, requester.clone(), delay));
 	}: _(
-			RawOrigin::Signed(requester.clone()),
-			feed
-		)
-	verify {
-		let config = ChainlinkFeed::<T>::feed_config(feed).expect("config should be there");
-		assert_eq!(config.reporting_round, 2);
-	}
+		RawOrigin::Signed(requester.clone()),
+		feed
+	)
+		verify {
+			let config = ChainlinkFeed::<T>::feed_config(feed).expect("config should be there");
+			assert_eq!(config.reporting_round, 2);
+		}
 
 	withdraw_payment {
 		let o = 3;
@@ -409,6 +427,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let round: RoundId = One::one();
@@ -429,9 +449,9 @@ benchmarks! {
 		recipient.clone(),
 		payment
 	)
-	verify {
-		assert_eq!(T::Currency::free_balance(&recipient), payment);
-	}
+		verify {
+			assert_eq!(T::Currency::free_balance(&recipient), payment);
+		}
 
 	transfer_admin {
 		let oracle: T::AccountId = account("oracle", 0, SEED);
@@ -447,15 +467,15 @@ benchmarks! {
 		oracle.clone(),
 		new_admin.clone()
 	)
-	verify {
-		let expected_meta = OracleMeta {
-			withdrawable: Zero::zero(),
-			admin: admin.clone(),
-			pending_admin: Some(new_admin.clone()),
-		};
-		let meta = ChainlinkFeed::<T>::oracle(&oracle);
-		assert_eq!(meta, Some(expected_meta));
-	}
+		verify {
+			let expected_meta = OracleMeta {
+				withdrawable: Zero::zero(),
+				admin: admin.clone(),
+				pending_admin: Some(new_admin.clone()),
+			};
+			let meta = ChainlinkFeed::<T>::oracle(&oracle);
+			assert_eq!(meta, Some(expected_meta));
+		}
 
 	accept_admin {
 		let oracle: T::AccountId = account("oracle", 0, SEED);
@@ -475,15 +495,15 @@ benchmarks! {
 		RawOrigin::Signed(new_admin.clone()),
 		oracle.clone()
 	)
-	verify {
-		let expected_meta = OracleMeta {
-			withdrawable: Zero::zero(),
-			admin: new_admin.clone(),
-			pending_admin: None,
-		};
-		let meta = ChainlinkFeed::<T>::oracle(&oracle);
-		assert_eq!(meta, Some(expected_meta));
-	}
+		verify {
+			let expected_meta = OracleMeta {
+				withdrawable: Zero::zero(),
+				admin: new_admin.clone(),
+				pending_admin: None,
+			};
+			let meta = ChainlinkFeed::<T>::oracle(&oracle);
+			assert_eq!(meta, Some(expected_meta));
+		}
 
 	withdraw_funds {
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -498,9 +518,9 @@ benchmarks! {
 		recipient.clone(),
 		payment
 	)
-	verify {
-		assert_eq!(T::Currency::free_balance(&recipient), payment);
-	}
+		verify {
+			assert_eq!(T::Currency::free_balance(&recipient), payment);
+		}
 
 	reduce_debt {
 		let caller: T::AccountId = whitelisted_caller();
@@ -520,6 +540,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle.clone(), admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let answer: T::Value = 42u8.into();
@@ -531,13 +553,13 @@ benchmarks! {
 		}
 		let rounds: BalanceOf<T> = rounds.into();
 		let debt: BalanceOf<T> = rounds * payment;
-		assert_eq!(Debt::<T>::get(), debt);
+		assert_eq!(<ChainlinkFeed<T>>::debt(feed).unwrap(), debt);
 		T::Currency::make_free_balance_be(&fund_account, payment + payment);
-	}: _(RawOrigin::Signed(caller.clone()), payment)
-	verify {
-		assert_eq!(T::Currency::free_balance(&fund_account), payment);
-		assert_eq!(Debt::<T>::get(), debt - payment);
-	}
+	}: _(RawOrigin::Signed(caller.clone()), feed, payment)
+		verify {
+			assert_eq!(T::Currency::free_balance(&fund_account), payment);
+			assert_eq!(<ChainlinkFeed<T>>::debt(feed).unwrap(), debt - payment);
+		}
 
 	transfer_pallet_admin {
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -547,9 +569,9 @@ benchmarks! {
 		RawOrigin::Signed(pallet_admin.clone()),
 		new_admin.clone()
 	)
-	verify {
-		assert_eq!(PendingPalletAdmin::<T>::get(), Some(new_admin));
-	}
+		verify {
+			assert_eq!(PendingPalletAdmin::<T>::get(), Some(new_admin));
+		}
 
 	accept_pallet_admin {
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -559,10 +581,10 @@ benchmarks! {
 			new_admin.clone()
 		));
 	}: _(RawOrigin::Signed(new_admin.clone()))
-	verify {
-		assert_eq!(ChainlinkFeed::<T>::pallet_admin(), new_admin);
-		assert_eq!(PendingPalletAdmin::<T>::get(), None);
-	}
+		verify {
+			assert_eq!(ChainlinkFeed::<T>::pallet_admin(), new_admin);
+			assert_eq!(PendingPalletAdmin::<T>::get(), None);
+		}
 
 	set_feed_creator {
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -572,9 +594,9 @@ benchmarks! {
 		RawOrigin::Signed(pallet_admin.clone()),
 		new_creator.clone()
 	)
-	verify {
-		assert!(FeedCreators::<T>::contains_key(&new_creator));
-	}
+		verify {
+			assert!(FeedCreators::<T>::contains_key(&new_creator));
+		}
 
 	remove_feed_creator {
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
@@ -585,9 +607,9 @@ benchmarks! {
 			creator.clone()
 		));
 	}: _(RawOrigin::Signed(pallet_admin.clone()), creator.clone())
-	verify {
-		assert!(!FeedCreators::<T>::contains_key(&creator));
-	}
+		verify {
+			assert!(!FeedCreators::<T>::contains_key(&creator));
+		}
 }
 
 #[cfg(test)]
