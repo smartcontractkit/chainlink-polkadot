@@ -113,6 +113,44 @@ benchmarks! {
 			assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").owner, new_owner);
 		}
 
+	set_pruning_window {
+		let o in 1 .. 25;
+
+		let caller: T::AccountId = whitelisted_caller();
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		let oracle: T::AccountId = account("oracle", 0, SEED);
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		let description = vec![1; T::StringLimit::get() as usize];
+		assert_is_ok(ChainlinkFeed::<T>::create_feed(
+			RawOrigin::Signed(caller.clone()).into(),
+			600u32.into(),
+			Zero::zero(),
+			(1u8.into(), 100u8.into()),
+			1u8.into(),
+			5u8.into(),
+			description,
+			Zero::zero(),
+			vec![(oracle.clone(), admin)],
+			None,
+			None,
+		));
+
+		// ininitialize 25 rounds
+		for i in 1..25 {
+			assert_is_ok(<ChainlinkFeed<T>>::submit(
+				RawOrigin::Signed(oracle.clone()).into(),
+				Zero::zero(),
+				i,
+				42_u8.into(),
+			));
+		}
+	}: _(RawOrigin::Signed(caller.clone()), Zero::zero(), 26 - o)
+		verify {
+			let f = <Feed<T>>::read_only_from(Zero::zero()).unwrap();
+			assert_eq!(f.config.pruning_window, 26 - o);
+		}
+
 	// The submit call opening a round is more expensive than a regular submission because of
 	// the round init code as well as the closing of previous rounds.
 	// It is most expensive in case it also directly closes the round.

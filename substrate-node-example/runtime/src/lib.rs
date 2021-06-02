@@ -312,7 +312,7 @@ impl pallet_chainlink_feed::Config for Runtime {
 	type OracleCountLimit = OracleCountLimit;
 	type FeedLimit = FeedLimit;
 	type OnAnswerHandler = ();
-	type WeightInfo = ChainlinkWeightInfo;
+	type WeightInfo = ChainlinkWeightInfo<Runtime>;
     type SubmitterPaysFee = PaysFeeConf;
 }
 
