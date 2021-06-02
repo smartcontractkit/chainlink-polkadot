@@ -1,4 +1,7 @@
 {
+  "SpecIndex": "Vec<u8>",
+  "RequestIdentifier": "u64",
+  "DataVersion": "u64",
   "Address": "MultiAddress",
   "LookupSource": "MultiAddress",
   "FeedId": "u32",
