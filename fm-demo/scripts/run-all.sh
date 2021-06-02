@@ -11,7 +11,7 @@ yarn
 node ./feedSetup.js
 ./scripts/run-chainlink.sh
 echo "Waiting a bit for the chainlink services to be ready"
-sleep 10
+sleep 15
 ./scripts/add-bridges.sh
 ./scripts/ei-config.sh
 ./scripts/run-ei.sh
