@@ -42,11 +42,12 @@ pub mod pallet {
 		utils::{median, with_transaction_result},
 	};
 
-	/// Configuration for submiting paysfee
+	/// Explicit enum to denote if the submitter pays fee for `submit` extrinsic or not.
 	pub enum SubmitterPaysFee {
-		/// Always pays for the transaction
+		/// Submitter always pays the fee.
 		Always,
-		/// No pays for valid submission
+		/// `submit` is free for the submitter if the submission is valid,
+		/// otherwise the submitter pays the regular fee.
 		FreeForValidSubmission,
 	}
 
@@ -329,7 +330,7 @@ pub mod pallet {
 		/// The weight for this pallet's extrinsics.
 		type WeightInfo: WeightInfo;
 
-		/// If enable PaysFee in submit call
+		/// Denote if the submitter pays a fee for valid submission in `submit` or not.
 		type SubmitterPaysFee: Get<SubmitterPaysFee>;
 	}
 
