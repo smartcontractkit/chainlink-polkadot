@@ -7,6 +7,12 @@
   "FeedId": "u32",
   "RoundId": "u32",
   "Value": "u128",
+  "SubmitterPaysFee": {
+    "_enum": [
+      "Always",
+      "FreeForValidSubmission"
+    ]
+  },
   "FeedConfig": {
     "owner": "AccountId",
     "pending_owner": "Option<AccountId>",
