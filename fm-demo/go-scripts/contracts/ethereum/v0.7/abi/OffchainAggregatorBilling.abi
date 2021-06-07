@@ -1,0 +1,481 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "_maximumGasPrice",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_reasonableGasPrice",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_microLinkPerEth",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_linkGweiPerObservation",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_linkGweiPerTransmission",
+        "type": "uint32"
+      },
+      {
+        "internalType": "address",
+        "name": "_link",
+        "type": "address"
+      },
+      {
+        "internalType": "contract AccessControllerInterface",
+        "name": "_billingAccessController",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "contract AccessControllerInterface",
+        "name": "old",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "contract AccessControllerInterface",
+        "name": "current",
+        "type": "address"
+      }
+    ],
+    "name": "BillingAccessControllerSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "maximumGasPrice",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "reasonableGasPrice",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "microLinkPerEth",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "linkGweiPerObservation",
+        "type": "uint32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "linkGweiPerTransmission",
+        "type": "uint32"
+      }
+    ],
+    "name": "BillingSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "transmitter",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "payee",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "OraclePaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "transmitter",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "current",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "proposed",
+        "type": "address"
+      }
+    ],
+    "name": "PayeeshipTransferRequested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "transmitter",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previous",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "current",
+        "type": "address"
+      }
+    ],
+    "name": "PayeeshipTransferred",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "LINK",
+    "outputs": [
+      {
+        "internalType": "contract LinkTokenInterface",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "acceptOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_transmitter",
+        "type": "address"
+      }
+    ],
+    "name": "acceptPayeeship",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "billingAccessController",
+    "outputs": [
+      {
+        "internalType": "contract AccessControllerInterface",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getBilling",
+    "outputs": [
+      {
+        "internalType": "uint32",
+        "name": "maximumGasPrice",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "reasonableGasPrice",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "microLinkPerEth",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "linkGweiPerObservation",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "linkGweiPerTransmission",
+        "type": "uint32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "linkAvailableForPayment",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "availableBalance",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_signerOrTransmitter",
+        "type": "address"
+      }
+    ],
+    "name": "oracleObservationCount",
+    "outputs": [
+      {
+        "internalType": "uint16",
+        "name": "",
+        "type": "uint16"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_transmitter",
+        "type": "address"
+      }
+    ],
+    "name": "owedPayment",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address payable",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint32",
+        "name": "_maximumGasPrice",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_reasonableGasPrice",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_microLinkPerEth",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_linkGweiPerObservation",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint32",
+        "name": "_linkGweiPerTransmission",
+        "type": "uint32"
+      }
+    ],
+    "name": "setBilling",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract AccessControllerInterface",
+        "name": "_billingAccessController",
+        "type": "address"
+      }
+    ],
+    "name": "setBillingAccessController",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address[]",
+        "name": "_transmitters",
+        "type": "address[]"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_payees",
+        "type": "address[]"
+      }
+    ],
+    "name": "setPayees",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_to",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_transmitter",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_proposed",
+        "type": "address"
+      }
+    ],
+    "name": "transferPayeeship",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_recipient",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "withdrawFunds",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_transmitter",
+        "type": "address"
+      }
+    ],
+    "name": "withdrawPayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
