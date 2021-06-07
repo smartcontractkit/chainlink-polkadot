@@ -121,6 +121,24 @@ services:
     networks:
       - fm-substrate
 
+  adapter2:
+    image: public.ecr.aws/chainlink-staging/adapters/coingecko-adapter:develop-latest
+    container_name: adapter2
+    restart: on-failure
+    ports:
+      - "8084:8080"
+    networks:
+      - fm-substrate
+
+  adapter3:
+    image: public.ecr.aws/chainlink-staging/adapters/amberdata-adapter:develop-latest
+    container_name: adapter3
+    restart: on-failure
+    ports:
+      - "8085:8080"
+    networks:
+      - fm-substrate
+
 volumes:
   pg:
   cl:

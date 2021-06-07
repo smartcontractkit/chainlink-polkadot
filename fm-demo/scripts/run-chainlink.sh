@@ -6,4 +6,4 @@ echo "*** Run Chainlink node ***"
 
 cd $(dirname ${BASH_SOURCE[0]})/..
 
-docker-compose up -d chainlink substrate-adapter1 substrate-adapter2 adapter1
+docker-compose up -d chainlink substrate-adapter1 substrate-adapter2 adapter1 adapter2 adapter3

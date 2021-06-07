@@ -12,7 +12,10 @@
 			  "requestData": {
 				"data": { "from": "DOT", "to": "USD" }
 			  },
-			  "feeds": [{ "url": "http://adapter1:8080" }],
+			  "feeds": [
+				{ "url": "http://adapter1:8080" },
+				{ "url": "http://adapter2:8080" },
+				{ "url": "http://adapter3:8080" }],
 			  "threshold": 0.5,
 			  "absoluteThreshold": 0,
 			  "precision": 8,

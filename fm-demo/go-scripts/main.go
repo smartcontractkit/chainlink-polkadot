@@ -26,8 +26,11 @@ func main() {
 		c := newDefaultClient("http://localhost:6688")
 		c.SetClient(&http.Client{})
 		c.SetSessionCookie()
-		r, err := c.CreateSpec(string(spec))
-		fmt.Println(r, err)
+		s, err := c.CreateSpec(string(spec))
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println("Job spec created", s)
 	}
 }
 
