@@ -22,26 +22,57 @@ solidity: {
     compilers: [
     {
         version: "0.8.0",
-        settings: {}
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 1000
+            }
+        }
     },
     {
         version: "0.7.1",
-        settings: {}
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 1000
+            }
+        }
     },
     {
         version: "0.7.0",
-        settings: {}
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 1000
+            }
+        }
     },
     {
-        version: "0.6.6"
+        version: "0.6.6",
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 1000
+            }
+        }
     },
     {
         version: "0.4.11",
-        settings: {} 
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 1000
+            }
+        }
     },
     {
         version: "0.4.24",
-        settings: {}
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 1000
+            }
+        }
     }
     ]
 }

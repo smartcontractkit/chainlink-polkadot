@@ -1,9 +1,10 @@
 package client
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"integrations-framework/config"
 	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -37,7 +38,7 @@ var _ = Describe("Ethereum functionality", func() {
 			wallets.Default(),
 			common.HexToAddress(toWallet.Address()),
 			big.NewInt(0),
-			common.Hash{},
+			nil,
 		)
 		Expect(err).ShouldNot(HaveOccurred())
 	},

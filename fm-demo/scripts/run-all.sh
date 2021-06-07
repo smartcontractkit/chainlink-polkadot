@@ -17,7 +17,10 @@ sleep 15
 ./scripts/run-ei.sh
 echo "Waiting a bit for the initiator to be ready"
 sleep 10
-./scripts/add-jobspecs.sh
+# ./scripts/add-jobspecs.sh
+cd ./go-scripts
+go run ./main.go
+cd ..
 echo "Waiting a bit for the answer to be written on chain"
 # TODO: make it variable related to heartbeat
 sleep 60

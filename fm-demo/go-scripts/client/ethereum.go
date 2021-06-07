@@ -3,6 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,8 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog/log"
-	"math/big"
-	"time"
 )
 
 // EthereumClient wraps the client and the BlockChain network to interact with an EVM based Blockchain
@@ -47,7 +48,7 @@ func (e *EthereumClient) SendTransaction(
 	from BlockchainWallet,
 	to common.Address,
 	value *big.Int,
-	data common.Hash,
+	data []byte,
 ) (*common.Hash, error) {
 	callMsg, err := e.TransactionCallMessage(from, to, value, data)
 	if err != nil {
@@ -77,6 +78,11 @@ func (e *EthereumClient) SendTransaction(
 	if err := e.Client.SendTransaction(context.Background(), tx); err != nil {
 		return nil, err
 	}
+	log.Info().
+		Str("From", from.Address()).
+		Str("To", tx.To().Hex()).
+		Str("Value", tx.Value().String()).
+		Msg("Sending Transaction")
 
 	err = e.WaitForTransaction(tx.Hash())
 	hash := tx.Hash()
@@ -86,9 +92,10 @@ func (e *EthereumClient) SendTransaction(
 // DeployContract acts as a general contract deployment tool to an ethereum chain
 func (e *EthereumClient) DeployContract(
 	fromWallet BlockchainWallet,
+	contractName string,
 	deployer ContractDeployer,
 ) (*common.Address, *types.Transaction, interface{}, error) {
-	opts, err := e.TransactionOpts(fromWallet, common.Address{}, big.NewInt(0), common.Hash{})
+	opts, err := e.TransactionOpts(fromWallet, common.Address{}, big.NewInt(0), nil)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -100,7 +107,11 @@ func (e *EthereumClient) DeployContract(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	log.Info().Str("Contract Address", contractAddress.Hex()).Msg("Deployed contract")
+	log.Info().
+		Str("Contract Address", contractAddress.Hex()).
+		Str("Contract Name", contractName).
+		Str("From", fromWallet.Address()).
+		Msg("Deployed contract")
 	return &contractAddress, transaction, contractInstance, err
 }
 
@@ -109,24 +120,22 @@ func (e *EthereumClient) TransactionCallMessage(
 	from BlockchainWallet,
 	to common.Address,
 	value *big.Int,
-	data common.Hash,
+	data []byte,
 ) (*ethereum.CallMsg, error) {
 	gasPrice, err := e.Client.SuggestGasPrice(context.Background())
 	if err != nil {
 		return nil, err
 	}
+	log.Debug().Str("Suggested Gas Price", gasPrice.String())
 	msg := ethereum.CallMsg{
 		From:     common.HexToAddress(from.Address()),
 		To:       &to,
 		GasPrice: gasPrice,
 		Value:    value,
-		Data:     data.Bytes(),
+		Data:     data,
 	}
-	gasLimit, err := e.Client.EstimateGas(context.Background(), msg)
-	if err != nil {
-		return &msg, err
-	}
-	msg.Gas = gasLimit + e.Network.Config().GasEstimationBuffer
+	msg.Gas = e.Network.Config().TransactionLimit + e.Network.Config().GasEstimationBuffer
+	log.Debug().Uint64("Gas Limit", e.Network.Config().TransactionLimit).Uint64("Limit + Buffer", msg.Gas)
 	return &msg, nil
 }
 
@@ -135,7 +144,7 @@ func (e *EthereumClient) TransactionOpts(
 	from BlockchainWallet,
 	to common.Address,
 	value *big.Int,
-	data common.Hash,
+	data []byte,
 ) (*bind.TransactOpts, error) {
 	callMsg, err := e.TransactionCallMessage(from, to, value, data)
 	if err != nil {
@@ -203,7 +212,7 @@ func (e *EthereumClient) WaitForTransaction(transactionHash common.Hash) error {
 			confirmations++
 			confirmationLog.Msg("Transaction confirmed, waiting on confirmations")
 
-			if confirmations == minConfirmations {
+			if confirmations >= minConfirmations {
 				confirmationLog.Msg("Minimum confirmations met")
 				return err
 			} else {
