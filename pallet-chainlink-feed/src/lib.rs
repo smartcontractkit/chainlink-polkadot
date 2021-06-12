@@ -7,9 +7,9 @@ pub use pallet::*;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
-mod mock;
+pub(crate) mod mock;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 pub mod traits;
 
 pub mod default_weights;

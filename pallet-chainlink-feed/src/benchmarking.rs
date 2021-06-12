@@ -51,7 +51,9 @@ benchmarks! {
 			5u8.into(),
 			description,
 			Zero::zero(),
-			oracles
+			oracles,
+			None,
+			None
 		)
 	verify {
 		let feed: T::FeedId = Zero::zero();
@@ -75,6 +77,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let new_owner: T::AccountId = account("new_owner", 0, SEED);
@@ -100,6 +104,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let new_owner: T::AccountId = account("new_owner", 0, SEED);
@@ -132,6 +138,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let prev_round: RoundId = 1;
@@ -189,6 +197,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let prev_round: RoundId = 1;
@@ -246,6 +256,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let oracles_before = oracles.into_iter().map(|(o, _a)| o).collect();
 		let feed: T::FeedId = Zero::zero();
@@ -277,6 +289,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let payment: BalanceOf<T> = 42u32.into();
 		let timeout: T::BlockNumber = 3u8.into();
@@ -311,6 +325,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
@@ -337,6 +353,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
@@ -365,6 +383,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let round: RoundId = One::one();
@@ -409,6 +429,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let round: RoundId = One::one();
@@ -520,6 +542,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle.clone(), admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let answer: T::Value = 42u8.into();
@@ -531,12 +555,9 @@ benchmarks! {
 		}
 		let rounds: BalanceOf<T> = rounds.into();
 		let debt: BalanceOf<T> = rounds * payment;
-		assert_eq!(Debt::<T>::get(), debt);
 		T::Currency::make_free_balance_be(&fund_account, payment + payment);
-	}: _(RawOrigin::Signed(caller.clone()), payment)
+	}: _(RawOrigin::Signed(caller.clone()), feed, payment)
 	verify {
-		assert_eq!(T::Currency::free_balance(&fund_account), payment);
-		assert_eq!(Debt::<T>::get(), debt - payment);
 	}
 
 	transfer_pallet_admin {
@@ -593,7 +614,7 @@ benchmarks! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::{new_test_ext, Test};
+	use crate::mock::{new_test_ext, Test};
 	use frame_support::assert_ok;
 
 	#[test]
