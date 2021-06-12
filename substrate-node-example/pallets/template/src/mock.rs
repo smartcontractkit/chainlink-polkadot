@@ -69,6 +69,8 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
 }
 
 pub(crate) const MIN_RESERVE: u64 = 100;
