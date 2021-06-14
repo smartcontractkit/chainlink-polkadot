@@ -29,7 +29,7 @@ services:
       - fm-substrate
 
   chainlink:
-    image: smartcontract/chainlink:0.10.3
+    image: smartcontract/chainlink:0.10.7
     container_name: chainlink-node
     restart: on-failure
     ports:
