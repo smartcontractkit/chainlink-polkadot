@@ -47,7 +47,7 @@ add_jobspec() {
 EOF
   )
 
-  JOBID=$(curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs" | jq -r '.data.id')
+  JOBID=$(curl -s -b ./cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs" | jq -r '.data.id')
   echo "$JOBID" >> jobids.txt
 
   echo "Jobspec has been added to Chainlink node"

@@ -1,0 +1,35 @@
+{
+	"initiators": [
+	   {
+		"type": "external",
+		"params": {
+		  "name": "substrate",
+		  "body": {
+			"endpoint": "substrate",
+			"feed_id": 0,
+			"account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+			"fluxmonitor": {
+			  "requestData": {
+				"data": { "from": "DOT", "to": "USD" }
+			  },
+			  "feeds": [
+				{ "url": "http://adapter1:8080" },
+				{ "url": "http://adapter2:8080" },
+				{ "url": "http://adapter3:8080" }],
+			  "threshold": 0.5,
+			  "absoluteThreshold": 0,
+			  "precision": 8,
+			  "pollTimer": { "period": "5s" },
+			  "idleTimer": { "duration": "15s" }
+			}
+		  }
+		}
+	  }
+	],
+	"tasks": [
+	  {
+		"type": "substrate-adapter1",
+		"params": { "multiply": 1e8 }
+	  }
+	]
+  }
