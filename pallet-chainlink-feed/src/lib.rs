@@ -842,7 +842,7 @@ pub mod pallet {
 						new_debt = new_debt.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
 
 						if let Some(max_debt) = feed.config.max_debt {
-							ensure!(new_debt < max_debt, <Error<T>>::MaxDebtReached);
+							ensure!(new_debt <= max_debt, <Error<T>>::MaxDebtReached);
 						}
 
 						feed.config.debt = new_debt;

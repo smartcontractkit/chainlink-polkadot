@@ -1248,3 +1248,34 @@ fn feed_life_cylce() {
 		assert_eq!(ChainlinkFeed::feed_config(id).unwrap().reporting_round, 1);
 	});
 }
+
+#[test]
+fn allows_submissions_until_max_debt() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let admin: AccountId = FeedPalletId::get().into_account();
+		let owner = 1;
+		let payment = 10;
+		// this allows max 3 payments
+		let max_debt = 3 * payment;
+		let oracles = vec![(1, 4), (2, 4), (3, 4), (5, 4)];
+		assert_ok!(FeedBuilder::new()
+			.payment(payment)
+			.owner(owner)
+			.oracles(oracles)
+			.max_debt(max_debt)
+			.build_and_store());
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), 0);
+		// ensure the fund is out of tokens
+		Balances::make_free_balance_be(&admin, ExistentialDeposit::get());
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(1), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(3), 0, 1, 42));
+
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(5), 0, 1, 42),
+			Error::<Test>::MaxDebtReached
+		);
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
+	});
+}
