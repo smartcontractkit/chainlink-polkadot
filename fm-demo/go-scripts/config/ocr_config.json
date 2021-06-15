@@ -1,0 +1,51 @@
+{
+ "0xFb3099346A724CFa1d45aF598Ae42A38B226092e": {
+  "DeltaProgress": "30s",
+  "DeltaResend": "10s",
+  "DeltaRound": "20s",
+  "DeltaGrace": "1s",
+  "DeltaC": "120s",
+  "AlphaPPB": 1,
+  "DeltaStage": "3s",
+  "RMax": 4,
+  "F": 1,
+  "N": 5,
+  "OracleIdentities": [
+   {
+    "TransmitAddress": "0x36612b5F390a508db08a71AF04Bd8c874721Daab",
+    "OnchainSigningAddress": "0x5960d6fab386716f201f3bc74ced7cfbf77674e5",
+    "PeerID": "12D3KooWPoAJWBHK4KawkU7MURAqu6Jo4EbGCXgMeGL5nxr64wk6",
+    "OffchainPublicKey": "0x2fec0c4aa2a39e4b5fb668390dc3d94f8cc1eedd712b42b6dce70cfb93168858",
+    "ConfigPublicKey": "0x9ac68c2974afc4ef182258ef5d7e172e67ff66d126f625bf43e21ed3babb8f7b"
+   },
+   {
+    "TransmitAddress": "0xb7F7a3Bb00F1c40a9ffCED21B5FCDFC6283c043a",
+    "OnchainSigningAddress": "0xd0c029f52c9483b2a4151001f13606e18a51a473",
+    "PeerID": "12D3KooWPnbjw6EW5wszYJBUP8CLwq58RLR8yHeXhst9B7bMsUR2",
+    "OffchainPublicKey": "0xc134a6241bcb05247bd6840d676d848467633751e2a82bd6413090dd33dea101",
+    "ConfigPublicKey": "0xf9bf8f9bb51fb58ff293595b4dd13789453f02b4a95edbcf38ddc114bed9174c"
+   },
+   {
+    "TransmitAddress": "0x6bd1E4EC738bb262F97DC757f9D742745C72a3ce",
+    "OnchainSigningAddress": "0x6b4226377589b4716d615ce1b7d74cea50d01606",
+    "PeerID": "12D3KooWJpKqnjaJGktS5WsJhGCLfRC5y6xdLpeRJrgY2v4wNRXq",
+    "OffchainPublicKey": "0x36fba78cc15abb03d24cbcf7b3f9c4e4644b2467c91c064e74f37e6123b3e1de",
+    "ConfigPublicKey": "0x89059108a503480fa416d9bad24ccac97143893d7b9c13b9dd6a2462e83a6d25"
+   },
+   {
+    "TransmitAddress": "0x7413AE1eEE71FBe47178e4fb2D266E8B691bb4A2",
+    "OnchainSigningAddress": "0x1fb66e23c3d0953138c1770c625042602f69d63d",
+    "PeerID": "12D3KooWQsWo9U2BMnTxUkkQEyZkq5yyPELVHqBB1BaFKZYk8bJM",
+    "OffchainPublicKey": "0x9b42bccc73c402eb5a0da7bec36e9a29de99dd6704ed8d77ad77a1666606eb7b",
+    "ConfigPublicKey": "0xac9e1ea1836aa63cb22ce8e17ca26d253100761b5f87fbfdbcaca95910e51273"
+   },
+   {
+    "TransmitAddress": "0x26E1060c72098939A5Dd050428456Ba377761264",
+    "OnchainSigningAddress": "0xd7290e02ed2d9e010246c9c62abfaa79ea7f507b",
+    "PeerID": "12D3KooWE7f8oxWvpphH88hrGSuTnVt74dt4RUd43eTTQWJYFqYz",
+    "OffchainPublicKey": "0xfb34c17805fb61f8e5049b77be877d06e94953be9514fcf75403002152e0ab88",
+    "ConfigPublicKey": "0xc68887511cfab987f9aa39518db81b7b6453fcf9e4d03df4e4c1ebb8b8972672"
+   }
+  ]
+ }
+}

@@ -21,6 +21,7 @@ services:
       - CARGO_HOME=/var/www/node-template/.cargo
     volumes:
       - ../substrate-node-example/:/var/www/node-template
+      - ../pallet-chainlink/:/var/www/pallet-chainlink
       - ../pallet-chainlink-feed/:/var/www/pallet-chainlink-feed
       - "chain:/root/.local"
     command: bash -c "cargo build --release && ./target/release/node-template --dev --ws-external"
@@ -28,7 +29,7 @@ services:
       - fm-substrate
 
   chainlink:
-    image: smartcontract/chainlink:0.10.3
+    image: smartcontract/chainlink:0.10.7
     container_name: chainlink-node
     restart: on-failure
     ports:
@@ -111,12 +112,30 @@ services:
     #  Account ID:       0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54
     #  SS58 Address:     5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ
 
-  coingecko-adapter:
-    image: public.ecr.aws/chainlink-staging/adapters/coingecko-adapter:develop-latest
-    container_name: coingecko-adapter
+  adapter1:
+    image: public.ecr.aws/chainlink-staging/adapters/coinpaprika-adapter:develop-latest
+    container_name: adapter1
     restart: on-failure
     ports:
       - "8083:8080"
+    networks:
+      - fm-substrate
+
+  adapter2:
+    image: public.ecr.aws/chainlink-staging/adapters/coingecko-adapter:develop-latest
+    container_name: adapter2
+    restart: on-failure
+    ports:
+      - "8084:8080"
+    networks:
+      - fm-substrate
+
+  adapter3:
+    image: public.ecr.aws/chainlink-staging/adapters/amberdata-adapter:develop-latest
+    container_name: adapter3
+    restart: on-failure
+    ports:
+      - "8085:8080"
     networks:
       - fm-substrate
 

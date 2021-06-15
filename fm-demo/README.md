@@ -8,6 +8,8 @@ accounts. In a real environment, each of these accounts would run their own Chai
 
 > This is in active development. Some Docker images may be outdated and may require to be built from source.
 
+To programmatically run the demo, see on the bottom of the document.
+
 ## Setup
 
 1. Start up the substrate chain
@@ -108,7 +110,7 @@ EI_IC_SECRET=[SECRET]
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
+            "feeds": [{ "url": "http://adapter1:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
@@ -143,7 +145,7 @@ EI_IC_SECRET=[SECRET]
             "requestData": {
               "data": { "from": "DOT", "to": "USD" }
             },
-            "feeds": [{ "url": "http://coingecko-adapter:8080" }],
+            "feeds": [{ "url": "http://adapter1:8080" }],
             "threshold": 0.5,
             "absoluteThreshold": 0,
             "precision": 8,
@@ -162,3 +164,11 @@ EI_IC_SECRET=[SECRET]
   ]
 }
 ```
+
+# Programmatically setup feeds
+
+```bash
+./scripts/run-all.sh
+```
+
+On first run, `chain` image is being built. Might take several minutes while getting "API-WS: disconnected from ws://localhost:9944: 1006:: connection failed". You can check the progress with `docker attach chain`
