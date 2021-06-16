@@ -75,6 +75,8 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
+	type MaxReserves = ();
+	type ReserveIdentifier = [u8; 8];
 }
 
 impl pallet_chainlink::Config for Test {
@@ -110,7 +112,7 @@ pub fn last_event() -> RawEvent<u128, u64> {
 		.into_iter()
 		.map(|r| r.event)
 		.filter_map(|e| {
-			if let Event::pallet_chainlink(inner) = e {
+			if let Event::Chainlink(inner) = e {
 				Some(inner)
 			} else {
 				None

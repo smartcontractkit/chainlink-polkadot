@@ -173,8 +173,7 @@ fn on_answer_callback_works() {
 				.into_iter()
 				.map(|r| r.event)
 				.filter_map(|e| {
-					if let mock::Event::pallet_chainlink_feed(crate::Event::NewData(feed, data)) = e
-					{
+					if let mock::Event::ChainlinkFeed(crate::Event::NewData(feed, data)) = e {
 						Some((feed, data))
 					} else {
 						None

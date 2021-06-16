@@ -51,7 +51,9 @@ benchmarks! {
 			5u8.into(),
 			description,
 			Zero::zero(),
-			oracles
+			oracles,
+			None,
+			None
 		)
 	verify {
 		let feed: T::FeedId = Zero::zero();
@@ -75,6 +77,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let new_owner: T::AccountId = account("new_owner", 0, SEED);
@@ -100,6 +104,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let new_owner: T::AccountId = account("new_owner", 0, SEED);
@@ -108,6 +114,44 @@ benchmarks! {
 	verify {
 		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").owner, new_owner);
 	}
+
+		set_pruning_window {
+		let o in 1 .. 25;
+
+		let caller: T::AccountId = whitelisted_caller();
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		let oracle: T::AccountId = account("oracle", 0, SEED);
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		let description = vec![1; T::StringLimit::get() as usize];
+		assert_is_ok(ChainlinkFeed::<T>::create_feed(
+			RawOrigin::Signed(caller.clone()).into(),
+			600u32.into(),
+			Zero::zero(),
+			(1u8.into(), 100u8.into()),
+			1u8.into(),
+			5u8.into(),
+			description,
+			Zero::zero(),
+			vec![(oracle.clone(), admin)],
+			None,
+			None,
+		));
+
+		// ininitialize 25 rounds
+		for i in 1..25 {
+			assert_is_ok(<ChainlinkFeed<T>>::submit(
+				RawOrigin::Signed(oracle.clone()).into(),
+				Zero::zero(),
+				i,
+				42_u8.into(),
+			));
+		}
+	}: _(RawOrigin::Signed(caller.clone()), Zero::zero(), 26 - o)
+		verify {
+			let f = <Feed<T>>::read_only_from(Zero::zero()).unwrap();
+			assert_eq!(f.config.pruning_window, 26 - o);
+		}
 
 	// The submit call opening a round is more expensive than a regular submission because of
 	// the round init code as well as the closing of previous rounds.
@@ -132,6 +176,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let prev_round: RoundId = 1;
@@ -189,6 +235,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let prev_round: RoundId = 1;
@@ -246,6 +294,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let oracles_before = oracles.into_iter().map(|(o, _a)| o).collect();
 		let feed: T::FeedId = Zero::zero();
@@ -277,6 +327,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let payment: BalanceOf<T> = 42u32.into();
 		let timeout: T::BlockNumber = 3u8.into();
@@ -311,6 +363,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
@@ -337,6 +391,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let requester: T::AccountId = account("requester", 0, SEED);
@@ -365,6 +421,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let round: RoundId = One::one();
@@ -409,6 +467,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			oracles.clone(),
+			None,
+			None,
 		));
 		let feed: T::FeedId = Zero::zero();
 		let round: RoundId = One::one();
@@ -520,6 +580,8 @@ benchmarks! {
 			description,
 			Zero::zero(),
 			vec![(oracle.clone(), admin)],
+			None,
+			None,
 		));
 		let feed = Zero::zero();
 		let answer: T::Value = 42u8.into();
@@ -531,12 +593,9 @@ benchmarks! {
 		}
 		let rounds: BalanceOf<T> = rounds.into();
 		let debt: BalanceOf<T> = rounds * payment;
-		assert_eq!(Debt::<T>::get(), debt);
 		T::Currency::make_free_balance_be(&fund_account, payment + payment);
-	}: _(RawOrigin::Signed(caller.clone()), payment)
+	}: _(RawOrigin::Signed(caller.clone()), feed, payment)
 	verify {
-		assert_eq!(T::Currency::free_balance(&fund_account), payment);
-		assert_eq!(Debt::<T>::get(), debt - payment);
 	}
 
 	transfer_pallet_admin {
@@ -593,7 +652,7 @@ benchmarks! {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::{new_test_ext, Test};
+	use crate::mock::{new_test_ext, Test};
 	use frame_support::assert_ok;
 
 	#[test]
