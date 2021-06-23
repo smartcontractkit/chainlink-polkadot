@@ -1,7 +1,7 @@
 version: "3.6"
 
 x-substrate-adapter-def: &substrate-adapter-def
-  image: smartcontract/dev:substrate-v3-adapter
+  image: smartcontract/dev:substrate-adapter-metadata-13
   restart: on-failure
   env_file:
     - ./adapter.env
@@ -9,6 +9,15 @@ x-substrate-adapter-def: &substrate-adapter-def
     - fm-substrate
   depends_on:
     - chain
+
+x-price-adapter-def: &price-adapter-def
+  restart: on-failure
+  environment:
+    - "CACHE_ENABLED=true"
+    - "EXPERIMENTAL_RATE_LIMIT_ENABLED=true"
+    - "RATE_LIMIT_CAPACITY=60"
+  networks:
+    - fm-substrate
 
 services:
   chain:
@@ -21,6 +30,7 @@ services:
       - CARGO_HOME=/var/www/node-template/.cargo
     volumes:
       - ../substrate-node-example/:/var/www/node-template
+      - ../pallet-chainlink/:/var/www/pallet-chainlink
       - ../pallet-chainlink-feed/:/var/www/pallet-chainlink-feed
       - "chain:/root/.local"
     command: bash -c "cargo build --release && ./target/release/node-template --dev --ws-external"
@@ -28,7 +38,7 @@ services:
       - fm-substrate
 
   chainlink:
-    image: smartcontract/chainlink:0.10.3
+    image: smartcontract/chainlink:0.10.7
     container_name: chainlink-node
     restart: on-failure
     ports:
@@ -72,7 +82,7 @@ services:
       - fm-substrate
 
   external-initiator:
-    image: smartcontract/dev:fm-ei-substrate-v3
+    image: smartcontract/dev:fm-ei-substrate-v3-metadata-v13
     container_name: external-initiator
     command: '{\"name\":\"substrate\",\"type\":\"substrate\",\"url\":\"ws://chain:9944/\"}'
     depends_on:
@@ -111,14 +121,26 @@ services:
     #  Account ID:       0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54
     #  SS58 Address:     5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ
 
-  coingecko-adapter:
-    image: public.ecr.aws/chainlink-staging/adapters/coingecko-adapter:develop-latest
-    container_name: coingecko-adapter
-    restart: on-failure
+  adapter1:
+    <<: *price-adapter-def
+    image: public.ecr.aws/chainlink-staging/adapters/coinpaprika-adapter:develop-latest
+    container_name: adapter1
     ports:
       - "8083:8080"
-    networks:
-      - fm-substrate
+
+  adapter2:
+    <<: *price-adapter-def
+    image: public.ecr.aws/chainlink-staging/adapters/coingecko-adapter:develop-latest
+    container_name: adapter2
+    ports:
+      - "8084:8080"
+
+  adapter3:
+    <<: *price-adapter-def
+    image: public.ecr.aws/chainlink-staging/adapters/amberdata-adapter:develop-latest
+    container_name: adapter3
+    ports:
+      - "8085:8080"
 
 volumes:
   pg:

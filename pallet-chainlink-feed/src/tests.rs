@@ -174,8 +174,7 @@ fn on_answer_callback_works() {
 				.into_iter()
 				.map(|r| r.event)
 				.filter_map(|e| {
-					if let mock::Event::pallet_chainlink_feed(crate::Event::NewData(feed, data)) = e
-					{
+					if let mock::Event::ChainlinkFeed(crate::Event::NewData(feed, data)) = e {
 						Some((feed, data))
 					} else {
 						None
@@ -1304,7 +1303,12 @@ fn allows_submissions_until_max_debt() {
 			ChainlinkFeed::submit(Origin::signed(5), 0, 1, 42),
 			Error::<Test>::MaxDebtReached
 		);
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(5), 1, 1, 42),
+			Error::<Test>::MaxDebtReached
+		);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
+		assert_eq!(ChainlinkFeed::debt(1).unwrap(), max_debt);
 
 		// reduce debt withdraw and submit again
 		Balances::make_free_balance_be(&admin, max_debt + ExistentialDeposit::get());
