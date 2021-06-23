@@ -1024,12 +1024,14 @@ pub mod pallet {
 				.checked_sub(&amount)
 				.ok_or(Error::<T>::InsufficientFunds)?;
 
-			T::Currency::transfer(
-				&T::PalletId::get().into_account(),
-				&recipient,
-				amount,
-				ExistenceRequirement::KeepAlive,
-			)?;
+			let fund = T::PalletId::get().into_account();
+			ensure!(
+				T::Currency::reserved_balance(&fund) >= amount,
+				Error::<T>::InsufficientReserve
+			);
+			T::Currency::unreserve(&fund, amount);
+
+			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
 			Oracles::<T>::insert(&oracle, oracle_meta);
 
 			Ok(().into())
