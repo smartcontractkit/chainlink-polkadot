@@ -163,6 +163,7 @@ fn testnet_genesis(
 		chainlink_feed: ChainlinkFeedConfig {
 			pallet_admin: Some(root_key),
 			feed_creators: endowed_accounts,
+			feeds: Default::default()
 		},
 	}
 }
