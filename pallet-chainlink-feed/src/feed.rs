@@ -5,6 +5,8 @@ use frame_support::{
 	sp_runtime::traits::{One, Zero},
 	Parameter,
 };
+use sp_std::prelude::*;
+
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
