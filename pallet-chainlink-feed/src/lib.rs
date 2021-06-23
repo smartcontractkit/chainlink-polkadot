@@ -602,9 +602,10 @@ pub mod pallet {
 					answered_in_round: Some(Zero::zero()),
 				},
 			);
-			feed.add_oracles(oracles)?;
+
+			feed.do_add_oracles(oracles)?;
 			// validate the rounds config
-			feed.update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)?;
+			feed.do_update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)?;
 
 			Ok(id)
 		}
@@ -1438,6 +1439,10 @@ pub mod pallet {
 		/// Add the given oracles to the feed.
 		#[require_transactional]
 		pub fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
+			self.do_add_oracles(to_add)
+		}
+
+		fn do_add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
 			let new_count = self
 				.oracle_count()
 				// saturating is fine because we enforce a limit below
@@ -1515,6 +1520,16 @@ pub mod pallet {
 		/// (Past and present rounds are unaffected.)
 		#[require_transactional]
 		pub fn update_future_rounds(
+			&mut self,
+			payment: BalanceOf<T>,
+			submission_count_bounds: (u32, u32),
+			restart_delay: RoundId,
+			timeout: T::BlockNumber,
+		) -> DispatchResult {
+			self.do_update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)
+		}
+
+		fn do_update_future_rounds(
 			&mut self,
 			payment: BalanceOf<T>,
 			submission_count_bounds: (u32, u32),
