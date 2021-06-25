@@ -1,5 +1,6 @@
 use super::*;
 use crate::{mock::*, utils::with_transaction_result, Error};
+use frame_support::traits::ReservableCurrency;
 use frame_support::{
 	assert_noop, assert_ok,
 	sp_runtime::traits::AccountIdConversion,
@@ -946,6 +947,15 @@ fn payment_withdrawal_should_work() {
 		);
 		Balances::make_free_balance_be(&fund, fund_balance);
 
+		// nothing reserved for the oracle yet
+		assert_noop!(
+			ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, amount),
+			Error::<Test>::InsufficientReserve
+		);
+
+		assert_ok!(Balances::reserve(&fund, fund_balance));
+
+		// nothing reserved for the oracle yet
 		assert_ok!(ChainlinkFeed::withdraw_payment(
 			Origin::signed(admin),
 			oracle,
@@ -1245,5 +1255,111 @@ fn feed_life_cylce() {
 			tx_assert_ok!(feed.request_new_round(AccountId::default()));
 		}
 		assert_eq!(ChainlinkFeed::feed_config(id).unwrap().reporting_round, 1);
+	});
+}
+
+#[test]
+fn allows_submissions_until_max_debt() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let admin: AccountId = FeedPalletId::get().into_account();
+		let owner = 1;
+		let payment = 10;
+		let oracle_admin = 4;
+		// this allows max 3 payments
+		let max_debt = 3 * payment;
+		let oracles = vec![
+			(1, oracle_admin),
+			(2, oracle_admin),
+			(3, oracle_admin),
+			(5, oracle_admin),
+		];
+		// create two feeds
+		assert_ok!(FeedBuilder::new()
+			.payment(payment)
+			.owner(owner)
+			.oracles(oracles.clone())
+			.max_debt(max_debt)
+			.build_and_store());
+		assert_ok!(FeedBuilder::new()
+			.payment(payment)
+			.owner(owner)
+			.oracles(oracles)
+			.max_debt(max_debt)
+			.build_and_store());
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), 0);
+		assert_eq!(ChainlinkFeed::debt(1).unwrap(), 0);
+		// ensure the fund is out of tokens
+		Balances::make_free_balance_be(&admin, ExistentialDeposit::get());
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(1), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(3), 0, 1, 42));
+
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(1), 1, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 1, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(3), 1, 1, 42));
+
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(5), 0, 1, 42),
+			Error::<Test>::MaxDebtReached
+		);
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(5), 1, 1, 42),
+			Error::<Test>::MaxDebtReached
+		);
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
+		assert_eq!(ChainlinkFeed::debt(1).unwrap(), max_debt);
+
+		// reduce debt withdraw and submit again
+		Balances::make_free_balance_be(&admin, max_debt + ExistentialDeposit::get());
+		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(1), 0, max_debt));
+		// now max_debt amount is reserved and can be withdrawn
+		assert_eq!(Balances::reserved_balance(&admin), max_debt);
+
+		// try to withdraw more than the oracle earned so far
+		assert_noop!(
+			ChainlinkFeed::withdraw_payment(Origin::signed(oracle_admin), 1, 1, payment * 3),
+			Error::<Test>::InsufficientFunds
+		);
+
+		// withdraw the payment
+		assert_ok!(ChainlinkFeed::withdraw_payment(
+			Origin::signed(oracle_admin),
+			1,
+			1,
+			payment
+		));
+		// oracle has payment in their account
+		assert_eq!(Balances::total_balance(&1), payment);
+		assert_eq!(Balances::reserved_balance(&admin), max_debt - payment);
+
+		// can accumulate debt again, with different submission orders
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(3), 0, 2, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(1), 0, 2, 42));
+		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 2, 42));
+
+		assert_noop!(
+			ChainlinkFeed::submit(Origin::signed(5), 0, 2, 42),
+			Error::<Test>::MaxDebtReached
+		);
+		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
+
+		// can withdraw two more payments until fund is out of funds because current debt was not paid yet
+		assert_ok!(ChainlinkFeed::withdraw_payment(
+			Origin::signed(oracle_admin),
+			2,
+			2,
+			payment
+		));
+		assert_ok!(ChainlinkFeed::withdraw_payment(
+			Origin::signed(oracle_admin),
+			3,
+			3,
+			payment
+		));
+		assert_noop!(
+			ChainlinkFeed::withdraw_payment(Origin::signed(oracle_admin), 1, 1, payment),
+			Error::<Test>::InsufficientReserve
+		);
 	});
 }
