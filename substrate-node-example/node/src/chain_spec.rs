@@ -1,6 +1,6 @@
 use node_template_runtime::{
-	AccountId, AuraConfig, BalancesConfig, ChainlinkFeedConfig, GenesisConfig, GrandpaConfig,
-	Signature, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AuraConfig, Balance, BalancesConfig, BlockNumber, ChainlinkFeedConfig,
+	GenesisConfig, GrandpaConfig, Signature, SudoConfig, SystemConfig, Value, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -163,7 +163,40 @@ fn testnet_genesis(
 		chainlink_feed: ChainlinkFeedConfig {
 			pallet_admin: Some(root_key),
 			feed_creators: endowed_accounts,
-			feeds: Default::default()
+			feeds: vec![],
 		},
 	}
+}
+
+/// Create a feed for genesis
+#[allow(unused)]
+pub fn feed_builder() -> node_template_runtime::FeedBuilder<AccountId, Balance, BlockNumber, Value>
+{
+	node_template_runtime::FeedBuilder::new()
+		.owner(get_account_id_from_seed::<sr25519::Public>("Alice"))
+		.decimals(8)
+		.payment(1_000)
+		.restart_delay(0)
+		.timeout(10)
+		.description(b"LINK".to_vec())
+		.value_bounds(1, 1_000)
+		.min_submissions(2)
+		.oracles(vec![
+			(
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			),
+			(
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			),
+		])
 }
