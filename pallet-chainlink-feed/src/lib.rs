@@ -863,7 +863,7 @@ pub mod pallet {
 						new_debt = new_debt.checked_add(&payment).ok_or(Error::<T>::Overflow)?;
 
 						if let Some(max_debt) = feed.config.max_debt {
-							ensure!(new_debt < max_debt, <Error<T>>::MaxDebtReached);
+							ensure!(new_debt <= max_debt, <Error<T>>::MaxDebtReached);
 						}
 
 						feed.config.debt = new_debt;
@@ -1045,12 +1045,14 @@ pub mod pallet {
 				.checked_sub(&amount)
 				.ok_or(Error::<T>::InsufficientFunds)?;
 
-			T::Currency::transfer(
-				&T::PalletId::get().into_account(),
-				&recipient,
-				amount,
-				ExistenceRequirement::KeepAlive,
-			)?;
+			let fund = T::PalletId::get().into_account();
+			ensure!(
+				T::Currency::reserved_balance(&fund) >= amount,
+				Error::<T>::InsufficientReserve
+			);
+			T::Currency::unreserve(&fund, amount);
+
+			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
 			Oracles::<T>::insert(&oracle, oracle_meta);
 
 			Ok(().into())

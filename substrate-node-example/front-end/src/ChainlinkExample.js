@@ -5,7 +5,6 @@ import { useSubstrate } from './substrate-lib';
 import { TxButton } from './substrate-lib/components';
 
 function Main (props) {
-  const { api } = useSubstrate();
   const [status, setStatus] = useState(null);
   const [formState, setFormState] = useState({ addressTo: null, specId: null });
   const { accountPair } = props;
