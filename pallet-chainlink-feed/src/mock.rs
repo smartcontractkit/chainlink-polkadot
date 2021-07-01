@@ -111,7 +111,7 @@ impl pallet_chainlink_feed::Config for Test {
 	type OnAnswerHandler = Self;
 	type OracleCountLimit = OracleLimit;
 	type FeedLimit = FeedLimit;
-	type WeightInfo = pallet_chainlink_feed::default_weights::WeightInfo<Test>;
+	type WeightInfo = ();
 }
 
 #[derive(Debug, Default)]
