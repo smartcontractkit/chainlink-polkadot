@@ -23,6 +23,12 @@ Read more about substrate's [Chain Specification](https://substrate.dev/docs/en/
   To add more feeds, add another feed in the `feeds` array.
 * [chainlink-no-admin-funds.json](chainlink-no-admin-funds.json) is a spec the same feed creators but the admin is Ferdie which has no endowment.
 
+The `--chain` command of the node is modified to accept also feed config json files like [feedconfig.json](feedconfig.json) directly. In this case the same config as `--dev` is used but with feed config of the given json file.
+
+```shell
+./target/release/node-template --chain=./specs/feedconfig.json --tmp --alice
+```
+
 The genesis config of the `chainlink-feed` pallet can be created like:
 
 ```rust
