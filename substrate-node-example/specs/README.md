@@ -18,9 +18,10 @@ If the chain blocks access from the UI (`Blocked connection to WebSockets server
 Read more about substrate's [Chain Specification](https://substrate.dev/docs/en/knowledgebase/integrate/chain-spec) and [creating private networks](https://substrate.dev/docs/en/tutorials/start-a-private-network)
 
 
-* [chainlink.json](chainlink.json) is a spec with multiple registered feed creators (Alice, Bob, Charlie, Dave, Eve, Ferdie as well as their stash accounts).
+* [chainlink.json](chainlink.json) is a spec with multiple registered feed creators (Alice, Bob, Charlie, Dave, Eve, Ferdie as well as their stash accounts). pallet admin is Alice
 * [chainlink-feed.json](chainlink-feed.json) is a spec with the same feed creators and a feed owned by Alice, several oracles (Bob, Charlie, Dave, Eve) and Ferdie as their admin.
   To add more feeds, add another feed in the `feeds` array.
+* [chainlink-no-admin-funds.json](chainlink-no-admin-funds.json) is a spec the same feed creators but the admin is Ferdie which has no endowment.
 
 The genesis config of the `chainlink-feed` pallet can be created like:
 
