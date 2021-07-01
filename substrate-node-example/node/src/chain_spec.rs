@@ -8,7 +8,7 @@ use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::fs::File;
-use std::path::Path;
+use std::path::PathBuf;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -19,11 +19,11 @@ pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 /// trys to parse the json content into a `ChainSpec`,
 /// if the given file was `ChainlinkFeedConfig` then the `local_testnet_config` is used with
 /// the `ChainlinkFeedConfig` of the given file
-pub fn from_json_file(path: impl AsRef<Path>) -> Result<ChainSpec, String> {
-	let path = path.as_ref().to_path_buf();
-	if let spec @ Ok(_) = ChainSpec::from_json_file(path.to_path_buf()) {
+pub fn from_json_file(path: &str) -> Result<ChainSpec, String> {
+	if let spec @ Ok(_) = ChainSpec::from_json_file(PathBuf::from(path)) {
 		spec
 	} else {
+		let path = path.to_string();
 		let wasm_binary =
 			WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 		Ok(ChainSpec::from_genesis(
@@ -56,12 +56,14 @@ pub fn from_json_file(path: impl AsRef<Path>) -> Result<ChainSpec, String> {
 					],
 					true,
 				);
-				let file = File::open(&path)
-					.map_err(|e| format!("Error opening spec file: {}", e))
-					.unwrap();
-				let feed_config = serde_json::from_reader::<_, ChainlinkFeedConfig>(file)
-					.map_err(|e| format!("Error parsing spec file: {}", e))
-					.unwrap();
+				let feed_config = serde_json::from_str(&path).unwrap_or_else(|_| {
+					let file = File::open(&path)
+						.map_err(|e| format!("Error opening spec file: {}", e))
+						.unwrap();
+					serde_json::from_reader::<_, ChainlinkFeedConfig>(file)
+						.map_err(|e| format!("Error parsing spec file: {}", e))
+						.unwrap()
+				});
 				config.chainlink_feed = feed_config;
 				config
 			},

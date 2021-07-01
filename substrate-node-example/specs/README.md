@@ -24,6 +24,7 @@ Read more about substrate's [Chain Specification](https://substrate.dev/docs/en/
 * [chainlink-no-admin-funds.json](chainlink-no-admin-funds.json) is a spec the same feed creators but the admin is Ferdie which has no endowment.
 
 The `--chain` command of the node is modified to accept also feed config json files like [feedconfig.json](feedconfig.json) directly. In this case the same config as `--dev` is used but with feed config of the given json file.
+In addtion the `--chain` option also accepts a feed config string directly.
 
 ```shell
 ./target/release/node-template --chain=./specs/feedconfig.json --tmp --alice
