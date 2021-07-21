@@ -37,8 +37,9 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use example::Call as ExampleCall;
-pub use pallet_chainlink_feed;
-pub use pallet_chainlink_feed::RoundId;
+pub use pallet_chainlink_feed::{self, RoundId};
+// reexport for genesis
+pub use pallet_chainlink_feed::FeedBuilder;
 /// Import the template pallet.
 pub use pallet_template;
 use weights::pallet_chainlink_feed::WeightInfo as ChainlinkWeightInfo;
