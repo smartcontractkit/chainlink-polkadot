@@ -1,6 +1,5 @@
 **/target
 **/*.rs.bk
-pallet-chainlink**/Cargo.lock
 **/node_modules
 **/yarn.lock
 external_initiator.env
