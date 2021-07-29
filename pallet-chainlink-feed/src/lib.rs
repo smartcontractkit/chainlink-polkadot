@@ -54,6 +54,7 @@ pub mod pallet {
 		Balance: Parameter,
 		BlockNumber: Parameter,
 		Value: Parameter,
+		BoundedString,
 	> {
 		/// Owner of this feed
 		pub owner: AccountId,
@@ -70,7 +71,7 @@ pub mod pallet {
 		/// Represents the number of decimals with which the feed is configured
 		pub decimals: u8,
 		/// The description of this feed
-		pub description: Vec<u8>,
+		pub description: BoundedString,
 		/// The round initiation delay
 		pub restart_delay: RoundId,
 		/// The round oracles are currently reporting data for.
@@ -99,6 +100,7 @@ pub mod pallet {
 		BalanceOf<T>,
 		<T as frame_system::Config>::BlockNumber,
 		<T as Config>::Value,
+		BoundedVec<u8, <T as Config>::StringLimit>,
 	>;
 
 	/// Round data relevant to consumers.
@@ -590,10 +592,10 @@ pub mod pallet {
 				FeedCreators::<T>::contains_key(&owner),
 				Error::<T>::NotFeedCreator
 			);
-			ensure!(
-				description.len() as u32 <= T::StringLimit::get(),
-				Error::<T>::DescriptionTooLong
-			);
+
+			let description: BoundedVec<u8, T::StringLimit> = description
+				.try_into()
+				.map_err(|_| Error::<T>::DescriptionTooLong)?;
 
 			let pruning_window = pruning_window.unwrap_or(RoundId::MAX);
 			ensure!(
