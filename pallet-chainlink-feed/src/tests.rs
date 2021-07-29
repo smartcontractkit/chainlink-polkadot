@@ -7,6 +7,7 @@ use frame_support::{
 	sp_runtime::traits::{One, Zero},
 	traits::Currency,
 };
+use std::convert::TryInto;
 
 type Balances = pallet_balances::Pallet<Test>;
 
@@ -1188,7 +1189,7 @@ fn feed_life_cylce() {
 		let submission_value_bounds = (1, 1_000);
 		let submission_count_bounds = (1, 3);
 		let decimals = 5;
-		let description = b"desc".to_vec();
+		let description = b"desc".to_vec().try_into().unwrap();
 		let restart_delay = 1;
 		let new_config = FeedConfig {
 			owner,
