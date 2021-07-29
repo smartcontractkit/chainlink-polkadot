@@ -758,7 +758,10 @@ pub mod pallet {
 				ensure!(submission >= min_val, Error::<T>::SubmissionBelowMinimum);
 				ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
 
-				let new_round_id = feed.reporting_round_id().saturating_add(One::one());
+				let new_round_id = feed
+					.reporting_round_id()
+					.checked_add(One::one())
+					.ok_or(Error::<T>::Overflow)?;
 				let next_eligible_round = oracle_status
 					.last_started_round
 					.unwrap_or_else(Zero::zero)
