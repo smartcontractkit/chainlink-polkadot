@@ -822,22 +822,39 @@ fn transfer_ownership_should_work() {
 			ChainlinkFeed::transfer_ownership(Origin::signed(23), feed_id, new_owner),
 			Error::<Test>::NotFeedOwner
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
 		assert_ok!(ChainlinkFeed::transfer_ownership(
 			Origin::signed(old_owner),
 			feed_id,
 			new_owner
 		));
-		assert_ok!(ChainlinkFeed::transfer_ownership(
-			Origin::signed(old_owner),
-			feed_id,
-			new_owner
-		));
+
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, Some(new_owner));
 		assert_noop!(
 			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), 123),
 			Error::<Test>::FeedNotFound
 		);
+
+		// cancel transfer
+		assert_ok!(ChainlinkFeed::cancel_ownership_transfer(
+			Origin::signed(old_owner),
+			feed_id,
+		));
+		assert_noop!(
+			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), feed_id),
+			Error::<Test>::NotPendingOwner
+		);
+
+		// initiate again
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			new_owner
+		));
 		assert_noop!(
 			ChainlinkFeed::accept_ownership(Origin::signed(old_owner), feed_id),
 			Error::<Test>::NotPendingOwner
@@ -846,6 +863,11 @@ fn transfer_ownership_should_work() {
 			Origin::signed(new_owner),
 			feed_id
 		));
+		assert_noop!(
+			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			Error::<Test>::NotFeedOwner
+		);
+
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, None);
 		assert_eq!(feed.owner, new_owner);
