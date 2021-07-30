@@ -695,7 +695,14 @@ pub mod pallet {
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
 
-			feed.pending_owner = Some(new_owner.clone());
+			// set the pending owner, if it was already set, cancel this in progress transfer
+			if let Some(pending_owner) = feed.pending_owner.replace(new_owner.clone()) {
+				Self::deposit_event(Event::OwnerUpdateCanceled(
+					feed_id,
+					old_owner.clone(),
+					pending_owner,
+				));
+			}
 			Feeds::<T>::insert(feed_id, feed);
 
 			Self::deposit_event(Event::OwnerUpdateRequested(feed_id, old_owner, new_owner));
@@ -1104,7 +1111,14 @@ pub mod pallet {
 
 			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
 
-			oracle_meta.pending_admin = Some(new_admin.clone());
+			// set the pending admin, if it was already set, cancel this in progress transfer
+			if let Some(pending_admin) = oracle_meta.pending_admin.replace(new_admin.clone()) {
+				Self::deposit_event(Event::OracleAdminUpdateCanceled(
+					oracle.clone(),
+					old_admin.clone(),
+					pending_admin,
+				));
+			}
 			Oracles::<T>::insert(&oracle, oracle_meta);
 
 			Self::deposit_event(Event::OracleAdminUpdateRequested(
@@ -1227,7 +1241,15 @@ pub mod pallet {
 				Error::<T>::NotPalletAdmin
 			);
 
-			PendingPalletAdmin::<T>::put(&new_pallet_admin);
+			PendingPalletAdmin::<T>::mutate(|maybe_admin| {
+				// set the pending admin, if it was already set, cancel this in progress transfer
+				if let Some(pending_pallet_admin) = maybe_admin.replace(new_pallet_admin.clone()) {
+					Self::deposit_event(Event::PalletAdminUpdateCanceled(
+						old_admin.clone(),
+						pending_pallet_admin,
+					));
+				}
+			});
 
 			Self::deposit_event(Event::PalletAdminUpdateRequested(
 				old_admin,
