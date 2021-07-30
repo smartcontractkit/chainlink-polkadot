@@ -622,6 +622,10 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::transfer_admin(Origin::signed(123), oracle, new_admin),
 			Error::<Test>::NotAdmin
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_admin_transfer(Origin::signed(old_admin), oracle,),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
 		assert_ok!(ChainlinkFeed::transfer_admin(
 			Origin::signed(old_admin),
 			oracle,
@@ -637,6 +641,20 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::accept_admin(Origin::signed(123), oracle),
 			Error::<Test>::NotPendingAdmin
 		);
+		assert_ok!(ChainlinkFeed::cancel_admin_transfer(
+			Origin::signed(old_admin),
+			oracle,
+		),);
+		assert_noop!(
+			ChainlinkFeed::accept_admin(Origin::signed(new_admin), oracle),
+			Error::<Test>::NotPendingAdmin
+		);
+		assert_ok!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			oracle,
+			new_admin
+		));
+
 		assert_ok!(ChainlinkFeed::accept_admin(
 			Origin::signed(new_admin),
 			oracle
@@ -1022,6 +1040,10 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::transfer_pallet_admin(Origin::signed(123), new_admin),
 			Error::<Test>::NotPalletAdmin
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(fund)),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
 			Origin::signed(fund),
 			new_admin
@@ -1031,6 +1053,21 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::accept_pallet_admin(Origin::signed(123)),
 			Error::<Test>::NotPendingPalletAdmin
 		);
+
+		assert_ok!(ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(
+			fund
+		)),);
+
+		assert_noop!(
+			ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)),
+			Error::<Test>::NotPendingPalletAdmin
+		);
+
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(fund),
+			new_admin
+		));
+
 		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(
 			new_admin
 		)));
