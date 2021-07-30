@@ -1024,7 +1024,7 @@ pub mod pallet {
 				.checked_sub(&amount)
 				.ok_or(Error::<T>::InsufficientFunds)?;
 
-			let fund = T::PalletId::get().into_account();
+			let fund = Self::account_id();
 			ensure!(
 				T::Currency::reserved_balance(&fund) >= amount,
 				Error::<T>::InsufficientReserve
@@ -1099,7 +1099,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
-			let fund = T::PalletId::get().into_account();
+			let fund = Self::account_id();
 			let reserve = T::Currency::free_balance(&fund);
 			let new_reserve = reserve
 				.checked_sub(&amount)
