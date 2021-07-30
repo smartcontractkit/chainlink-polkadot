@@ -659,6 +659,10 @@ pub mod pallet {
 		}
 
 		/// Initiate the transfer of the feed to `new_owner`.
+		/// Limited to the current owner of the feed.
+		///
+		/// This is a noop if the requested `new_owner` is the sender itself
+		/// and the sender is already the owner.
 		#[pallet::weight(T::WeightInfo::transfer_ownership())]
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
@@ -668,6 +672,10 @@ pub mod pallet {
 			let old_owner = ensure_signed(origin)?;
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
+			if old_owner == new_owner {
+				// nothing to transfer
+				return Ok(().into());
+			}
 
 			feed.pending_owner = Some(new_owner.clone());
 			Feeds::<T>::insert(feed_id, feed);
@@ -1044,6 +1052,9 @@ pub mod pallet {
 
 		/// Initiate an admin transfer for the given oracle.
 		/// Limited to the oracle admin account.
+		///
+		/// This is a noop if the requested `new_admin` is the sender itself
+		/// and the sender is already the oracle admin.
 		#[pallet::weight(T::WeightInfo::transfer_admin())]
 		pub fn transfer_admin(
 			origin: OriginFor<T>,
@@ -1054,6 +1065,10 @@ pub mod pallet {
 			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 
 			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
+			if old_admin == new_admin {
+				// nothing to transfer
+				return Ok(().into());
+			}
 
 			oracle_meta.pending_admin = Some(new_admin.clone());
 			Oracles::<T>::insert(&oracle, oracle_meta);
@@ -1140,6 +1155,9 @@ pub mod pallet {
 
 		/// Initiate an admin transfer for the pallet.
 		/// Limited to the pallet admin account.
+		///
+		/// This is a noop if the requested `new_pallet_admin` is the sender itself
+		/// and the sender is already the pallet admin.
 		#[pallet::weight(T::WeightInfo::transfer_pallet_admin())]
 		pub fn transfer_pallet_admin(
 			origin: OriginFor<T>,
@@ -1151,6 +1169,10 @@ pub mod pallet {
 				Self::pallet_admin() == old_admin,
 				Error::<T>::NotPalletAdmin
 			);
+			if old_admin == new_pallet_admin {
+				// nothing to transfer
+				return Ok(().into());
+			}
 
 			PendingPalletAdmin::<T>::put(&new_pallet_admin);
 

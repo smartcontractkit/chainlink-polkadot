@@ -623,6 +623,20 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::transfer_admin(Origin::signed(123), oracle, new_admin),
 			Error::<Test>::NotAdmin
 		);
+
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			oracle,
+			old_admin
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::OracleAdminUpdateRequested(_, _, _))
+			)
+		}));
+
 		assert_ok!(ChainlinkFeed::transfer_admin(
 			Origin::signed(old_admin),
 			oracle,
@@ -823,6 +837,19 @@ fn transfer_ownership_should_work() {
 			ChainlinkFeed::transfer_ownership(Origin::signed(23), feed_id, new_owner),
 			Error::<Test>::NotFeedOwner
 		);
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			old_owner
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::OwnerUpdateRequested(_, _, _))
+			)
+		}));
+
 		assert_ok!(ChainlinkFeed::transfer_ownership(
 			Origin::signed(old_owner),
 			feed_id,
@@ -1001,6 +1028,17 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::transfer_pallet_admin(Origin::signed(123), new_admin),
 			Error::<Test>::NotPalletAdmin
 		);
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(fund),
+			fund
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::PalletAdminUpdateRequested(_, _))
+			)
+		}));
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
 			Origin::signed(fund),
 			new_admin
