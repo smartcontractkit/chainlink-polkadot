@@ -714,10 +714,9 @@ pub mod pallet {
 			feed_id: T::FeedId,
 		) -> DispatchResult {
 			let old_owner = ensure_signed(origin)?;
-			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
-			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
-
-			if let Some(pending_owner) = feed.pending_owner.take() {
+			let mut feed = Self::feed_mut(feed_id).ok_or(Error::<T>::FeedNotFound)?;
+			ensure!(feed.config.owner == old_owner, Error::<T>::NotFeedOwner);
+			if let Some(pending_owner) = feed.config.pending_owner.take() {
 				Self::deposit_event(Event::OwnerUpdateCanceled(
 					feed_id,
 					old_owner,
