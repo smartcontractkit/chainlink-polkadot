@@ -1128,6 +1128,7 @@ pub mod pallet {
 			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
 
 			if let Some(pending_admin) = oracle_meta.pending_admin.take() {
+				Oracles::<T>::insert(&oracle, oracle_meta);
 				Self::deposit_event(Event::OracleAdminUpdateCanceled(
 					oracle,
 					old_admin,
