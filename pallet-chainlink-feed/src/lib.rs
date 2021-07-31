@@ -18,24 +18,24 @@ mod utils;
 #[frame_support::pallet]
 pub mod pallet {
 	use codec::{Decode, Encode};
-	use frame_support::dispatch::DispatchResultWithPostInfo;
-	use frame_support::traits::{Currency, ExistenceRequirement, Get, ReservableCurrency};
 	use frame_support::{
-		dispatch::{DispatchError, DispatchResult, HasCompact},
-		ensure,
+		dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo, HasCompact},
 		pallet_prelude::*,
 		require_transactional,
+		traits::{Currency, ExistenceRequirement, Get, ReservableCurrency},
+		transactional,
 		weights::Weight,
-		PalletId, Parameter, RuntimeDebug,
+		PalletId, Parameter,
 	};
-	use frame_system::ensure_signed;
-	use frame_system::pallet_prelude::*;
+	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_arithmetic::traits::BaseArithmetic;
 	use sp_runtime::traits::{
 		AccountIdConversion, CheckedAdd, CheckedSub, Member, One, Saturating, Zero,
 	};
-	use sp_std::convert::{TryFrom, TryInto};
-	use sp_std::prelude::*;
+	use sp_std::{
+		convert::{TryFrom, TryInto},
+		prelude::*,
+	};
 
 	use crate::{
 		traits::OnAnswerHandler,
@@ -1083,6 +1083,7 @@ pub mod pallet {
 		/// Withdraw `amount` payment of the given oracle to `recipient`.
 		/// Limited to the oracle admin.
 		#[pallet::weight(T::WeightInfo::withdraw_payment())]
+		#[transactional]
 		pub fn withdraw_payment(
 			origin: OriginFor<T>,
 			oracle: T::AccountId,
