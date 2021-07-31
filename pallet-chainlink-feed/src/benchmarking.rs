@@ -1,5 +1,6 @@
 use super::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
+use frame_support::traits::ReservableCurrency;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
@@ -518,6 +519,7 @@ benchmarks! {
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, payment + payment);
+		T::Currency::reserve(&fund_account, payment).unwrap();
 	}: _(
 		RawOrigin::Signed(admin.clone()),
 		oracle.clone(),
