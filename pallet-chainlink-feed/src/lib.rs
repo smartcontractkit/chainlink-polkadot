@@ -54,6 +54,7 @@ pub mod pallet {
 		Balance: Parameter,
 		BlockNumber: Parameter,
 		Value: Parameter,
+		BoundedString,
 	> {
 		/// Owner of this feed
 		pub owner: AccountId,
@@ -70,7 +71,7 @@ pub mod pallet {
 		/// Represents the number of decimals with which the feed is configured
 		pub decimals: u8,
 		/// The description of this feed
-		pub description: Vec<u8>,
+		pub description: BoundedString,
 		/// The round initiation delay
 		pub restart_delay: RoundId,
 		/// The round oracles are currently reporting data for.
@@ -100,6 +101,7 @@ pub mod pallet {
 		BalanceOf<T>,
 		<T as frame_system::Config>::BlockNumber,
 		<T as Config>::Value,
+		BoundedVec<u8, <T as Config>::StringLimit>,
 	>;
 
 	/// Round data relevant to consumers.
@@ -618,10 +620,10 @@ pub mod pallet {
 				FeedCreators::<T>::contains_key(&owner),
 				Error::<T>::NotFeedCreator
 			);
-			ensure!(
-				description.len() as u32 <= T::StringLimit::get(),
-				Error::<T>::DescriptionTooLong
-			);
+
+			let description: BoundedVec<u8, T::StringLimit> = description
+				.try_into()
+				.map_err(|_| Error::<T>::DescriptionTooLong)?;
 
 			let pruning_window = pruning_window.unwrap_or(RoundId::MAX);
 			ensure!(
@@ -685,6 +687,10 @@ pub mod pallet {
 		}
 
 		/// Initiate the transfer of the feed to `new_owner`.
+		/// Limited to the current owner of the feed.
+		///
+		/// This is a noop if the requested `new_owner` is the sender itself
+		/// and the sender is already the owner.
 		#[pallet::weight(T::WeightInfo::transfer_ownership())]
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
@@ -694,6 +700,10 @@ pub mod pallet {
 			let old_owner = ensure_signed(origin)?;
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
+			if old_owner == new_owner {
+				// nothing to transfer
+				return Ok(().into());
+			}
 
 			// set the pending owner, if it was already set, cancel this in progress transfer
 			if let Some(pending_owner) = feed.pending_owner.replace(new_owner.clone()) {
@@ -819,7 +829,10 @@ pub mod pallet {
 				ensure!(submission >= min_val, Error::<T>::SubmissionBelowMinimum);
 				ensure!(submission <= max_val, Error::<T>::SubmissionAboveMaximum);
 
-				let new_round_id = feed.reporting_round_id().saturating_add(One::one());
+				let new_round_id = feed
+					.reporting_round_id()
+					.checked_add(One::one())
+					.ok_or(Error::<T>::Overflow)?;
 				let next_eligible_round = oracle_status
 					.last_started_round
 					.unwrap_or_else(Zero::zero)
@@ -1085,7 +1098,7 @@ pub mod pallet {
 				.checked_sub(&amount)
 				.ok_or(Error::<T>::InsufficientFunds)?;
 
-			let fund = T::PalletId::get().into_account();
+			let fund = Self::account_id();
 			ensure!(
 				T::Currency::reserved_balance(&fund) >= amount,
 				Error::<T>::InsufficientReserve
@@ -1100,6 +1113,9 @@ pub mod pallet {
 
 		/// Initiate an admin transfer for the given oracle.
 		/// Limited to the oracle admin account.
+		///
+		/// This is a noop if the requested `new_admin` is the sender itself
+		/// and the sender is already the oracle admin.
 		#[pallet::weight(T::WeightInfo::transfer_admin())]
 		pub fn transfer_admin(
 			origin: OriginFor<T>,
@@ -1110,6 +1126,10 @@ pub mod pallet {
 			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 
 			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
+			if old_admin == new_admin {
+				// nothing to transfer
+				return Ok(().into());
+			}
 
 			// set the pending admin, if it was already set, cancel this in progress transfer
 			if let Some(pending_admin) = oracle_meta.pending_admin.replace(new_admin.clone()) {
@@ -1193,7 +1213,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
-			let fund = T::PalletId::get().into_account();
+			let fund = Self::account_id();
 			let reserve = T::Currency::free_balance(&fund);
 			let new_reserve = reserve
 				.checked_sub(&amount)
@@ -1229,6 +1249,9 @@ pub mod pallet {
 
 		/// Initiate an admin transfer for the pallet.
 		/// Limited to the pallet admin account.
+		///
+		/// This is a noop if the requested `new_pallet_admin` is the sender itself
+		/// and the sender is already the pallet admin.
 		#[pallet::weight(T::WeightInfo::transfer_pallet_admin())]
 		pub fn transfer_pallet_admin(
 			origin: OriginFor<T>,
@@ -1240,6 +1263,10 @@ pub mod pallet {
 				Self::pallet_admin() == old_admin,
 				Error::<T>::NotPalletAdmin
 			);
+			if old_admin == new_pallet_admin {
+				// nothing to transfer
+				return Ok(().into());
+			}
 
 			PendingPalletAdmin::<T>::mutate(|maybe_admin| {
 				// set the pending admin, if it was already set, cancel this in progress transfer

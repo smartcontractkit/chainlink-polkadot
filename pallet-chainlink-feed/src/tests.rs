@@ -7,6 +7,7 @@ use frame_support::{
 	sp_runtime::traits::{One, Zero},
 	traits::Currency,
 };
+use std::convert::TryInto;
 
 type Balances = pallet_balances::Pallet<Test>;
 
@@ -626,6 +627,20 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::cancel_admin_transfer(Origin::signed(old_admin), oracle,),
 			Error::<Test>::NoPendingOwnershipTransfer
 		);
+
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			oracle,
+			old_admin
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::OracleAdminUpdateRequested(_, _, _))
+			)
+		}));
+
 		assert_ok!(ChainlinkFeed::transfer_admin(
 			Origin::signed(old_admin),
 			oracle,
@@ -844,6 +859,18 @@ fn transfer_ownership_should_work() {
 			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
 			Error::<Test>::NoPendingOwnershipTransfer
 		);
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			old_owner
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::OwnerUpdateRequested(_, _, _))
+			)
+		}));
 		assert_ok!(ChainlinkFeed::transfer_ownership(
 			Origin::signed(old_owner),
 			feed_id,
@@ -1044,6 +1071,17 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(fund)),
 			Error::<Test>::NoPendingOwnershipTransfer
 		);
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(fund),
+			fund
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::PalletAdminUpdateRequested(_, _))
+			)
+		}));
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
 			Origin::signed(fund),
 			new_admin
@@ -1247,7 +1285,7 @@ fn feed_life_cylce() {
 		let submission_value_bounds = (1, 1_000);
 		let submission_count_bounds = (1, 3);
 		let decimals = 5;
-		let description = b"desc".to_vec();
+		let description = b"desc".to_vec().try_into().unwrap();
 		let restart_delay = 1;
 		let new_config = FeedConfig {
 			owner,
