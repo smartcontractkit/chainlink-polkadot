@@ -412,7 +412,7 @@ fn change_oracles_should_work() {
 			ChainlinkFeed::change_oracles(
 				Origin::signed(owner),
 				feed_id,
-				many_duplicates.clone(),
+				many_duplicates,
 				to_add.clone(),
 			),
 			Error::<Test>::NotEnoughOracles
@@ -422,7 +422,7 @@ fn change_oracles_should_work() {
 			ChainlinkFeed::change_oracles(
 				Origin::signed(owner),
 				feed_id,
-				duplicates.clone(),
+				duplicates,
 				to_add.clone(),
 			),
 			Error::<Test>::OracleDisabled
@@ -1281,7 +1281,7 @@ fn feed_life_cylce() {
 		}
 		let new_config = FeedConfig {
 			oracle_count: oracles.len() as u32,
-			..new_config.clone()
+			..new_config
 		};
 		// config should be stored on drop
 		assert_eq!(ChainlinkFeed::feed_config(id), Some(new_config.clone()));
@@ -1292,7 +1292,7 @@ fn feed_life_cylce() {
 		}
 		let modified_config = FeedConfig {
 			timeout: new_timeout,
-			..new_config.clone()
+			..new_config
 		};
 		// modified config should be stored on drop
 		assert_eq!(
@@ -1305,10 +1305,7 @@ fn feed_life_cylce() {
 			feed.config.timeout = ignored_timeout;
 		}
 		// read only access should not store changes
-		assert_eq!(
-			ChainlinkFeed::feed_config(id),
-			Some(modified_config.clone())
-		);
+		assert_eq!(ChainlinkFeed::feed_config(id), Some(modified_config));
 		{
 			let mut feed = ChainlinkFeed::feed_mut(id).expect("feed should be there");
 			tx_assert_ok!(feed.request_new_round(AccountId::default()));
