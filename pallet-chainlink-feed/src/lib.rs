@@ -705,7 +705,7 @@ pub mod pallet {
 				return Ok(().into());
 			}
 
-			// set the pending owner, if it was already set, cancel this in progress transfer
+			// set the pending owner and cancel the in progress transfer if any
 			if let Some(pending_owner) = feed.pending_owner.replace(new_owner.clone()) {
 				Self::deposit_event(Event::OwnerUpdateCanceled(
 					feed_id,
@@ -1132,7 +1132,7 @@ pub mod pallet {
 				return Ok(().into());
 			}
 
-			// set the pending admin, if it was already set, cancel this in progress transfer
+			// set the pending admin and cancel the in progress transfer if any
 			if let Some(pending_admin) = oracle_meta.pending_admin.replace(new_admin.clone()) {
 				Self::deposit_event(Event::OracleAdminUpdateCanceled(
 					oracle.clone(),
@@ -1270,7 +1270,7 @@ pub mod pallet {
 			}
 
 			PendingPalletAdmin::<T>::mutate(|maybe_admin| {
-				// set the pending admin, if it was already set, cancel this in progress transfer
+				// set the pending admin and cancel the in progress transfer if any
 				if let Some(pending_pallet_admin) = maybe_admin.replace(new_pallet_admin.clone()) {
 					Self::deposit_event(Event::PalletAdminUpdateCanceled(
 						old_admin.clone(),
