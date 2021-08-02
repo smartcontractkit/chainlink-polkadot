@@ -8,7 +8,8 @@ use sp_arithmetic::traits::BaseArithmetic;
 ///
 /// Transactions can be nested to any depth. Commits happen to the parent
 /// transaction.
-// TODO: remove after move to Substrate v3 (once the semantics of #[transactional] work as intended)
+// TODO: remove after move to Substrate v3 (once the semantics of
+// #[transactional] work as intended)
 pub(crate) fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result<R, E> {
 	with_transaction(|| {
 		let res = f();
