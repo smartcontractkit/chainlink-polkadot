@@ -488,6 +488,8 @@ pub mod pallet {
 		Overflow,
 		/// Given account id is not an oracle
 		NotOracle,
+		/// A feed cannot be created without any oracles
+		NoOracles,
 		/// The oracle cannot submit as it is not enabled yet.
 		OracleNotEnabled,
 		/// The oracle has an ending round lower than the current round.
@@ -618,7 +620,8 @@ pub mod pallet {
 		///   account (`oracle`, `admin`) that will be registered as oracles for
 		///   the feed. If the oracle account is already tracked (for another
 		///   feed for example), then the provided admin must match the already
-		///   tracked oracle's admin (see `Oracles`).
+		///   tracked oracle's admin (see `Oracles`). At least one (`oracle`,
+		///   `admin`) pair is required.
 		/// - `pruning_winding`: This specifies the number of rounds to keep in
 		///   storage for this feed. A  `None` ensures that no past rounds are
 		///   ever deleted from the chain's storage. A value of `Some(n)`
@@ -651,6 +654,8 @@ pub mod pallet {
 				FeedCreators::<T>::contains_key(&owner),
 				Error::<T>::NotFeedCreator
 			);
+
+			ensure!(!oracles.is_empty(), Error::<T>::NoOracles);
 
 			let description: BoundedVec<u8, T::StringLimit> = description
 				.try_into()
