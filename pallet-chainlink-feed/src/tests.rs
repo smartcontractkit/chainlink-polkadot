@@ -1210,7 +1210,11 @@ fn can_go_into_debt_and_repay() {
 		assert_eq!(Balances::free_balance(admin), new_funds - 10);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment - 10);
 		// should be possible to overshoot in passing the amount correcting debt...
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(42), 0, payment));
+		assert_ok!(ChainlinkFeed::reduce_debt(
+			Origin::signed(admin),
+			0,
+			payment
+		));
 		// ... but will only correct the debt
 		assert_eq!(Balances::free_balance(admin), new_funds - payment);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), 0);
@@ -1351,7 +1355,11 @@ fn allows_submissions_until_max_debt() {
 
 		// reduce debt withdraw and submit again
 		Balances::make_free_balance_be(&admin, max_debt + ExistentialDeposit::get());
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(1), 0, max_debt));
+		assert_ok!(ChainlinkFeed::reduce_debt(
+			Origin::signed(admin),
+			0,
+			max_debt
+		));
 		// now max_debt amount is reserved and can be withdrawn
 		assert_eq!(Balances::reserved_balance(&admin), max_debt);
 
