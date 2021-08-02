@@ -667,6 +667,12 @@ pub mod pallet {
 				Error::<T>::CannotPruneRoundZero
 			);
 
+			// `max_val` >= `min_val`
+			ensure!(
+				submission_value_bounds.1 >= submission_value_bounds.0,
+				Error::<T>::WrongBounds
+			);
+
 			let submission_count_bounds = (min_submissions, oracles.len() as u32);
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
