@@ -1205,6 +1205,13 @@ fn can_go_into_debt_and_repay() {
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment);
 		let new_funds = 2 * payment;
 		Balances::make_free_balance_be(&admin, new_funds);
+
+		// reducing debt should fail for non admin
+		assert_noop!(
+			ChainlinkFeed::reduce_debt(Origin::signed(1), 0, 10),
+			Error::<Test>::NotPalletAdmin
+		);
+
 		// should be possible to reduce debt partially
 		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), 0, 10));
 		assert_eq!(Balances::free_balance(admin), new_funds - 10);
