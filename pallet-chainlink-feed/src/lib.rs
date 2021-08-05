@@ -628,10 +628,10 @@ pub mod pallet {
 		///   ensures that `n` rounds are kept in storage after the total number
 		///   of rounds has exceeded `n`. This means that starting with the
 		///   `n+1` round, the oldest round is purged from storage.
-		/// - `max_debt`: With `Some(n)` the feed is allowed to accumulate a
-		///   debt to the feed oracles. This means that oracles can submit
-		///   values even if the fund is dry, and essentially receive a IOU that
-		///   they can cash in once the feed debt is repaid.
+		/// - `max_debt`: With `Some(n)` the feed is allowed to accumulate a less or equal than 
+		///   `n` amount of debt to the oracles. This means that oracles can submit
+		///   values even if the feed's fund is dry, and essentially receive an IOU that
+		///   they can cash in once the feed is refunded.
 		///
 		/// Emits `FeedCreated` event when successful.
 		#[pallet::weight(T::WeightInfo::create_feed(oracles.len() as u32))]
