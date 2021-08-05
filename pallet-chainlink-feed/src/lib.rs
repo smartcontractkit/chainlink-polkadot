@@ -622,7 +622,7 @@ pub mod pallet {
 		///   feed for example), then the provided admin must match the already
 		///   tracked oracle's admin (see `Oracles`). At least one (`oracle`,
 		///   `admin`) pair is required.
-		/// - `pruning_winding`: This specifies the number of rounds to keep in
+		/// - `pruning_window`: This specifies the number of rounds to keep in
 		///   storage for this feed. A  `None` ensures that no past rounds are
 		///   ever deleted from the chain's storage. A value of `Some(n)`
 		///   ensures that `n` rounds are kept in storage after the total number
