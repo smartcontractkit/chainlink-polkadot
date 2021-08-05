@@ -190,8 +190,8 @@ impl FeedBuilder {
 		let value_bounds = self.value_bounds.unwrap_or((1, 1_000));
 		let min_submissions = self.min_submissions.unwrap_or(2);
 		let decimals = 5;
-		let description = self.description.unwrap_or(b"desc".to_vec());
-		let oracles = self.oracles.unwrap_or(vec![(2, 4), (3, 4), (4, 4)]);
+		let description = self.description.unwrap_or_else(|| b"desc".to_vec());
+		let oracles = self.oracles.unwrap_or_else(|| vec![(2, 4), (3, 4), (4, 4)]);
 		let restart_delay = self
 			.restart_delay
 			.unwrap_or(oracles.len().saturating_sub(1) as u32);

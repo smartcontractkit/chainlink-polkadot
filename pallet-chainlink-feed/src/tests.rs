@@ -413,7 +413,7 @@ fn change_oracles_should_work() {
 			ChainlinkFeed::change_oracles(
 				Origin::signed(owner),
 				feed_id,
-				many_duplicates.clone(),
+				many_duplicates,
 				to_add.clone(),
 			),
 			Error::<Test>::NotEnoughOracles
@@ -423,7 +423,7 @@ fn change_oracles_should_work() {
 			ChainlinkFeed::change_oracles(
 				Origin::signed(owner),
 				feed_id,
-				duplicates.clone(),
+				duplicates,
 				to_add.clone(),
 			),
 			Error::<Test>::OracleDisabled
@@ -623,6 +623,10 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::transfer_admin(Origin::signed(123), oracle, new_admin),
 			Error::<Test>::NotAdmin
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_admin_transfer(Origin::signed(old_admin), oracle,),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
 
 		// transfer to self yields nothing
 		assert_ok!(ChainlinkFeed::transfer_admin(
@@ -652,6 +656,20 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::accept_admin(Origin::signed(123), oracle),
 			Error::<Test>::NotPendingAdmin
 		);
+		assert_ok!(ChainlinkFeed::cancel_admin_transfer(
+			Origin::signed(old_admin),
+			oracle,
+		),);
+		assert_noop!(
+			ChainlinkFeed::accept_admin(Origin::signed(new_admin), oracle),
+			Error::<Test>::NotPendingAdmin
+		);
+		assert_ok!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			oracle,
+			new_admin
+		));
+
 		assert_ok!(ChainlinkFeed::accept_admin(
 			Origin::signed(new_admin),
 			oracle
@@ -837,6 +855,10 @@ fn transfer_ownership_should_work() {
 			ChainlinkFeed::transfer_ownership(Origin::signed(23), feed_id, new_owner),
 			Error::<Test>::NotFeedOwner
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
 		// transfer to self yields nothing
 		assert_ok!(ChainlinkFeed::transfer_ownership(
 			Origin::signed(old_owner),
@@ -849,23 +871,35 @@ fn transfer_ownership_should_work() {
 				mock::Event::ChainlinkFeed(crate::Event::OwnerUpdateRequested(_, _, _))
 			)
 		}));
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			new_owner
+		));
 
-		assert_ok!(ChainlinkFeed::transfer_ownership(
-			Origin::signed(old_owner),
-			feed_id,
-			new_owner
-		));
-		assert_ok!(ChainlinkFeed::transfer_ownership(
-			Origin::signed(old_owner),
-			feed_id,
-			new_owner
-		));
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, Some(new_owner));
 		assert_noop!(
 			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), 123),
 			Error::<Test>::FeedNotFound
 		);
+
+		// cancel transfer
+		assert_ok!(ChainlinkFeed::cancel_ownership_transfer(
+			Origin::signed(old_owner),
+			feed_id,
+		));
+		assert_noop!(
+			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), feed_id),
+			Error::<Test>::NotPendingOwner
+		);
+
+		// initiate again
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			new_owner
+		));
 		assert_noop!(
 			ChainlinkFeed::accept_ownership(Origin::signed(old_owner), feed_id),
 			Error::<Test>::NotPendingOwner
@@ -874,6 +908,11 @@ fn transfer_ownership_should_work() {
 			Origin::signed(new_owner),
 			feed_id
 		));
+		assert_noop!(
+			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			Error::<Test>::NotFeedOwner
+		);
+
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, None);
 		assert_eq!(feed.owner, new_owner);
@@ -1028,6 +1067,10 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::transfer_pallet_admin(Origin::signed(123), new_admin),
 			Error::<Test>::NotPalletAdmin
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(fund)),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
 		// transfer to self yields nothing
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
 			Origin::signed(fund),
@@ -1048,6 +1091,21 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::accept_pallet_admin(Origin::signed(123)),
 			Error::<Test>::NotPendingPalletAdmin
 		);
+
+		assert_ok!(ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(
+			fund
+		)),);
+
+		assert_noop!(
+			ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)),
+			Error::<Test>::NotPendingPalletAdmin
+		);
+
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(fund),
+			new_admin
+		));
+
 		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(
 			new_admin
 		)));
@@ -1261,7 +1319,7 @@ fn feed_life_cylce() {
 		}
 		let new_config = FeedConfig {
 			oracle_count: oracles.len() as u32,
-			..new_config.clone()
+			..new_config
 		};
 		// config should be stored on drop
 		assert_eq!(ChainlinkFeed::feed_config(id), Some(new_config.clone()));
@@ -1272,7 +1330,7 @@ fn feed_life_cylce() {
 		}
 		let modified_config = FeedConfig {
 			timeout: new_timeout,
-			..new_config.clone()
+			..new_config
 		};
 		// modified config should be stored on drop
 		assert_eq!(
@@ -1285,10 +1343,7 @@ fn feed_life_cylce() {
 			feed.config.timeout = ignored_timeout;
 		}
 		// read only access should not store changes
-		assert_eq!(
-			ChainlinkFeed::feed_config(id),
-			Some(modified_config.clone())
-		);
+		assert_eq!(ChainlinkFeed::feed_config(id), Some(modified_config));
 		{
 			let mut feed = ChainlinkFeed::feed_mut(id).expect("feed should be there");
 			tx_assert_ok!(feed.request_new_round(AccountId::default()));

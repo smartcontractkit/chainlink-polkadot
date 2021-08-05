@@ -1,5 +1,6 @@
 use super::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
+use frame_support::traits::ReservableCurrency;
 use frame_support::traits::{Currency, Get};
 use frame_system::RawOrigin;
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
@@ -38,7 +39,7 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -48,7 +49,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			oracles,
@@ -63,7 +64,7 @@ benchmarks! {
 	transfer_ownership {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -73,7 +74,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
@@ -87,10 +88,10 @@ benchmarks! {
 		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").pending_owner, Some(new_owner));
 	}
 
-	accept_ownership {
+	cancel_ownership_transfer {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -100,7 +101,42 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
+			description,
+			Zero::zero(),
+			vec![(oracle, admin)],
+			None,
+			None,
+		));
+		let feed = T::FeedId::zero();
+		let new_owner: T::AccountId = account("new_owner", 0, SEED);
+
+		assert_is_ok(ChainlinkFeed::<T>::transfer_ownership(
+			RawOrigin::Signed(caller.clone()).into(),
+			feed,
+			new_owner
+		)
+		);
+
+	}: _(RawOrigin::Signed(caller.clone()), feed)
+	verify {
+		assert!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").pending_owner.is_none());
+	}
+
+	accept_ownership {
+		let caller: T::AccountId = whitelisted_caller();
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
+		let oracle: T::AccountId = account("oracle", 0, SEED);
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		let description = vec![1; T::StringLimit::get() as usize];
+		assert_is_ok(ChainlinkFeed::<T>::create_feed(
+			RawOrigin::Signed(caller.clone()).into(),
+			600u32.into(),
+			Zero::zero(),
+			(1u8.into(), 100u8.into()),
+			1u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
@@ -109,7 +145,7 @@ benchmarks! {
 		));
 		let feed = Zero::zero();
 		let new_owner: T::AccountId = account("new_owner", 0, SEED);
-		assert_is_ok(ChainlinkFeed::<T>::transfer_ownership(RawOrigin::Signed(caller.clone()).into(), feed, new_owner.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::transfer_ownership(RawOrigin::Signed(caller).into(), feed, new_owner.clone()));
 	}: _(RawOrigin::Signed(new_owner.clone()), feed)
 	verify {
 		assert_eq!(ChainlinkFeed::<T>::feed_config(feed).expect("feed should be there").owner, new_owner);
@@ -120,7 +156,7 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -130,7 +166,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			vec![(oracle.clone(), admin)],
@@ -160,22 +196,22 @@ benchmarks! {
 		let o = 3;
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracle = whitelisted_account::<T>("oracle", 0);
 		let other_oracle: T::AccountId = account("oracle", 1, SEED);
-		let oracles: Vec<(T::AccountId, T::AccountId)> = vec![(oracle.clone(), admin.clone()), (other_oracle.clone(), admin.clone())];
+		let oracles: Vec<(T::AccountId, T::AccountId)> = vec![(oracle.clone(), admin.clone()), (other_oracle.clone(), admin)];
 		let description = vec![1; T::StringLimit::get() as usize];
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller).into(),
 			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1,
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
-			oracles.clone(),
+			oracles,
 			None,
 			None,
 		));
@@ -184,7 +220,7 @@ benchmarks! {
 		let answer: T::Value = 5u8.into();
 		// create the previous round that will be closed
 		assert_is_ok(ChainlinkFeed::<T>::submit(
-			RawOrigin::Signed(other_oracle.clone()).into(),
+			RawOrigin::Signed(other_oracle).into(),
 			feed,
 			prev_round,
 			answer
@@ -221,17 +257,17 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
 		let description = vec![1; T::StringLimit::get() as usize];
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller).into(),
 			600u32.into(),
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			oracles.len() as u32,
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			oracles.clone(),
@@ -242,7 +278,7 @@ benchmarks! {
 		let prev_round: RoundId = 1;
 		let answer: T::Value = 42u8.into();
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
-		let other_oracle = oracles.iter().nth(1).map(|(o, _a)| o.clone()).expect("there should be a second oracle");
+		let other_oracle = oracles.get(1).map(|(o, _a)| o.clone()).expect("there should be a second oracle");
 		// create the previous round that will be closed
 		for (o, _a) in oracles.iter() {
 			assert_is_ok(ChainlinkFeed::<T>::submit(RawOrigin::Signed(o.clone()).into(), feed, prev_round, answer));
@@ -279,7 +315,7 @@ benchmarks! {
 
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..d).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
 		let oracles_after: Vec<(T::AccountId, T::AccountId)> = (0..n).map(|n| (account("new_oracle", n, SEED), admin.clone())).collect();
@@ -290,7 +326,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			oracles.clone(),
@@ -313,7 +349,7 @@ benchmarks! {
 		let o = 2;
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -323,7 +359,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			oracles.clone(),
@@ -349,7 +385,7 @@ benchmarks! {
 	set_requester {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -359,7 +395,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
@@ -377,7 +413,7 @@ benchmarks! {
 	remove_requester {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -387,7 +423,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			vec![(oracle, admin)],
@@ -407,7 +443,7 @@ benchmarks! {
 		let o = 3;
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
 		let description = vec![1; T::StringLimit::get() as usize];
@@ -417,7 +453,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1,
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			oracles.clone(),
@@ -429,7 +465,7 @@ benchmarks! {
 		let answer: T::Value = 5u8.into();
 		let oracle = oracles.first().map(|(o, _a)| o.clone()).expect("first oracle should be there");
 		assert_is_ok(ChainlinkFeed::<T>::submit(
-			RawOrigin::Signed(oracle.clone()).into(),
+			RawOrigin::Signed(oracle).into(),
 			feed,
 			round,
 			answer
@@ -438,7 +474,7 @@ benchmarks! {
 		assert_eq!(config.reporting_round, round);
 		let requester: T::AccountId = account("requester", 0, SEED);
 		let delay: RoundId = 3;
-		assert_is_ok(ChainlinkFeed::<T>::set_requester(RawOrigin::Signed(caller.clone()).into(), feed, requester.clone(), delay));
+		assert_is_ok(ChainlinkFeed::<T>::set_requester(RawOrigin::Signed(caller).into(), feed, requester.clone(), delay));
 	}: _(
 			RawOrigin::Signed(requester.clone()),
 			feed
@@ -452,18 +488,18 @@ benchmarks! {
 		let o = 3;
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let oracles: Vec<(T::AccountId, T::AccountId)> = (0..o).map(|n| (account("oracle", n, SEED), admin.clone())).collect();
 		let payment: BalanceOf<T> = 600u32.into(); // ExistentialDeposit is 500
 		let description = vec![1; T::StringLimit::get() as usize];
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
-			RawOrigin::Signed(caller.clone()).into(),
+			RawOrigin::Signed(caller).into(),
 			payment,
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1,
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			oracles.clone(),
@@ -483,6 +519,7 @@ benchmarks! {
 		let recipient: T::AccountId = account("recipient", 0, SEED);
 		let fund_account = T::PalletId::get().into_account();
 		T::Currency::make_free_balance_be(&fund_account, payment + payment);
+		T::Currency::reserve(&fund_account, payment).unwrap();
 	}: _(
 		RawOrigin::Signed(admin.clone()),
 		oracle.clone(),
@@ -517,6 +554,29 @@ benchmarks! {
 		assert_eq!(meta, Some(expected_meta));
 	}
 
+	cancel_admin_transfer {
+		let oracle: T::AccountId = account("oracle", 0, SEED);
+		let admin: T::AccountId = account("oracle_admin", 0, SEED);
+		Oracles::<T>::insert(&oracle, OracleMeta {
+			withdrawable: Zero::zero(),
+			admin: admin.clone(),
+			pending_admin: None,
+		});
+		let new_admin: T::AccountId = account("new_admin", 0, SEED);
+		assert_is_ok(ChainlinkFeed::<T>::transfer_admin(
+			RawOrigin::Signed(admin.clone()).into(),
+			oracle.clone(),
+			new_admin)
+		);
+	}: _(
+		RawOrigin::Signed(admin.clone()),
+		oracle.clone()
+	)
+	verify {
+		let meta = ChainlinkFeed::<T>::oracle(&oracle).expect("Oracel should be present");
+		assert!(meta.pending_admin.is_none());
+	}
+
 	accept_admin {
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
@@ -527,7 +587,7 @@ benchmarks! {
 		});
 		let new_admin: T::AccountId = whitelisted_account::<T>("new_admin", 0);
 		assert_is_ok(ChainlinkFeed::<T>::transfer_admin(
-			RawOrigin::Signed(admin.clone()).into(),
+			RawOrigin::Signed(admin).into(),
 			oracle.clone(),
 			new_admin.clone()
 		));
@@ -565,7 +625,7 @@ benchmarks! {
 	reduce_debt {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let payment = 600u32.into();
@@ -576,7 +636,7 @@ benchmarks! {
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),
 			1u8.into(),
-			5u8.into(),
+			5u8,
 			description,
 			Zero::zero(),
 			vec![(oracle.clone(), admin)],
@@ -610,11 +670,26 @@ benchmarks! {
 		assert_eq!(PendingPalletAdmin::<T>::get(), Some(new_admin));
 	}
 
+	cancel_pallet_admin_transfer {
+		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
+		whitelist_acc::<T>(&pallet_admin);
+		let new_admin: T::AccountId = account("new_pallet_admin", 0, SEED);
+		assert_is_ok(ChainlinkFeed::<T>::transfer_pallet_admin(
+			RawOrigin::Signed(pallet_admin.clone()).into(),
+			new_admin
+		));
+	}: _(
+		RawOrigin::Signed(pallet_admin)
+	)
+	verify {
+		assert!(PendingPalletAdmin::<T>::get().is_none());
+	}
+
 	accept_pallet_admin {
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
 		let new_admin: T::AccountId = whitelisted_account::<T>("new_pallet_admin", 0);
 		assert_is_ok(ChainlinkFeed::<T>::transfer_pallet_admin(
-			RawOrigin::Signed(pallet_admin.clone()).into(),
+			RawOrigin::Signed(pallet_admin).into(),
 			new_admin.clone()
 		));
 	}: _(RawOrigin::Signed(new_admin.clone()))
@@ -666,6 +741,13 @@ mod tests {
 	fn transfer_ownership() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_transfer_ownership::<Test>());
+		});
+	}
+
+	#[test]
+	fn cancel_ownership_transfer() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_cancel_ownership_transfer::<Test>());
 		});
 	}
 
@@ -740,6 +822,13 @@ mod tests {
 	}
 
 	#[test]
+	fn cancel_admin_transfer() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_cancel_admin_transfer::<Test>());
+		});
+	}
+
+	#[test]
 	fn accept_admin() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_accept_admin::<Test>());
@@ -764,6 +853,13 @@ mod tests {
 	fn transfer_pallet_admin() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(test_benchmark_transfer_pallet_admin::<Test>());
+		});
+	}
+
+	#[test]
+	fn cancel_pallet_admin_transfer() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(test_benchmark_cancel_pallet_admin_transfer::<Test>());
 		});
 	}
 
