@@ -613,7 +613,7 @@ pub mod pallet {
 		/// - `decimals`: Metadata that represents the number of decimals with
 		///   which the feed is configured.
 		/// - `description`: A user friendly name or ticker of this feed.
-		///   Limited in length by `StringLimit`..
+		///   Limited in length by `StringLimit`.
 		/// - `restart_delay`: The delay in blocks that needs to pass before a
 		///   new round can be initiated.
 		/// - `oracles`: A list of the oracle accounts together with their admin
