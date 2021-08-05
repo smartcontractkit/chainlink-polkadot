@@ -73,7 +73,7 @@ pub mod pallet {
 		/// The description of this feed
 		pub description: BoundedString,
 		/// The round initiation delay
-		pub restart_delay: RoundId,
+		pub restart_delay: u32,
 		/// The round oracles are currently reporting data for.
 		pub reporting_round: RoundId,
 		/// The id of the latest round
@@ -444,7 +444,7 @@ pub mod pallet {
 			T::FeedId,
 			BalanceOf<T>,
 			SubmissionBounds,
-			RoundId,
+			u32,
 			T::BlockNumber,
 		),
 		/// An admin change was requested for the given oracle. \[oracle, admin,
@@ -614,8 +614,7 @@ pub mod pallet {
 		///   which the feed is configured.
 		/// - `description`: A user friendly name or ticker of this feed.
 		///   Limited in length by `StringLimit`.
-		/// - `restart_delay`: The delay in blocks that needs to pass before a
-		///   new round can be initiated.
+		/// - `restart_delay`: The number of rounds that must elapse before a new round can be initiated by the same oracle again. Therefore this must be lower than the number of provided oracles.
 		/// - `oracles`: A list of the oracle accounts together with their admin
 		///   account (`oracle`, `admin`) that will be registered as oracles for
 		///   the feed. If the oracle account is already tracked (for another
@@ -644,7 +643,7 @@ pub mod pallet {
 			min_submissions: u32,
 			decimals: u8,
 			description: Vec<u8>,
-			restart_delay: RoundId,
+			restart_delay: u32,
 			oracles: Vec<(T::AccountId, T::AccountId)>,
 			pruning_window: Option<u32>,
 			max_debt: Option<BalanceOf<T>>,
@@ -974,7 +973,7 @@ pub mod pallet {
 			feed_id: T::FeedId,
 			payment: BalanceOf<T>,
 			submission_count_bounds: (u32, u32),
-			restart_delay: RoundId,
+			restart_delay: u32,
 			timeout: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
@@ -1584,7 +1583,7 @@ pub mod pallet {
 			&mut self,
 			payment: BalanceOf<T>,
 			submission_count_bounds: (u32, u32),
-			restart_delay: RoundId,
+			restart_delay: u32,
 			timeout: T::BlockNumber,
 		) -> DispatchResult {
 			let (min, max) = submission_count_bounds;
