@@ -83,7 +83,7 @@ pub mod pallet {
 		/// The amount of the oracles in this feed
 		pub oracle_count: u32,
 		/// Number of rounds to keep in storage for this feed.
-		pub pruning_window: RoundId,
+		pub pruning_window: u32,
 		/// Keeps track of the round that should be pruned next.
 		pub next_round_to_prune: RoundId,
 		/// Tracks the amount of debt accumulated by the feed
@@ -628,7 +628,7 @@ pub mod pallet {
 		///   ensures that `n` rounds are kept in storage after the total number
 		///   of rounds has exceeded `n`. This means that starting with the
 		///   `n+1` round, the oldest round is purged from storage.
-		/// - `max_debt`: With `Some(n)` the feed is allowed to accumulate a less or equal than 
+		/// - `max_debt`: With `Some(n)` the feed is allowed to accumulate a less or equal than
 		///   `n` amount of debt to the oracles. This means that oracles can submit
 		///   values even if the feed's fund is dry, and essentially receive an IOU that
 		///   they can cash in once the feed is refunded.
@@ -646,7 +646,7 @@ pub mod pallet {
 			description: Vec<u8>,
 			restart_delay: RoundId,
 			oracles: Vec<(T::AccountId, T::AccountId)>,
-			pruning_window: Option<RoundId>,
+			pruning_window: Option<u32>,
 			max_debt: Option<BalanceOf<T>>,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
@@ -661,11 +661,8 @@ pub mod pallet {
 				.try_into()
 				.map_err(|_| Error::<T>::DescriptionTooLong)?;
 
-			let pruning_window = pruning_window.unwrap_or(RoundId::MAX);
-			ensure!(
-				pruning_window > RoundId::zero(),
-				Error::<T>::CannotPruneRoundZero
-			);
+			let pruning_window = pruning_window.unwrap_or(u32::MAX);
+			ensure!(pruning_window > 0, Error::<T>::CannotPruneRoundZero);
 
 			// `max_val` >= `min_val`
 			ensure!(
@@ -786,13 +783,10 @@ pub mod pallet {
 		pub fn set_pruning_window(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
-			pruning_window: RoundId,
+			pruning_window: u32,
 		) -> DispatchResultWithPostInfo {
 			let owner = ensure_signed(origin)?;
-			ensure!(
-				pruning_window > RoundId::zero(),
-				Error::<T>::CannotPruneRoundZero
-			);
+			ensure!(pruning_window > 0, Error::<T>::CannotPruneRoundZero);
 
 			let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			feed.ensure_owner(&owner)?;
