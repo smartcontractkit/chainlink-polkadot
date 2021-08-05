@@ -1453,7 +1453,8 @@ fn allows_submissions_until_max_debt() {
 		);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
 
-		// can withdraw two more payments until fund is out of funds because current debt was not paid yet
+		// can withdraw two more payments until fund is out of funds because current
+		// debt was not paid yet
 		assert_ok!(ChainlinkFeed::withdraw_payment(
 			Origin::signed(oracle_admin),
 			2,
