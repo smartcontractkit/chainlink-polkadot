@@ -654,7 +654,7 @@ benchmarks! {
 		let rounds: BalanceOf<T> = rounds.into();
 		let debt: BalanceOf<T> = rounds * payment;
 		T::Currency::make_free_balance_be(&fund_account, payment + payment);
-	}: _(RawOrigin::Signed(caller.clone()), feed, payment)
+	}: _(RawOrigin::Signed(pallet_admin.clone()), feed, payment)
 	verify {
 	}
 

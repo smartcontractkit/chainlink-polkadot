@@ -1237,7 +1237,9 @@ pub mod pallet {
 			feed_id: T::FeedId,
 			amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let _sender = ensure_signed(origin)?;
+			let sender = ensure_signed(origin)?;
+			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
+
 			let mut feed = <Feed<T>>::load_from(feed_id).ok_or(<Error<T>>::FeedNotFound)?;
 
 			let to_reserve = amount.min(feed.config.debt);
