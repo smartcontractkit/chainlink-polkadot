@@ -625,7 +625,7 @@ benchmarks! {
 	reduce_debt {
 		let caller: T::AccountId = whitelisted_caller();
 		let pallet_admin: T::AccountId = ChainlinkFeed::<T>::pallet_admin();
-		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin).into(), caller.clone()));
+		assert_is_ok(ChainlinkFeed::<T>::set_feed_creator(RawOrigin::Signed(pallet_admin.clone()).into(), caller.clone()));
 		let oracle: T::AccountId = account("oracle", 0, SEED);
 		let admin: T::AccountId = account("oracle_admin", 0, SEED);
 		let payment = 600u32.into();
