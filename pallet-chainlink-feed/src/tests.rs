@@ -7,6 +7,7 @@ use frame_support::{
 	sp_runtime::traits::{One, Zero},
 	traits::Currency,
 };
+use sp_runtime::DispatchError;
 use std::convert::TryInto;
 
 type Balances = pallet_balances::Pallet<Test>;
@@ -600,6 +601,24 @@ fn update_future_rounds_should_work() {
 		let feed_id = 0;
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.payment, new_payment);
+	});
+}
+
+#[test]
+fn force_admin_transfer_should_work() {
+	new_test_ext().execute_with(|| {
+		let current_admin = ChainlinkFeed::pallet_admin();
+		let new_admin = 42;
+
+		assert_noop!(
+			ChainlinkFeed::force_set_pallet_admin(Origin::signed(current_admin), new_admin),
+			DispatchError::BadOrigin
+		);
+		assert_ok!(ChainlinkFeed::force_set_pallet_admin(
+			Origin::root(),
+			new_admin
+		));
+		assert_eq!(ChainlinkFeed::pallet_admin(), new_admin);
 	});
 }
 
