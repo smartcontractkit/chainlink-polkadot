@@ -626,7 +626,9 @@ pub mod pallet {
 		///   which the feed is configured.
 		/// - `description`: A user friendly name or ticker of this feed.
 		///   Limited in length by `StringLimit`.
-		/// - `restart_delay`: The number of rounds that must elapse before a new round can be initiated by the same oracle again. Therefore this must be lower than the number of provided oracles.
+		/// - `restart_delay`: The number of rounds that must elapse before a
+		///   new round can be initiated by the same oracle again. Therefore
+		///   this must be lower than the number of provided oracles.
 		/// - `oracles`: A list of the oracle accounts together with their admin
 		///   account (`oracle`, `admin`) that will be registered as oracles for
 		///   the feed. If the oracle account is already tracked (for another
@@ -639,10 +641,11 @@ pub mod pallet {
 		///   ensures that `n` rounds are kept in storage after the total number
 		///   of rounds has exceeded `n`. This means that starting with the
 		///   `n+1` round, the oldest round is purged from storage.
-		/// - `max_debt`: With `Some(n)` the feed is allowed to accumulate a less or equal than
-		///   `n` amount of debt to the oracles. This means that oracles can submit
-		///   values even if the feed's fund is dry, and essentially receive an IOU that
-		///   they can cash in once the feed is refunded.
+		/// - `max_debt`: With `Some(n)` the feed is allowed to accumulate a
+		///   less or equal than `n` amount of debt to the oracles. This means
+		///   that oracles can submit values even if the feed's fund is dry, and
+		///   essentially receive an IOU that they can cash in once the feed is
+		///   refunded.
 		///
 		/// Emits `FeedCreated` event when successful.
 		#[pallet::weight(T::WeightInfo::create_feed(oracles.len() as u32))]
@@ -1297,6 +1300,26 @@ pub mod pallet {
 			Ok(().into())
 		}
 
+		/// Sets the pallet admin account.
+		///
+		/// The dispatch origin for this call must be _Root_.
+		///
+		/// Unlike `transfer_pallet_admin`, the `new_pallet_admin` is not
+		/// required to accept the transfer, instead the `PalletAdmin` is
+		/// forcibly set and the eventual pending transfer is aborted.
+		#[pallet::weight(T::DbWeight::get().writes(2))]
+		pub fn force_set_pallet_admin(
+			origin: OriginFor<T>,
+			new_pallet_admin: T::AccountId,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			PendingPalletAdmin::<T>::kill();
+			PalletAdmin::<T>::put(new_pallet_admin.clone());
+			Self::deposit_event(Event::PalletAdminUpdated(new_pallet_admin));
+
+			Ok(())
+		}
+
 		/// Initiate an admin transfer for the pallet.
 		/// Limited to the pallet admin account.
 		///
@@ -1374,7 +1397,7 @@ pub mod pallet {
 				Error::<T>::NotPendingPalletAdmin
 			);
 
-			PendingPalletAdmin::<T>::take();
+			PendingPalletAdmin::<T>::kill();
 			PalletAdmin::<T>::put(&new_pallet_admin);
 
 			Self::deposit_event(Event::PalletAdminUpdated(new_pallet_admin));
