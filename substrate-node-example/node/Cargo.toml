@@ -26,6 +26,7 @@ hex-literal = "0.2.1"
 jsonrpc-core = "15.1.0"
 # local dependencies
 node-template-runtime = { path = '../runtime', version = '3.0.0' }
+serde_json = "1.0.64"
 
 frame-benchmarking = { git = 'https://github.com/paritytech/substrate.git', branch = 'master' }
 frame-benchmarking-cli = { git = 'https://github.com/paritytech/substrate.git', branch = 'master' }

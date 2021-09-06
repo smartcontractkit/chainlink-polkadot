@@ -6,6 +6,7 @@ pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod feed;
 #[cfg(test)]
 pub(crate) mod mock;
 #[cfg(test)]
@@ -25,7 +26,7 @@ pub mod pallet {
 		traits::{Currency, ExistenceRequirement, Get, ReservableCurrency},
 		transactional,
 		weights::Weight,
-		PalletId, Parameter,
+		BoundedVec, PalletId, Parameter,
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_arithmetic::traits::BaseArithmetic;
@@ -37,6 +38,7 @@ pub mod pallet {
 		prelude::*,
 	};
 
+	pub use crate::feed::{FeedBuilder, FeedBuilderOf};
 	use crate::{
 		traits::OnAnswerHandler,
 		utils::{median, with_transaction_result},
@@ -301,7 +303,14 @@ pub mod pallet {
 		type FeedId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
 
 		/// Oracle feed values.
-		type Value: Member + Parameter + Default + Copy + HasCompact + PartialEq + BaseArithmetic;
+		type Value: Member
+			+ Parameter
+			+ Default
+			+ Copy
+			+ HasCompact
+			+ PartialEq
+			+ BaseArithmetic
+			+ MaybeSerializeDeserialize;
 
 		/// Interface used for balance transfers.
 		type Currency: ReservableCurrency<Self::AccountId>;
@@ -594,6 +603,43 @@ pub mod pallet {
 				Err(<Error<T>>::FeedNotFound)
 			}
 		}
+
+		/// Initialize the feed and write to storage
+		fn do_create_feed(
+			new_config: FeedConfigOf<T>,
+			oracles: Vec<(T::AccountId, T::AccountId)>,
+		) -> Result<T::FeedId, DispatchError> {
+			let id: T::FeedId = FeedCounter::<T>::get();
+			ensure!(id < T::FeedLimit::get(), Error::<T>::FeedLimitReached);
+			let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
+			FeedCounter::<T>::put(new_id);
+
+			let payment = new_config.payment;
+			let submission_count_bounds = new_config.submission_count_bounds;
+			let restart_delay = new_config.restart_delay;
+			let timeout = new_config.timeout;
+			let mut feed = Feed::<T>::new(id, new_config); // synced on drop
+			let started_at = frame_system::Pallet::<T>::block_number();
+			let updated_at = Some(started_at);
+			// Store a dummy value for round 0 because we will not get useful data for
+			// it, but need some seed data that future rounds can carry over.
+			Rounds::<T>::insert(
+				id,
+				RoundId::zero(),
+				Round {
+					started_at,
+					answer: Some(Zero::zero()),
+					updated_at,
+					answered_in_round: Some(Zero::zero()),
+				},
+			);
+
+			feed.do_add_oracles(oracles)?;
+			// validate the rounds config
+			feed.do_update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)?;
+
+			Ok(id)
+		}
 	}
 
 	#[pallet::call]
@@ -686,54 +732,28 @@ pub mod pallet {
 
 			let submission_count_bounds = (min_submissions, oracles.len() as u32);
 
-			with_transaction_result(|| -> DispatchResultWithPostInfo {
-				let id: T::FeedId = FeedCounter::<T>::get();
-				ensure!(id < T::FeedLimit::get(), Error::<T>::FeedLimitReached);
-				let new_id = id.checked_add(&One::one()).ok_or(Error::<T>::Overflow)?;
-				FeedCounter::<T>::put(new_id);
+			let new_config = FeedConfig {
+				owner: owner.clone(),
+				pending_owner: None,
+				payment,
+				timeout,
+				submission_value_bounds,
+				submission_count_bounds,
+				decimals,
+				description,
+				restart_delay,
+				latest_round: Zero::zero(),
+				reporting_round: Zero::zero(),
+				first_valid_round: None,
+				oracle_count: Zero::zero(),
+				pruning_window,
+				next_round_to_prune: RoundId::one(),
+				debt: Zero::zero(),
+				max_debt,
+			};
 
-				let new_config = FeedConfig {
-					owner: owner.clone(),
-					pending_owner: None,
-					payment,
-					timeout,
-					submission_value_bounds,
-					submission_count_bounds,
-					decimals,
-					description,
-					restart_delay,
-					latest_round: Zero::zero(),
-					reporting_round: Zero::zero(),
-					first_valid_round: None,
-					oracle_count: Zero::zero(),
-					pruning_window,
-					next_round_to_prune: RoundId::one(),
-					debt: Zero::zero(),
-					max_debt,
-				};
-				let mut feed = Feed::<T>::new(id, new_config); // synced on drop
-				let started_at = frame_system::Pallet::<T>::block_number();
-				let updated_at = Some(started_at);
-				// Store a dummy value for round 0 because we will not get useful data for
-				// it, but need some seed data that future rounds can carry over.
-				Rounds::<T>::insert(
-					id,
-					RoundId::zero(),
-					Round {
-						started_at,
-						answer: Some(Zero::zero()),
-						updated_at,
-						answered_in_round: Some(Zero::zero()),
-					},
-				);
-				feed.add_oracles(oracles)?;
-				// validate the rounds config
-				feed.update_future_rounds(
-					payment,
-					submission_count_bounds,
-					restart_delay,
-					timeout,
-				)?;
+			with_transaction_result(|| -> DispatchResultWithPostInfo {
+				let id = Self::do_create_feed(new_config, oracles)?;
 				Self::deposit_event(Event::FeedCreated(id, owner));
 				Ok(().into())
 			})
@@ -1445,6 +1465,8 @@ pub mod pallet {
 		pub pallet_admin: Option<T::AccountId>,
 		// accounts configured at genesis to be allowed to create new feeds
 		pub feed_creators: Vec<T::AccountId>,
+		// All feeds that should be created on genesis
+		pub feeds: Vec<FeedBuilderOf<T>>,
 	}
 
 	#[cfg(feature = "std")]
@@ -1453,6 +1475,7 @@ pub mod pallet {
 			Self {
 				pallet_admin: Default::default(),
 				feed_creators: Default::default(),
+				feeds: Default::default(),
 			}
 		}
 	}
@@ -1465,6 +1488,11 @@ pub mod pallet {
 			}
 			for creator in &self.feed_creators {
 				FeedCreators::<T>::insert(creator, ());
+			}
+			for builder in &self.feeds {
+				let config = builder.clone().build().unwrap();
+				Pallet::<T>::do_create_feed(config, builder.oracles.clone().unwrap_or_default())
+					.unwrap();
 			}
 		}
 	}
@@ -1639,6 +1667,10 @@ pub mod pallet {
 		/// Add the given oracles to the feed.
 		#[require_transactional]
 		pub fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
+			self.do_add_oracles(to_add)
+		}
+
+		fn do_add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
 			let new_count = self
 				.oracle_count()
 				// saturating is fine because we enforce a limit below
@@ -1720,6 +1752,16 @@ pub mod pallet {
 			payment: BalanceOf<T>,
 			submission_count_bounds: (u32, u32),
 			restart_delay: u32,
+			timeout: T::BlockNumber,
+		) -> DispatchResult {
+			self.do_update_future_rounds(payment, submission_count_bounds, restart_delay, timeout)
+		}
+
+		fn do_update_future_rounds(
+			&mut self,
+			payment: BalanceOf<T>,
+			submission_count_bounds: (u32, u32),
+			restart_delay: RoundId,
 			timeout: T::BlockNumber,
 		) -> DispatchResult {
 			let (min, max) = submission_count_bounds;

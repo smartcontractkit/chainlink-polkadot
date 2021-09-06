@@ -114,76 +114,12 @@ impl pallet_chainlink_feed::Config for Test {
 	type WeightInfo = ();
 }
 
-#[derive(Debug, Default)]
-pub(crate) struct FeedBuilder {
-	owner: Option<AccountId>,
-	payment: Option<Balance>,
-	timeout: Option<BlockNumber>,
-	value_bounds: Option<(Value, Value)>,
-	min_submissions: Option<u32>,
-	description: Option<Vec<u8>>,
-	restart_delay: Option<RoundId>,
-	oracles: Option<Vec<(AccountId, AccountId)>>,
-	pruning_window: Option<RoundId>,
-	max_debt: Option<Balance>,
+pub trait FeedBuilderExt {
+	fn build_and_store(self) -> DispatchResultWithPostInfo;
 }
 
-impl FeedBuilder {
-	pub fn new() -> Self {
-		Self::default()
-	}
-
-	pub fn owner(mut self, o: AccountId) -> Self {
-		self.owner = Some(o);
-		self
-	}
-
-	pub fn payment(mut self, p: Balance) -> Self {
-		self.payment = Some(p);
-		self
-	}
-
-	pub fn timeout(mut self, t: BlockNumber) -> Self {
-		self.timeout = Some(t);
-		self
-	}
-
-	pub fn value_bounds(mut self, min: Value, max: Value) -> Self {
-		self.value_bounds = Some((min, max));
-		self
-	}
-
-	pub fn min_submissions(mut self, m: u32) -> Self {
-		self.min_submissions = Some(m);
-		self
-	}
-
-	pub fn description(mut self, d: Vec<u8>) -> Self {
-		self.description = Some(d);
-		self
-	}
-
-	pub fn restart_delay(mut self, d: RoundId) -> Self {
-		self.restart_delay = Some(d);
-		self
-	}
-
-	pub fn oracles(mut self, o: Vec<(AccountId, AccountId)>) -> Self {
-		self.oracles = Some(o);
-		self
-	}
-
-	pub fn pruning_window(mut self, w: RoundId) -> Self {
-		self.pruning_window = Some(w);
-		self
-	}
-
-	pub fn max_debt(mut self, v: Balance) -> Self {
-		self.max_debt = Some(v);
-		self
-	}
-
-	pub fn build_and_store(self) -> DispatchResultWithPostInfo {
+impl FeedBuilderExt for FeedBuilderOf<Test> {
+	fn build_and_store(self) -> DispatchResultWithPostInfo {
 		let owner = Origin::signed(self.owner.unwrap_or(1));
 		let payment = self.payment.unwrap_or(20);
 		let timeout = self.timeout.unwrap_or(1);
@@ -214,6 +150,11 @@ impl FeedBuilder {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
+	new_test_ext_with_feeds(Vec::new())
+}
+
+// Build genesis storage according to the mock runtime.
+pub fn new_test_ext_with_feeds(feeds: Vec<FeedBuilderOf<Test>>) -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default()
 		.build_storage::<Test>()
 		.unwrap();
@@ -228,6 +169,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	pallet_chainlink_feed::GenesisConfig::<Test> {
 		pallet_admin: Some(pallet_account),
 		feed_creators: vec![1],
+		feeds,
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

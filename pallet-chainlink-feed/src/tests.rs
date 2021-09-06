@@ -1492,3 +1492,26 @@ fn allows_submissions_until_max_debt() {
 		);
 	});
 }
+
+#[test]
+fn can_create_feed_in_genesis() {
+	let oracles = vec![(1, 4), (2, 4), (3, 4)];
+	let builder = FeedBuilder::new()
+		.owner(1)
+		.decimals(8)
+		.payment(20)
+		.restart_delay(2)
+		.timeout(10)
+		.description(b"feed".to_vec())
+		.value_bounds(1, 1_000)
+		.min_submissions(2)
+		.oracles(oracles.clone());
+
+	new_test_ext_with_feeds(vec![builder.clone()]).execute_with(|| {
+		let mut config = builder.build().unwrap();
+		// need to adjust the oracle count as this gets set in genesis
+		config.oracle_count = oracles.len() as u32;
+		let feed = ChainlinkFeed::feed_config(&0).unwrap();
+		assert_eq!(feed, config);
+	});
+}
