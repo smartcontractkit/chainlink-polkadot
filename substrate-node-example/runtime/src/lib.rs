@@ -38,7 +38,7 @@ use sp_version::RuntimeVersion;
 
 pub use example::Call as ExampleCall;
 pub use pallet_chainlink_feed;
-pub use pallet_chainlink_feed::{RoundId, FeedBuilder};
+pub use pallet_chainlink_feed::{FeedBuilder, RoundId};
 /// Import the template pallet.
 pub use pallet_template;
 use weights::pallet_chainlink_feed::WeightInfo as ChainlinkWeightInfo;
@@ -168,7 +168,7 @@ parameter_types! {
 
 impl frame_system::Config for Runtime {
 	/// The basic call filter to use in dispatchable.
-	type BaseCallFilter =  frame_support::traits::Everything;
+	type BaseCallFilter = frame_support::traits::Everything;
 	/// Block & extrinsics weights: base values and limits.
 	type BlockWeights = RuntimeBlockWeights;
 	/// The maximum length of a block (in bytes).
@@ -226,7 +226,7 @@ impl pallet_grandpa::Config for Runtime {
 	type Call = Call;
 
 	type KeyOwnerProof =
-	<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
 	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
 		KeyTypeId,
