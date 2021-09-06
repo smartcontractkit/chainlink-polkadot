@@ -155,7 +155,7 @@ pub mod module2 {
 	impl<T: Config> CallbackWithParameter for Call<T> {
 		fn with_result(&self, result: Vec<u8>) -> Option<Self> {
 			match *self {
-				Call::callback(_) => Some(Call::callback(result)),
+				Call::callback { .. } => Some(Call::callback { result }),
 				_ => None,
 			}
 		}
@@ -192,7 +192,7 @@ fn initiate_requests() {
 			1,
 			vec![],
 			0,
-			module2::Call::<Test>::callback(vec![]).into()
+			module2::Call::<Test>::callback { result: vec![] }.into()
 		)
 		.is_err());
 	});
@@ -205,7 +205,7 @@ fn initiate_requests() {
 			1,
 			vec![],
 			1,
-			module2::Call::<Test>::callback(vec![]).into()
+			module2::Call::<Test>::callback { result: vec![] }.into()
 		)
 		.is_err());
 	});
@@ -219,7 +219,7 @@ fn initiate_requests() {
 			1,
 			vec![],
 			2,
-			module2::Call::<Test>::callback(vec![]).into()
+			module2::Call::<Test>::callback { result: vec![] }.into()
 		)
 		.is_ok());
 		assert!(<Chainlink>::callback(Origin::signed(3), 0, 10.encode()).is_err());
@@ -243,7 +243,7 @@ fn initiate_requests() {
 			1,
 			data.clone(),
 			2,
-			module2::Call::<Test>::callback(vec![]).into()
+			module2::Call::<Test>::callback { result: vec![] }.into()
 		)
 		.is_ok());
 		assert_eq!(
@@ -280,7 +280,7 @@ pub fn on_finalize() {
 			1,
 			vec![],
 			2,
-			module2::Call::<Test>::callback(vec![]).into()
+			module2::Call::<Test>::callback { result: vec![] }.into()
 		)
 		.is_ok());
 		<Chainlink as OnFinalize<u64>>::on_finalize(20);

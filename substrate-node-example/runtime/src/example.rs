@@ -28,7 +28,7 @@ decl_module! {
 		#[weight = 0]
 		pub fn send_request(origin, operator: T::AccountId, specid: Vec<u8>) -> DispatchResult {
 			let parameters = ("get", "https://min-api.cryptocompare.com/data/pricemultifull?fsyms=ETH&tsyms=USD", "path", "RAW.ETH.USD.PRICE", "times", "100000000");
-			let call: <T as Config>::Callback = Call::callback(vec![]).into();
+			let call: <T as Config>::Callback = Call::callback { result: vec![] }.into();
 
 			let fee = BalanceOf::<T>::unique_saturated_from(100u32);
 			<pallet_chainlink::Pallet<T>>::initiate_request(origin, operator, specid, 0, parameters.encode(), fee, call.into())?;
@@ -58,7 +58,7 @@ frame_support::decl_error! {
 impl<T: Config> CallbackWithParameter for Call<T> {
 	fn with_result(&self, result: Vec<u8>) -> Option<Self> {
 		match *self {
-			Call::callback(_) => Some(Call::callback(result)),
+			Call::callback { .. } => Some(Call::callback { result }),
 			_ => None,
 		}
 	}
