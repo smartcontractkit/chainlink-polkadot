@@ -38,7 +38,7 @@ pub(crate) type AccountId = u64;
 pub(crate) type BlockNumber = u64;
 
 impl system::Config for Test {
-	type BaseCallFilter = ();
+	type BaseCallFilter = frame_support::traits::AllowAll;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -111,7 +111,7 @@ impl pallet_chainlink_feed::Config for Test {
 	type OnAnswerHandler = Self;
 	type OracleCountLimit = OracleLimit;
 	type FeedLimit = FeedLimit;
-	type WeightInfo = pallet_chainlink_feed::default_weights::WeightInfo<Test>;
+	type WeightInfo = ();
 }
 
 pub trait FeedBuilderExt {
@@ -126,8 +126,8 @@ impl FeedBuilderExt for FeedBuilderOf<Test> {
 		let value_bounds = self.value_bounds.unwrap_or((1, 1_000));
 		let min_submissions = self.min_submissions.unwrap_or(2);
 		let decimals = 5;
-		let description = self.description.unwrap_or(b"desc".to_vec());
-		let oracles = self.oracles.unwrap_or(vec![(2, 4), (3, 4), (4, 4)]);
+		let description = self.description.unwrap_or_else(|| b"desc".to_vec());
+		let oracles = self.oracles.unwrap_or_else(|| vec![(2, 4), (3, 4), (4, 4)]);
 		let restart_delay = self
 			.restart_delay
 			.unwrap_or(oracles.len().saturating_sub(1) as u32);

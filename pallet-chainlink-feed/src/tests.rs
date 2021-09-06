@@ -7,6 +7,7 @@ use frame_support::{
 	sp_runtime::traits::{One, Zero},
 	traits::Currency,
 };
+use std::convert::TryInto;
 
 type Balances = pallet_balances::Pallet<Test>;
 
@@ -412,7 +413,7 @@ fn change_oracles_should_work() {
 			ChainlinkFeed::change_oracles(
 				Origin::signed(owner),
 				feed_id,
-				many_duplicates.clone(),
+				many_duplicates,
 				to_add.clone(),
 			),
 			Error::<Test>::NotEnoughOracles
@@ -422,7 +423,7 @@ fn change_oracles_should_work() {
 			ChainlinkFeed::change_oracles(
 				Origin::signed(owner),
 				feed_id,
-				duplicates.clone(),
+				duplicates,
 				to_add.clone(),
 			),
 			Error::<Test>::OracleDisabled
@@ -622,6 +623,24 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::transfer_admin(Origin::signed(123), oracle, new_admin),
 			Error::<Test>::NotAdmin
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_admin_transfer(Origin::signed(old_admin), oracle,),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
+
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			oracle,
+			old_admin
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::OracleAdminUpdateRequested(_, _, _))
+			)
+		}));
+
 		assert_ok!(ChainlinkFeed::transfer_admin(
 			Origin::signed(old_admin),
 			oracle,
@@ -637,6 +656,20 @@ fn admin_transfer_should_work() {
 			ChainlinkFeed::accept_admin(Origin::signed(123), oracle),
 			Error::<Test>::NotPendingAdmin
 		);
+		assert_ok!(ChainlinkFeed::cancel_admin_transfer(
+			Origin::signed(old_admin),
+			oracle,
+		),);
+		assert_noop!(
+			ChainlinkFeed::accept_admin(Origin::signed(new_admin), oracle),
+			Error::<Test>::NotPendingAdmin
+		);
+		assert_ok!(ChainlinkFeed::transfer_admin(
+			Origin::signed(old_admin),
+			oracle,
+			new_admin
+		));
+
 		assert_ok!(ChainlinkFeed::accept_admin(
 			Origin::signed(new_admin),
 			oracle
@@ -822,22 +855,51 @@ fn transfer_ownership_should_work() {
 			ChainlinkFeed::transfer_ownership(Origin::signed(23), feed_id, new_owner),
 			Error::<Test>::NotFeedOwner
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			old_owner
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::OwnerUpdateRequested(_, _, _))
+			)
+		}));
 		assert_ok!(ChainlinkFeed::transfer_ownership(
 			Origin::signed(old_owner),
 			feed_id,
 			new_owner
 		));
-		assert_ok!(ChainlinkFeed::transfer_ownership(
-			Origin::signed(old_owner),
-			feed_id,
-			new_owner
-		));
+
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, Some(new_owner));
 		assert_noop!(
 			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), 123),
 			Error::<Test>::FeedNotFound
 		);
+
+		// cancel transfer
+		assert_ok!(ChainlinkFeed::cancel_ownership_transfer(
+			Origin::signed(old_owner),
+			feed_id,
+		));
+		assert_noop!(
+			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), feed_id),
+			Error::<Test>::NotPendingOwner
+		);
+
+		// initiate again
+		assert_ok!(ChainlinkFeed::transfer_ownership(
+			Origin::signed(old_owner),
+			feed_id,
+			new_owner
+		));
 		assert_noop!(
 			ChainlinkFeed::accept_ownership(Origin::signed(old_owner), feed_id),
 			Error::<Test>::NotPendingOwner
@@ -846,6 +908,11 @@ fn transfer_ownership_should_work() {
 			Origin::signed(new_owner),
 			feed_id
 		));
+		assert_noop!(
+			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			Error::<Test>::NotFeedOwner
+		);
+
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, None);
 		assert_eq!(feed.owner, new_owner);
@@ -1000,6 +1067,21 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::transfer_pallet_admin(Origin::signed(123), new_admin),
 			Error::<Test>::NotPalletAdmin
 		);
+		assert_noop!(
+			ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(fund)),
+			Error::<Test>::NoPendingOwnershipTransfer
+		);
+		// transfer to self yields nothing
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(fund),
+			fund
+		));
+		assert!(System::events().into_iter().all(|r| {
+			!matches!(
+				r.event,
+				mock::Event::ChainlinkFeed(crate::Event::PalletAdminUpdateRequested(_, _))
+			)
+		}));
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
 			Origin::signed(fund),
 			new_admin
@@ -1009,6 +1091,21 @@ fn transfer_pallet_admin_should_work() {
 			ChainlinkFeed::accept_pallet_admin(Origin::signed(123)),
 			Error::<Test>::NotPendingPalletAdmin
 		);
+
+		assert_ok!(ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(
+			fund
+		)),);
+
+		assert_noop!(
+			ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)),
+			Error::<Test>::NotPendingPalletAdmin
+		);
+
+		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
+			Origin::signed(fund),
+			new_admin
+		));
+
 		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(
 			new_admin
 		)));
@@ -1166,12 +1263,23 @@ fn can_go_into_debt_and_repay() {
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment);
 		let new_funds = 2 * payment;
 		Balances::make_free_balance_be(&admin, new_funds);
+
+		// reducing debt should fail for non admin
+		assert_noop!(
+			ChainlinkFeed::reduce_debt(Origin::signed(1), 0, 10),
+			Error::<Test>::NotPalletAdmin
+		);
+
 		// should be possible to reduce debt partially
 		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), 0, 10));
 		assert_eq!(Balances::free_balance(admin), new_funds - 10);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment - 10);
 		// should be possible to overshoot in passing the amount correcting debt...
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(42), 0, payment));
+		assert_ok!(ChainlinkFeed::reduce_debt(
+			Origin::signed(admin),
+			0,
+			payment
+		));
 		// ... but will only correct the debt
 		assert_eq!(Balances::free_balance(admin), new_funds - payment);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), 0);
@@ -1188,7 +1296,7 @@ fn feed_life_cylce() {
 		let submission_value_bounds = (1, 1_000);
 		let submission_count_bounds = (1, 3);
 		let decimals = 5;
-		let description = b"desc".to_vec();
+		let description = b"desc".to_vec().try_into().unwrap();
 		let restart_delay = 1;
 		let new_config = FeedConfig {
 			owner,
@@ -1222,7 +1330,7 @@ fn feed_life_cylce() {
 		}
 		let new_config = FeedConfig {
 			oracle_count: oracles.len() as u32,
-			..new_config.clone()
+			..new_config
 		};
 		// config should be stored on drop
 		assert_eq!(ChainlinkFeed::feed_config(id), Some(new_config.clone()));
@@ -1233,7 +1341,7 @@ fn feed_life_cylce() {
 		}
 		let modified_config = FeedConfig {
 			timeout: new_timeout,
-			..new_config.clone()
+			..new_config
 		};
 		// modified config should be stored on drop
 		assert_eq!(
@@ -1246,10 +1354,7 @@ fn feed_life_cylce() {
 			feed.config.timeout = ignored_timeout;
 		}
 		// read only access should not store changes
-		assert_eq!(
-			ChainlinkFeed::feed_config(id),
-			Some(modified_config.clone())
-		);
+		assert_eq!(ChainlinkFeed::feed_config(id), Some(modified_config));
 		{
 			let mut feed = ChainlinkFeed::feed_mut(id).expect("feed should be there");
 			tx_assert_ok!(feed.request_new_round(AccountId::default()));
@@ -1312,7 +1417,11 @@ fn allows_submissions_until_max_debt() {
 
 		// reduce debt withdraw and submit again
 		Balances::make_free_balance_be(&admin, max_debt + ExistentialDeposit::get());
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(1), 0, max_debt));
+		assert_ok!(ChainlinkFeed::reduce_debt(
+			Origin::signed(admin),
+			0,
+			max_debt
+		));
 		// now max_debt amount is reserved and can be withdrawn
 		assert_eq!(Balances::reserved_balance(&admin), max_debt);
 
@@ -1344,7 +1453,8 @@ fn allows_submissions_until_max_debt() {
 		);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
 
-		// can withdraw two more payments until fund is out of funds because current debt was not paid yet
+		// can withdraw two more payments until fund is out of funds because current
+		// debt was not paid yet
 		assert_ok!(ChainlinkFeed::withdraw_payment(
 			Origin::signed(oracle_admin),
 			2,

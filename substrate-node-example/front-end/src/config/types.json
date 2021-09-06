@@ -16,7 +16,7 @@
     "timeout": "BlockNumber",
     "decimals": "u8",
     "description": "Vec<u8>",
-    "restart_delay": "RoundId",
+    "restart_delay": "u32",
     "reporting_round": "RoundId",
     "latest_round": "RoundId",
     "first_valid_round": "Option<RoundId>",
