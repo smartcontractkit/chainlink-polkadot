@@ -26,7 +26,7 @@ pub mod pallet {
 		traits::{Currency, ExistenceRequirement, Get, ReservableCurrency},
 		transactional,
 		weights::Weight,
-		PalletId, Parameter,
+		BoundedVec, PalletId, Parameter,
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use sp_arithmetic::traits::BaseArithmetic;

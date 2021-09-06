@@ -3,10 +3,12 @@
 use crate::{BalanceOf, Config, FeedConfig, RoundId};
 use frame_support::{
 	sp_runtime::traits::{One, Zero},
-	Parameter,
+	BoundedVec, Parameter,
 };
 use sp_std::prelude::*;
 
+use frame_support::sp_std::convert::TryInto;
+use frame_support::traits::Get;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -49,7 +51,7 @@ pub struct FeedBuilder<AccountId, Balance, BlockNumber, Value> {
 	pub min_submissions: Option<u32>,
 	pub description: Option<Vec<u8>>,
 	pub decimals: Option<u8>,
-	pub restart_delay: Option<RoundId>,
+	pub restart_delay: Option<u32>,
 	#[cfg_attr(
 		feature = "std",
 		serde(bound(
@@ -58,7 +60,7 @@ pub struct FeedBuilder<AccountId, Balance, BlockNumber, Value> {
 		))
 	)]
 	pub oracles: Option<Vec<(AccountId, AccountId)>>,
-	pub pruning_window: Option<RoundId>,
+	pub pruning_window: Option<u32>,
 	#[cfg_attr(
 		feature = "std",
 		serde(bound(
@@ -110,7 +112,7 @@ where
 		self
 	}
 
-	pub fn restart_delay(mut self, d: RoundId) -> Self {
+	pub fn restart_delay(mut self, d: u32) -> Self {
 		self.restart_delay = Some(d);
 		self
 	}
@@ -125,7 +127,7 @@ where
 		self
 	}
 
-	pub fn pruning_window(mut self, w: RoundId) -> Self {
+	pub fn pruning_window(mut self, w: u32) -> Self {
 		self.pruning_window = Some(w);
 		self
 	}
@@ -136,13 +138,24 @@ where
 	}
 
 	/// turn the builder into a storage `FeedConfig`
-	pub fn build(self) -> Result<FeedConfig<AccountId, Balance, BlockNumber, Value>, &'static str> {
+	pub fn build<'a, StringLimit: Get<u32>>(
+		self,
+	) -> Result<
+		FeedConfig<AccountId, Balance, BlockNumber, Value, BoundedVec<u8, StringLimit>>,
+		&'static str,
+	> {
 		let oracles = self.oracles.ok_or("Feed requires oracles.")?;
 		let submission_count_bounds = (
 			self.min_submissions
 				.ok_or("Feed requires min_submissions.")?,
 			oracles.len() as u32,
 		);
+
+		let description = if let Some(desc) = self.description {
+			desc.try_into().map_err(|_| "Feed description too long.")?
+		} else {
+			Default::default()
+		};
 
 		let config = FeedConfig {
 			owner: self.owner.ok_or("Feed requires owner.")?,
@@ -152,7 +165,7 @@ where
 			payment: self.payment.ok_or("Feed requires payment.")?,
 			timeout: self.timeout.ok_or("Feed requires timeout.")?,
 			decimals: self.decimals.ok_or("Feed requires decimals.")?,
-			description: self.description.unwrap_or_default(),
+			description,
 			restart_delay: self.restart_delay.ok_or("Feed requires restart_delay.")?,
 			reporting_round: Zero::zero(),
 			latest_round: Zero::zero(),
