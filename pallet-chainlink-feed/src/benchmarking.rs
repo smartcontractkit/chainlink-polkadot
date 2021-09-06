@@ -733,154 +733,154 @@ mod tests {
 	#[test]
 	fn create_feed() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_create_feed::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_create_feed());
 		});
 	}
 
 	#[test]
 	fn transfer_ownership() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_transfer_ownership::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_transfer_ownership());
 		});
 	}
 
 	#[test]
 	fn cancel_ownership_transfer() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_cancel_ownership_transfer::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_cancel_ownership_transfer());
 		});
 	}
 
 	#[test]
 	fn accept_ownership() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_accept_ownership::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_accept_ownership());
 		});
 	}
 
 	#[test]
 	fn submit_opening_round_answers() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_submit_opening_round_answers::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_submit_opening_round_answers());
 		});
 	}
 
 	#[test]
 	fn submit_closing_answer() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_submit_closing_answer::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_submit_closing_answer());
 		});
 	}
 
 	#[test]
 	fn change_oracles() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_change_oracles::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_change_oracles());
 		});
 	}
 
 	#[test]
 	fn update_future_rounds() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_update_future_rounds::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_update_future_rounds());
 		});
 	}
 
 	#[test]
 	fn set_requester() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_set_requester::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_set_requester());
 		});
 	}
 
 	#[test]
 	fn remove_requester() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_remove_requester::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_remove_requester());
 		});
 	}
 
 	#[test]
 	fn request_new_round() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_request_new_round::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_request_new_round());
 		});
 	}
 
 	#[test]
 	fn withdraw_payment() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_withdraw_payment::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_withdraw_payment());
 		});
 	}
 
 	#[test]
 	fn transfer_admin() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_transfer_admin::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_transfer_admin());
 		});
 	}
 
 	#[test]
 	fn cancel_admin_transfer() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_cancel_admin_transfer::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_cancel_admin_transfer());
 		});
 	}
 
 	#[test]
 	fn accept_admin() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_accept_admin::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_accept_admin());
 		});
 	}
 
 	#[test]
 	fn withdraw_funds() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_withdraw_funds::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_withdraw_funds());
 		});
 	}
 
 	#[test]
 	fn reduce_debt() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_reduce_debt::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_reduce_debt());
 		});
 	}
 
 	#[test]
 	fn transfer_pallet_admin() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_transfer_pallet_admin::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_transfer_pallet_admin());
 		});
 	}
 
 	#[test]
 	fn cancel_pallet_admin_transfer() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_cancel_pallet_admin_transfer::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_cancel_pallet_admin_transfer());
 		});
 	}
 
 	#[test]
 	fn accept_pallet_admin() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_accept_pallet_admin::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_accept_pallet_admin());
 		});
 	}
 
 	#[test]
 	fn set_feed_creator() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_set_feed_creator::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_set_feed_creator());
 		});
 	}
 
 	#[test]
 	fn remove_feed_creator() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(test_benchmark_remove_feed_creator::<Test>());
+			assert_ok!(Pallet::<Test>::test_benchmark_remove_feed_creator());
 		});
 	}
 }
