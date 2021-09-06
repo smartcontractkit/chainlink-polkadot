@@ -32,7 +32,7 @@ pub fn new_partial(
 		FullClient,
 		FullBackend,
 		FullSelectChain,
-		sp_consensus::DefaultImportQueue<Block, FullClient>,
+		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
 			sc_finality_grandpa::GrandpaBlockImport<
@@ -178,6 +178,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 			import_queue,
 			on_demand: None,
 			block_announce_validator_builder: None,
+			warp_sync: None,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -201,13 +202,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		let pool = transaction_pool.clone();
 
 		Box::new(move |deny_unsafe, _| {
-			let deps = crate::rpc::FullDeps {
-				client: client.clone(),
-				pool: pool.clone(),
-				deny_unsafe,
-			};
+			let deps =
+				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
 
-			crate::rpc::create_full(deps)
+			Ok(crate::rpc::create_full(deps))
 		})
 	};
 
@@ -267,6 +265,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 				justification_sync_link: network.clone(),
 				block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
 				telemetry: telemetry.as_ref().map(|x| x.handle()),
+				max_block_proposal_slot_portion: Some(SlotProportion::new(1f32 / 16f32)),
 			},
 		)?;
 
@@ -405,6 +404,7 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
 			import_queue,
 			on_demand: Some(on_demand.clone()),
 			block_announce_validator_builder: None,
+			warp_sync: None,
 		})?;
 
 	if config.offchain_worker.enabled {
@@ -441,7 +441,7 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
 		transaction_pool,
 		task_manager: &mut task_manager,
 		on_demand: Some(on_demand),
-		rpc_extensions_builder: Box::new(|_, _| ()),
+		rpc_extensions_builder: Box::new(|_, _| Ok(())),
 		config,
 		client,
 		keystore: keystore_container.sync_keystore(),

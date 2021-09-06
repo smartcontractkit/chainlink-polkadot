@@ -36,7 +36,7 @@ pub(crate) type AccountId = u128;
 pub(crate) type BlockNumber = u64;
 
 impl system::Config for Test {
-	type BaseCallFilter = frame_support::traits::AllowAll;
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
