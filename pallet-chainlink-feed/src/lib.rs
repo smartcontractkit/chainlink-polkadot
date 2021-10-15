@@ -37,6 +37,7 @@ pub mod pallet {
 		convert::{TryFrom, TryInto},
 		prelude::*,
 	};
+	use scale_info::TypeInfo;
 
 	pub use crate::feed::{FeedBuilder, FeedBuilderOf};
 	use crate::{
@@ -50,7 +51,7 @@ pub mod pallet {
 	pub type RoundId = u32;
 
 	/// The configuration for an oracle feed.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct FeedConfig<
 		AccountId: Parameter,
 		Balance: Parameter,
@@ -109,7 +110,7 @@ pub mod pallet {
 	/// Round data relevant to consumers.
 	/// Will only be constructed once minimum amount of submissions have
 	/// been provided.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Round<BlockNumber, Value> {
 		pub started_at: BlockNumber,
 		pub answer: Option<Value>,
@@ -134,7 +135,7 @@ pub mod pallet {
 	}
 
 	/// Round data relevant to oracles.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct RoundDetails<Balance, BlockNumber, Value> {
 		pub submissions: Vec<Value>,
 		pub submission_count_bounds: (u32, u32),
@@ -146,7 +147,7 @@ pub mod pallet {
 		RoundDetails<BalanceOf<T>, <T as frame_system::Config>::BlockNumber, <T as Config>::Value>;
 
 	/// Meta data tracking withdrawable rewards and admin for an oracle.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct OracleMeta<AccountId, Balance> {
 		pub withdrawable: Balance,
 		pub admin: AccountId,
@@ -156,7 +157,7 @@ pub mod pallet {
 	pub type OracleMetaOf<T> = OracleMeta<<T as frame_system::Config>::AccountId, BalanceOf<T>>;
 
 	/// Meta data tracking the oracle status for a feed.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct OracleStatus<Value> {
 		pub starting_round: RoundId,
 		pub ending_round: Option<RoundId>,
@@ -184,14 +185,14 @@ pub mod pallet {
 	}
 
 	/// Used to store round requester permissions for accounts.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Requester {
 		pub delay: RoundId,
 		pub last_started_round: Option<RoundId>,
 	}
 
 	/// Round data as served by the `FeedInterface`.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct RoundData<BlockNumber, Value> {
 		pub started_at: BlockNumber,
 		pub answer: Value,
@@ -428,14 +429,6 @@ pub mod pallet {
 	>;
 
 	#[pallet::event]
-	#[pallet::metadata(
-		T::AccountId = "AccountId",
-		T::FeedId = "FeedId",
-		T::BlockNumber = "BlockNumber",
-		T::Value = "Value",
-		RoundId = "RoundId",
-		SubmissionBounds = "SubmissionBounds"
-	)]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new oracle feed was created. \[feed_id, creator\]
