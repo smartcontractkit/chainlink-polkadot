@@ -13,7 +13,7 @@ targets = ['x86_64-unknown-linux-gnu']
 [build-dependencies.substrate-wasm-builder]
 git = 'https://github.com/paritytech/substrate.git'
 branch = 'master'
-version = '4.0.0'
+version = '5.0.0-dev'
 
 [dependencies]
 codec = { default-features = false, features = ['derive'], package = "parity-scale-codec", version = "2.0.1" }
