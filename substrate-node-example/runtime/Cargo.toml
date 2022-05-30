@@ -16,7 +16,8 @@ branch = 'master'
 version = '5.0.0-dev'
 
 [dependencies]
-codec = { default-features = false, features = ['derive'], package = "parity-scale-codec", version = "2.0.1" }
+scale-info = { default-features = false, features = ['derive'], version = "2.1.2" }
+codec = { default-features = false, features = ['derive'], package = "parity-scale-codec", version = "3.1.2" }
 hex-literal = { optional = true, version = "0.3.1" }
 serde = { version = "1.0.125", optional = true, features = ["derive"] }
 

@@ -3769,7 +3769,8 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec 2.3.1",
+ "parity-scale-codec 3.1.2",
+ "scale-info",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -4108,6 +4109,7 @@ dependencies = [
  "pallet-balances",
  "pallet-chainlink-feed",
  "parity-scale-codec 3.1.2",
+ "scale-info",
  "serde",
  "sp-core",
  "sp-io",
@@ -4203,7 +4205,6 @@ dependencies = [
  "bitvec 0.20.4",
  "byte-slice-cast",
  "impl-trait-for-tuples",
- "parity-scale-codec-derive 2.3.1",
  "serde",
 ]
 
@@ -4217,20 +4218,8 @@ dependencies = [
  "bitvec 1.0.0",
  "byte-slice-cast",
  "impl-trait-for-tuples",
- "parity-scale-codec-derive 3.1.2",
+ "parity-scale-codec-derive",
  "serde",
-]
-
-[[package]]
-name = "parity-scale-codec-derive"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1557010476e0595c9b568d16dcfb81b93cdeb157612726f5170d31aa707bed27"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2 1.0.39",
- "quote 1.0.18",
- "syn 1.0.95",
 ]
 
 [[package]]
