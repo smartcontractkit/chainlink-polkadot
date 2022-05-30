@@ -41,7 +41,7 @@ pub(crate) type AccountId = u64;
 pub(crate) type BlockNumber = u64;
 
 impl system::Config for Test {
-	type BaseCallFilter = frame_support::traits::AllowAll;
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
@@ -163,7 +163,7 @@ pub fn new_test_ext_with_feeds(feeds: Vec<FeedBuilderOf<Test>>) -> sp_io::TestEx
 		.build_storage::<Test>()
 		.unwrap();
 
-	let pallet_account: AccountId = FeedPalletId::get().into_account();
+	let pallet_account: AccountId = FeedPalletId::get().into_account_truncating();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(pallet_account, 100 * MIN_RESERVE)],
 	}
@@ -179,15 +179,4 @@ pub fn new_test_ext_with_feeds(feeds: Vec<FeedBuilderOf<Test>>) -> sp_io::TestEx
 	.unwrap();
 
 	t.into()
-}
-
-#[macro_export]
-macro_rules! tx_assert_ok {
-	($e:expr) => {
-		with_transaction_result(|| -> Result<(), ()> {
-			assert_ok!($e);
-			Ok(())
-		})
-		.unwrap();
-	};
 }

@@ -18,7 +18,7 @@ mod utils;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use codec::{Decode, Encode};
+	use codec::Decode;
 	use frame_support::{
 		dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo, HasCompact},
 		pallet_prelude::*,
@@ -188,7 +188,7 @@ pub mod pallet {
 	}
 
 	/// Round data as served by the `FeedInterface`.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct RoundData<BlockNumber, Value> {
 		pub started_at: BlockNumber,
 		pub answer: Value,
@@ -590,8 +590,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Shortcut for getting account ID
 		fn account_id() -> T::AccountId {
-			<PalletId as AccountIdConversion<T::AccountId>>::try_into_account(&T::PalletId::get())
-				.unwrap()
+			T::PalletId::get().into_account_truncating()
 		}
 
 		/// Get debt by FeedId
@@ -1664,7 +1663,7 @@ pub mod pallet {
 		// --- mutators ---
 
 		/// Add the given oracles to the feed.
-		#[require_transactional]
+		#[transactional]
 		pub fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
 			self.do_add_oracles(to_add)
 		}
@@ -1745,7 +1744,7 @@ pub mod pallet {
 
 		/// Update the configuration for future oracle rounds.
 		/// (Past and present rounds are unaffected.)
-		#[require_transactional]
+		#[transactional]
 		pub fn update_future_rounds(
 			&mut self,
 			payment: BalanceOf<T>,
@@ -1939,7 +1938,7 @@ pub mod pallet {
 		///
 		/// Returns `Ok` on success and `Err` in case the round could not be
 		/// started.
-		#[require_transactional]
+		#[transactional]
 		fn request_new_round(&mut self, requester: T::AccountId) -> DispatchResult {
 			let new_round = self
 				.reporting_round_id()
