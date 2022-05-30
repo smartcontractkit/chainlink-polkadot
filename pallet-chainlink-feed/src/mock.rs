@@ -1,6 +1,9 @@
+use core::convert::{TryFrom, TryInto};
 use frame_support::{
-	pallet_prelude::DispatchResultWithPostInfo, parameter_types, sp_io,
-	sp_runtime::traits::AccountIdConversion, PalletId,
+	pallet_prelude::{ConstU32, DispatchResultWithPostInfo},
+	parameter_types, sp_io,
+	sp_runtime::traits::AccountIdConversion,
+	PalletId,
 };
 use pallet_chainlink_feed::*;
 use sp_core::H256;
@@ -61,6 +64,7 @@ impl system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = ();
+	type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {

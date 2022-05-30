@@ -1,14 +1,12 @@
 use super::*;
 use crate::{mock::*, utils::with_transaction_result, Error};
-use frame_support::traits::ReservableCurrency;
+use core::convert::{TryFrom, TryInto};
 use frame_support::{
 	assert_noop, assert_ok,
-	sp_runtime::traits::AccountIdConversion,
-	sp_runtime::traits::{One, Zero},
-	traits::Currency,
+	sp_runtime::traits::{AccountIdConversion, One, Zero},
+	traits::{Currency, ReservableCurrency},
 };
 use sp_runtime::DispatchError;
-use std::convert::TryInto;
 
 type Balances = pallet_balances::Pallet<Test>;
 

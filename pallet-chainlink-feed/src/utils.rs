@@ -1,31 +1,4 @@
-use frame_support::{
-	sp_runtime::DispatchError,
-	storage::{with_transaction, TransactionOutcome},
-};
 use sp_arithmetic::traits::BaseArithmetic;
-
-/// Execute the supplied function in a new storage transaction.
-///
-/// All changes to storage performed by the supplied function are discarded if
-/// the returned outcome is `Result::Err`.
-///
-/// Transactions can be nested to any depth. Commits happen to the parent
-/// transaction.
-// TODO: remove after move to Substrate v3 (once the semantics of
-// #[transactional] work as intended)
-pub(crate) fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result<R, E>
-where
-	E: From<DispatchError>,
-{
-	with_transaction(|| {
-		let res = f();
-		if res.is_ok() {
-			TransactionOutcome::Commit(res)
-		} else {
-			TransactionOutcome::Rollback(res)
-		}
-	})
-}
 
 /// Determine the median of a slice of values.
 ///
