@@ -1,4 +1,7 @@
-use frame_support::storage::{with_transaction, TransactionOutcome};
+use frame_support::{
+	sp_runtime::DispatchError,
+	storage::{with_transaction, TransactionOutcome},
+};
 use sp_arithmetic::traits::BaseArithmetic;
 
 /// Execute the supplied function in a new storage transaction.
@@ -10,7 +13,10 @@ use sp_arithmetic::traits::BaseArithmetic;
 /// transaction.
 // TODO: remove after move to Substrate v3 (once the semantics of
 // #[transactional] work as intended)
-pub(crate) fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result<R, E> {
+pub(crate) fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result<R, E>
+where
+	E: From<DispatchError>,
+{
 	with_transaction(|| {
 		let res = f();
 		if res.is_ok() {

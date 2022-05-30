@@ -50,7 +50,7 @@ pub mod pallet {
 	pub type RoundId = u32;
 
 	/// The configuration for an oracle feed.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct FeedConfig<
 		AccountId: Parameter,
 		Balance: Parameter,
@@ -109,7 +109,7 @@ pub mod pallet {
 	/// Round data relevant to consumers.
 	/// Will only be constructed once minimum amount of submissions have
 	/// been provided.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Round<BlockNumber, Value> {
 		pub started_at: BlockNumber,
 		pub answer: Option<Value>,
@@ -134,7 +134,7 @@ pub mod pallet {
 	}
 
 	/// Round data relevant to oracles.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct RoundDetails<Balance, BlockNumber, Value> {
 		pub submissions: Vec<Value>,
 		pub submission_count_bounds: (u32, u32),
@@ -146,7 +146,7 @@ pub mod pallet {
 		RoundDetails<BalanceOf<T>, <T as frame_system::Config>::BlockNumber, <T as Config>::Value>;
 
 	/// Meta data tracking withdrawable rewards and admin for an oracle.
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct OracleMeta<AccountId, Balance> {
 		pub withdrawable: Balance,
 		pub admin: AccountId,
@@ -156,7 +156,7 @@ pub mod pallet {
 	pub type OracleMetaOf<T> = OracleMeta<<T as frame_system::Config>::AccountId, BalanceOf<T>>;
 
 	/// Meta data tracking the oracle status for a feed.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct OracleStatus<Value> {
 		pub starting_round: RoundId,
 		pub ending_round: Option<RoundId>,
@@ -184,7 +184,7 @@ pub mod pallet {
 	}
 
 	/// Used to store round requester permissions for accounts.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Requester {
 		pub delay: RoundId,
 		pub last_started_round: Option<RoundId>,
@@ -296,10 +296,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	#[allow(clippy::unused_unit)]
-	pub trait Config: frame_system::Config
-	where
-		<Self as frame_system::Config>::AccountId: Default,
-	{
+	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// Type for feed indexing.
@@ -350,7 +347,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn pallet_admin)]
 	/// The account controlling the funds for this pallet.
-	pub type PalletAdmin<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
+	pub type PalletAdmin<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
 	// possible optimization: put together with admin?
@@ -441,10 +438,7 @@ pub mod pallet {
 	// 	SubmissionBounds = "SubmissionBounds"
 	// )]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
-	pub enum Event<T: Config>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	pub enum Event<T: Config> {
 		/// A new oracle feed was created. \[feed_id, creator\]
 		FeedCreated(T::FeedId, T::AccountId),
 		/// A new round was started. \[new_round_id, initiator, started_at\]
@@ -594,18 +588,13 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> where
-		<T as frame_system::Config>::AccountId: Default
-	{
-	}
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-	impl<T: Config> Pallet<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> Pallet<T> {
 		/// Shortcut for getting account ID
 		fn account_id() -> T::AccountId {
-			T::PalletId::get().into_account()
+			<PalletId as AccountIdConversion<T::AccountId>>::try_into_account(&T::PalletId::get())
+				.unwrap()
 		}
 
 		/// Get debt by FeedId
@@ -1296,7 +1285,10 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
+			ensure!(
+				Some(sender) == Self::pallet_admin(),
+				Error::<T>::NotPalletAdmin
+			);
 			let fund = Self::account_id();
 			let reserve = T::Currency::free_balance(&fund);
 			let new_reserve = reserve
@@ -1321,7 +1313,10 @@ pub mod pallet {
 			amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
+			ensure!(
+				Some(sender) == Self::pallet_admin(),
+				Error::<T>::NotPalletAdmin
+			);
 
 			let mut feed = <Feed<T>>::load_from(feed_id).ok_or(<Error<T>>::FeedNotFound)?;
 
@@ -1366,7 +1361,7 @@ pub mod pallet {
 			let old_admin = ensure_signed(origin)?;
 
 			ensure!(
-				Self::pallet_admin() == old_admin,
+				Self::pallet_admin().as_ref() == Some(&old_admin),
 				Error::<T>::NotPalletAdmin
 			);
 			if old_admin == new_pallet_admin {
@@ -1402,7 +1397,7 @@ pub mod pallet {
 			let old_admin = ensure_signed(origin)?;
 
 			ensure!(
-				Self::pallet_admin() == old_admin,
+				Self::pallet_admin().as_ref() == Some(&old_admin),
 				Error::<T>::NotPalletAdmin
 			);
 
@@ -1446,7 +1441,10 @@ pub mod pallet {
 			new_creator: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let admin = ensure_signed(origin)?;
-			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
+			ensure!(
+				Self::pallet_admin() == Some(admin),
+				Error::<T>::NotPalletAdmin
+			);
 
 			FeedCreators::<T>::insert(&new_creator, ());
 
@@ -1463,7 +1461,10 @@ pub mod pallet {
 			creator: T::AccountId,
 		) -> DispatchResultWithPostInfo {
 			let admin = ensure_signed(origin)?;
-			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
+			ensure!(
+				Self::pallet_admin() == Some(admin),
+				Error::<T>::NotPalletAdmin
+			);
 
 			FeedCreators::<T>::remove(&creator);
 
@@ -1474,10 +1475,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	pub struct GenesisConfig<T: Config>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	pub struct GenesisConfig<T: Config> {
 		pub pallet_admin: Option<T::AccountId>,
 		// accounts configured at genesis to be allowed to create new feeds
 		pub feed_creators: Vec<T::AccountId>,
@@ -1486,14 +1484,8 @@ pub mod pallet {
 	}
 
 	#[cfg(feature = "std")]
-	impl<T: Config> Default for GenesisConfig<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
-		fn default() -> Self
-		where
-			<T as frame_system::Config>::AccountId: Default,
-		{
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
 			Self {
 				pallet_admin: Default::default(),
 				feed_creators: Default::default(),
@@ -1503,10 +1495,7 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
 			if let Some(ref admin) = self.pallet_admin {
 				PalletAdmin::<T>::put(admin);
@@ -1523,10 +1512,7 @@ pub mod pallet {
 	}
 
 	#[cfg(feature = "std")]
-	impl<T: Config> GenesisConfig<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> GenesisConfig<T> {
 		/// Direct implementation of `GenesisBuild::build_storage`.
 		///
 		/// Kept in order not to break dependency.
@@ -1548,19 +1534,13 @@ pub mod pallet {
 	/// Proxy used for interaction with a feed.
 	/// `should_sync` flag determines whether the `config` is put into
 	/// storage on `drop`.
-	pub struct Feed<T: Config>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	pub struct Feed<T: Config> {
 		pub id: T::FeedId,
 		pub config: FeedConfigOf<T>,
 		pub should_sync: bool,
 	}
 
-	impl<T: Config> Feed<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> Feed<T> {
 		// --- constructors ---
 
 		/// Create a new feed with the given id and config.
@@ -1905,15 +1885,12 @@ pub mod pallet {
 
 		/// Store the feed config in storage.
 		fn sync_to_storage(&mut self) {
-			Feeds::<T>::insert(self.id, sp_std::mem::take(&mut self.config));
+			Feeds::<T>::insert(self.id, self.config.clone());
 		}
 	}
 
 	// We want the feed to sync automatically when going out of scope.
-	impl<T: Config> Drop for Feed<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> Drop for Feed<T> {
 		fn drop(&mut self) {
 			if self.should_sync {
 				self.sync_to_storage();
@@ -1921,10 +1898,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> FeedOracle<T> for Pallet<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> FeedOracle<T> for Pallet<T> {
 		type FeedId = T::FeedId;
 		type Feed = Feed<T>;
 		type MutableFeed = Feed<T>;
@@ -1942,10 +1916,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> FeedInterface<T> for Feed<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> FeedInterface<T> for Feed<T> {
 		type Value = T::Value;
 
 		/// Returns the id of the first round that contains non-default data.
@@ -1978,10 +1949,7 @@ pub mod pallet {
 		}
 	}
 
-	impl<T: Config> MutableFeedInterface<T> for Feed<T>
-	where
-		<T as frame_system::Config>::AccountId: Default,
-	{
+	impl<T: Config> MutableFeedInterface<T> for Feed<T> {
 		/// Requests that a new round be started for the feed.
 		///
 		/// Returns `Ok` on success and `Err` in case the round could not be
