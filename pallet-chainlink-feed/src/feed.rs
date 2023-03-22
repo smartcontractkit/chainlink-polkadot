@@ -201,7 +201,7 @@ impl<AccountId, Balance, BlockNumber, Value> Default
 }
 
 pub type FeedBuilderOf<T> = FeedBuilder<
-	<T as frame_system::Config>::AccountId,
+	<T as Config>::AccountAddress,
 	BalanceOf<T>,
 	<T as frame_system::Config>::BlockNumber,
 	<T as Config>::Value,

@@ -6,8 +6,9 @@ use pallet_chainlink_feed::*;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	traits::{BlakeTwo256, ConstU16, ConstU32, ConstU64, IdentityLookup},
 };
+use sp_std::convert::{TryFrom, TryInto};
 
 use frame_system as system;
 
@@ -36,49 +37,53 @@ parameter_types! {
 
 pub(crate) type AccountId = u64;
 pub(crate) type BlockNumber = u64;
+pub(crate) type TestId = [u8; 8];
 
 impl system::Config for Test {
-	type BaseCallFilter = frame_support::traits::AllowAll;
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
-	type Origin = Origin;
-	type Call = Call;
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeCall = RuntimeCall;
 	type Index = u64;
-	type BlockNumber = BlockNumber;
+	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
+	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = Event;
-	type BlockHashCount = BlockHashCount;
+	type RuntimeEvent = RuntimeEvent;
+	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
+	type AccountData = pallet_balances::AccountData<u64>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
-	type SS58Prefix = SS58Prefix;
+	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
+	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
 	pub const ExistentialDeposit: u64 = 1;
 }
 
-type Balance = u64;
-
 impl pallet_balances::Config for Test {
-	type MaxLocks = ();
-	type Balance = Balance;
-	type Event = Event;
+	type Balance = u64;
 	type DustRemoval = ();
+	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+	type MaxLocks = ConstU32<50>;
+	type MaxReserves = ConstU32<2>;
+	type ReserveIdentifier = TestId;
 	type WeightInfo = ();
-	type MaxReserves = ();
-	type ReserveIdentifier = [u8; 8];
+	type HoldIdentifier = TestId;
+	type FreezeIdentifier = TestId;
+	type MaxFreezes = ConstU32<2>;
+	type MaxHolds = ConstU32<2>;
 }
 
 pub(crate) const MIN_RESERVE: u64 = 100;
@@ -101,7 +106,8 @@ impl pallet_chainlink_feed::traits::OnAnswerHandler<Test> for Test {
 }
 
 impl pallet_chainlink_feed::Config for Test {
-	type Event = Event;
+	type AccountAddress = u64;
+	type RuntimeEvent = RuntimeEvent;
 	type FeedId = FeedId;
 	type Value = Value;
 	type Currency = Balances;
@@ -120,7 +126,7 @@ pub trait FeedBuilderExt {
 
 impl FeedBuilderExt for FeedBuilderOf<Test> {
 	fn build_and_store(self) -> DispatchResultWithPostInfo {
-		let owner = Origin::signed(self.owner.unwrap_or(1));
+		let owner = RuntimeOrigin::signed(self.owner.unwrap_or(1));
 		let payment = self.payment.unwrap_or(20);
 		let timeout = self.timeout.unwrap_or(1);
 		let value_bounds = self.value_bounds.unwrap_or((1, 1_000));
@@ -159,7 +165,7 @@ pub fn new_test_ext_with_feeds(feeds: Vec<FeedBuilderOf<Test>>) -> sp_io::TestEx
 		.build_storage::<Test>()
 		.unwrap();
 
-	let pallet_account: AccountId = FeedPalletId::get().into_account();
+	let pallet_account: AccountId = FeedPalletId::get().into_account_truncating();
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(pallet_account, 100 * MIN_RESERVE)],
 	}
@@ -180,7 +186,7 @@ pub fn new_test_ext_with_feeds(feeds: Vec<FeedBuilderOf<Test>>) -> sp_io::TestEx
 #[macro_export]
 macro_rules! tx_assert_ok {
 	($e:expr) => {
-		with_transaction_result(|| -> Result<(), ()> {
+		with_transaction_result(|| -> Result<(), DispatchError> {
 			assert_ok!($e);
 			Ok(())
 		})

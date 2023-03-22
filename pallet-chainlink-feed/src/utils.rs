@@ -10,7 +10,9 @@ use sp_arithmetic::traits::BaseArithmetic;
 /// transaction.
 // TODO: remove after move to Substrate v3 (once the semantics of
 // #[transactional] work as intended)
-pub(crate) fn with_transaction_result<R, E>(f: impl FnOnce() -> Result<R, E>) -> Result<R, E> {
+pub(crate) fn with_transaction_result<R, E: From<sp_runtime::DispatchError>>(
+	f: impl FnOnce() -> Result<R, E>,
+) -> Result<R, E> {
 	with_transaction(|| {
 		let res = f();
 		if res.is_ok() {

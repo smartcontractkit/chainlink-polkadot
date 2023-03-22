@@ -29,134 +29,207 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+// impl crate::WeightInfo for () {
+// 	fn create_feed(o: u32) -> Weight {
+// 		(73_153_000)
+// 			// Standard Error: 233_000
+// 			.saturating_add((25_403_000).saturating_mul(o))
+// 			.saturating_add(DbWeight::get().reads(2))
+// 			.saturating_add(DbWeight::get().reads((2).saturating_mul(o)))
+// 			.saturating_add(DbWeight::get().writes(3))
+// 			.saturating_add(DbWeight::get().writes((2).saturating_mul(o)))
+// 	}
+// 	fn transfer_ownership() -> Weight {
+// 		(35_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn cancel_ownership_transfer() -> Weight {
+// 		(35_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn accept_ownership() -> Weight {
+// 		(35_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn set_pruning_window(o: u32) -> Weight {
+// 		(6_280_000)
+// 			// Standard Error: 22_000
+// 			.saturating_add((5_429_000).saturating_mul(o))
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes((2).saturating_mul(o)))
+// 	}
+// 	fn submit_opening_round_answers() -> Weight {
+// 		(149_000_000)
+// 			.saturating_add(DbWeight::get().reads(6))
+// 			.saturating_add(DbWeight::get().writes(6))
+// 	}
+// 	fn submit_closing_answer(_o: u32) -> Weight {
+// 		(123_300_000)
+// 			.saturating_add(DbWeight::get().reads(7))
+// 			.saturating_add(DbWeight::get().writes(6))
+// 	}
+// 	fn change_oracles(d: u32, n: u32) -> Weight {
+// 		(0)
+// 			// Standard Error: 272_000
+// 			.saturating_add((23_471_000).saturating_mul(d))
+// 			// Standard Error: 272_000
+// 			.saturating_add((28_220_000).saturating_mul(n))
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().reads((1).saturating_mul(d)))
+// 			.saturating_add(DbWeight::get().reads((2).saturating_mul(n)))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 			.saturating_add(DbWeight::get().writes((1).saturating_mul(d)))
+// 			.saturating_add(DbWeight::get().writes((2).saturating_mul(n)))
+// 	}
+// 	fn update_future_rounds() -> Weight {
+// 		(34_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn set_requester() -> Weight {
+// 		(38_000_000)
+// 			.saturating_add(DbWeight::get().reads(2))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn remove_requester() -> Weight {
+// 		(37_000_000)
+// 			.saturating_add(DbWeight::get().reads(2))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn request_new_round() -> Weight {
+// 		(76_000_000)
+// 			.saturating_add(DbWeight::get().reads(4))
+// 			.saturating_add(DbWeight::get().writes(4))
+// 	}
+// 	fn withdraw_payment() -> Weight {
+// 		(111_000_000)
+// 			.saturating_add(DbWeight::get().reads(3))
+// 			.saturating_add(DbWeight::get().writes(3))
+// 	}
+// 	fn transfer_admin() -> Weight {
+// 		(30_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn cancel_admin_transfer() -> Weight {
+// 		(30_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn accept_admin() -> Weight {
+// 		(30_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn withdraw_funds() -> Weight {
+// 		(79_000_000)
+// 			.saturating_add(DbWeight::get().reads(3))
+// 			.saturating_add(DbWeight::get().writes(2))
+// 	}
+// 	fn reduce_debt() -> Weight {
+// 		(50_000_000)
+// 			.saturating_add(DbWeight::get().reads(2))
+// 			.saturating_add(DbWeight::get().writes(2))
+// 	}
+// 	fn transfer_pallet_admin() -> Weight {
+// 		(30_000_000)
+// 			.saturating_add(DbWeight::get().reads(2))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn cancel_pallet_admin_transfer() -> Weight {
+// 		(29_000_000)
+// 			.saturating_add(DbWeight::get().reads(2))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn accept_pallet_admin() -> Weight {
+// 		(29_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(2))
+// 	}
+// 	fn set_feed_creator() -> Weight {
+// 		(27_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// 	fn remove_feed_creator() -> Weight {
+// 		(27_000_000)
+// 			.saturating_add(DbWeight::get().reads(1))
+// 			.saturating_add(DbWeight::get().writes(1))
+// 	}
+// }
+
+/// Trait for the chainlink pallet extrinsic weights.
 impl crate::WeightInfo for () {
-	fn create_feed(o: u32) -> Weight {
-		(73_153_000 as Weight)
-			// Standard Error: 233_000
-			.saturating_add((25_403_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+	fn create_feed(_o: u32) -> Weight {
+		Default::default()
 	}
 	fn transfer_ownership() -> Weight {
-		(35_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn cancel_ownership_transfer() -> Weight {
-		(35_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn accept_ownership() -> Weight {
-		(35_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
-	fn set_pruning_window(o: u32) -> Weight {
-		(6_280_000 as Weight)
-			// Standard Error: 22_000
-			.saturating_add((5_429_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+	fn set_pruning_window(_n: u32) -> Weight {
+		Default::default()
 	}
 	fn submit_opening_round_answers() -> Weight {
-		(149_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(6 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
+		Default::default()
 	}
 	fn submit_closing_answer(_o: u32) -> Weight {
-		(123_300_000 as Weight)
-			.saturating_add(DbWeight::get().reads(7 as Weight))
-			.saturating_add(DbWeight::get().writes(6 as Weight))
+		Default::default()
 	}
-	fn change_oracles(d: u32, n: u32) -> Weight {
-		(0 as Weight)
-			// Standard Error: 272_000
-			.saturating_add((23_471_000 as Weight).saturating_mul(d as Weight))
-			// Standard Error: 272_000
-			.saturating_add((28_220_000 as Weight).saturating_mul(n as Weight))
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(d as Weight)))
-			.saturating_add(DbWeight::get().reads((2 as Weight).saturating_mul(n as Weight)))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(d as Weight)))
-			.saturating_add(DbWeight::get().writes((2 as Weight).saturating_mul(n as Weight)))
+	fn change_oracles(_d: u32, _n: u32) -> Weight {
+		Default::default()
 	}
 	fn update_future_rounds() -> Weight {
-		(34_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn set_requester() -> Weight {
-		(38_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn remove_requester() -> Weight {
-		(37_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn request_new_round() -> Weight {
-		(76_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(4 as Weight))
-			.saturating_add(DbWeight::get().writes(4 as Weight))
+		Default::default()
 	}
 	fn withdraw_payment() -> Weight {
-		(111_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(3 as Weight))
+		Default::default()
 	}
 	fn transfer_admin() -> Weight {
-		(30_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn cancel_admin_transfer() -> Weight {
-		(30_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn accept_admin() -> Weight {
-		(30_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn withdraw_funds() -> Weight {
-		(79_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(3 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
+		Default::default()
 	}
 	fn reduce_debt() -> Weight {
-		(50_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
+		Default::default()
 	}
 	fn transfer_pallet_admin() -> Weight {
-		(30_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn cancel_pallet_admin_transfer() -> Weight {
-		(29_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(2 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn accept_pallet_admin() -> Weight {
-		(29_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(2 as Weight))
+		Default::default()
 	}
 	fn set_feed_creator() -> Weight {
-		(27_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 	fn remove_feed_creator() -> Weight {
-		(27_000_000 as Weight)
-			.saturating_add(DbWeight::get().reads(1 as Weight))
-			.saturating_add(DbWeight::get().writes(1 as Weight))
+		Default::default()
 	}
 }

@@ -29,6 +29,7 @@ pub mod pallet {
 		BoundedVec, PalletId, Parameter,
 	};
 	use frame_system::{ensure_signed, pallet_prelude::*};
+	use scale_info::TypeInfo;
 	use sp_arithmetic::traits::BaseArithmetic;
 	use sp_runtime::traits::{
 		AccountIdConversion, CheckedAdd, CheckedSub, Member, One, Saturating, Zero,
@@ -50,7 +51,7 @@ pub mod pallet {
 	pub type RoundId = u32;
 
 	/// The configuration for an oracle feed.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct FeedConfig<
 		AccountId: Parameter,
 		Balance: Parameter,
@@ -99,7 +100,7 @@ pub mod pallet {
 	}
 
 	pub type FeedConfigOf<T> = FeedConfig<
-		<T as frame_system::Config>::AccountId,
+		<T as Config>::AccountAddress,
 		BalanceOf<T>,
 		<T as frame_system::Config>::BlockNumber,
 		<T as Config>::Value,
@@ -109,7 +110,7 @@ pub mod pallet {
 	/// Round data relevant to consumers.
 	/// Will only be constructed once minimum amount of submissions have
 	/// been provided.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Round<BlockNumber, Value> {
 		pub started_at: BlockNumber,
 		pub answer: Option<Value>,
@@ -134,7 +135,7 @@ pub mod pallet {
 	}
 
 	/// Round data relevant to oracles.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct RoundDetails<Balance, BlockNumber, Value> {
 		pub submissions: Vec<Value>,
 		pub submission_count_bounds: (u32, u32),
@@ -146,17 +147,17 @@ pub mod pallet {
 		RoundDetails<BalanceOf<T>, <T as frame_system::Config>::BlockNumber, <T as Config>::Value>;
 
 	/// Meta data tracking withdrawable rewards and admin for an oracle.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct OracleMeta<AccountId, Balance> {
 		pub withdrawable: Balance,
 		pub admin: AccountId,
 		pub pending_admin: Option<AccountId>,
 	}
 
-	pub type OracleMetaOf<T> = OracleMeta<<T as frame_system::Config>::AccountId, BalanceOf<T>>;
+	pub type OracleMetaOf<T> = OracleMeta<<T as Config>::AccountAddress, BalanceOf<T>>;
 
 	/// Meta data tracking the oracle status for a feed.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct OracleStatus<Value> {
 		pub starting_round: RoundId,
 		pub ending_round: Option<RoundId>,
@@ -184,14 +185,14 @@ pub mod pallet {
 	}
 
 	/// Used to store round requester permissions for accounts.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct Requester {
 		pub delay: RoundId,
 		pub last_started_round: Option<RoundId>,
 	}
 
 	/// Round data as served by the `FeedInterface`.
-	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Default, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub struct RoundData<BlockNumber, Value> {
 		pub started_at: BlockNumber,
 		pub answer: Value,
@@ -203,7 +204,7 @@ pub mod pallet {
 		RoundData<<T as frame_system::Config>::BlockNumber, <T as Config>::Value>;
 
 	/// Possible error when converting from `Round` to `RoundData`.
-	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug)]
+	#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
 	pub enum RoundConversionError {
 		MissingField,
 	}
@@ -297,10 +298,20 @@ pub mod pallet {
 	#[pallet::config]
 	#[allow(clippy::unused_unit)]
 	pub trait Config: frame_system::Config {
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Type for feed indexing.
 		type FeedId: Member + Parameter + Default + Copy + HasCompact + BaseArithmetic;
+
+		// TODO: remove this after refactoring storage of AccountId.
+		type AccountAddress: From<<Self as frame_system::Config>::AccountId>
+			+ Into<<Self as frame_system::Config>::AccountId>
+			+ Default
+			+ Parameter
+			+ Member
+			+ MaybeSerializeDeserialize
+			+ core::fmt::Debug
+			+ Ord;
 
 		/// Oracle feed values.
 		type Value: Member
@@ -340,18 +351,18 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
 	#[pallet::getter(fn pallet_admin)]
 	/// The account controlling the funds for this pallet.
-	pub type PalletAdmin<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
+	pub type PalletAdmin<T: Config> = StorageValue<_, T::AccountAddress, ValueQuery>;
 
 	#[pallet::storage]
 	// possible optimization: put together with admin?
 	/// The account to set as future pallet admin.
-	pub type PendingPalletAdmin<T: Config> = StorageValue<_, T::AccountId>;
+	pub type PendingPalletAdmin<T: Config> = StorageValue<_, T::AccountAddress>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn feed_counter)]
@@ -367,7 +378,7 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Accounts allowed to create feeds.
 	pub type FeedCreators<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, (), OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountAddress, (), OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn round)]
@@ -399,7 +410,7 @@ pub mod pallet {
 	#[pallet::getter(fn oracle)]
 	/// Global oracle meta data including admin and withdrawable funds.
 	pub type Oracles<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, OracleMetaOf<T>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountAddress, OracleMetaOf<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn oracle_status)]
@@ -409,7 +420,7 @@ pub mod pallet {
 		Twox64Concat,
 		T::FeedId,
 		Blake2_128Concat,
-		T::AccountId,
+		T::AccountAddress,
 		OracleStatusOf<T>,
 		OptionQuery,
 	>;
@@ -422,28 +433,20 @@ pub mod pallet {
 		Twox64Concat,
 		T::FeedId,
 		Blake2_128Concat,
-		T::AccountId,
+		T::AccountAddress,
 		Requester,
 		OptionQuery,
 	>;
 
 	#[pallet::event]
-	#[pallet::metadata(
-		T::AccountId = "AccountId",
-		T::FeedId = "FeedId",
-		T::BlockNumber = "BlockNumber",
-		T::Value = "Value",
-		RoundId = "RoundId",
-		SubmissionBounds = "SubmissionBounds"
-	)]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new oracle feed was created. \[feed_id, creator\]
-		FeedCreated(T::FeedId, T::AccountId),
+		FeedCreated(T::FeedId, T::AccountAddress),
 		/// A new round was started. \[new_round_id, initiator, started_at\]
-		NewRound(T::FeedId, RoundId, T::AccountId, T::BlockNumber),
+		NewRound(T::FeedId, RoundId, T::AccountAddress, T::BlockNumber),
 		/// A submission was recorded. \[feed_id, round_id, submission, oracle\]
-		SubmissionReceived(T::FeedId, RoundId, T::Value, T::AccountId),
+		SubmissionReceived(T::FeedId, RoundId, T::Value, T::AccountAddress),
 		/// The answer for the round was updated. \[feed_id, round_id,
 		/// new_answer, updated_at_block\]
 		AnswerUpdated(T::FeedId, RoundId, T::Value, T::BlockNumber),
@@ -458,39 +461,39 @@ pub mod pallet {
 		),
 		/// An admin change was requested for the given oracle. \[oracle, admin,
 		/// pending_admin\]
-		OracleAdminUpdateRequested(T::AccountId, T::AccountId, T::AccountId),
+		OracleAdminUpdateRequested(T::AccountAddress, T::AccountAddress, T::AccountAddress),
 		/// An initiated admin change was canceled for the given oracle by the
 		/// current admin. \[oracle, admin, pending_admin\]
-		OracleAdminUpdateCanceled(T::AccountId, T::AccountId, T::AccountId),
+		OracleAdminUpdateCanceled(T::AccountAddress, T::AccountAddress, T::AccountAddress),
 		/// The admin change was executed. \[oracle, new_admin\]
-		OracleAdminUpdated(T::AccountId, T::AccountId),
+		OracleAdminUpdated(T::AccountAddress, T::AccountAddress),
 		/// The submission permissions for the given feed and oracle have been
 		/// updated. \[feed, oracle, enabled\]
-		OraclePermissionsUpdated(T::FeedId, T::AccountId, bool),
+		OraclePermissionsUpdated(T::FeedId, T::AccountAddress, bool),
 		/// The requester permissions have been updated (set or removed).
 		/// \[feed, requester, authorized, delays\]
-		RequesterPermissionsSet(T::FeedId, T::AccountId, bool, RoundId),
+		RequesterPermissionsSet(T::FeedId, T::AccountAddress, bool, RoundId),
 		/// An owner change was requested for the given feed. \[feed, old_owner,
 		/// new_owner\]
-		OwnerUpdateRequested(T::FeedId, T::AccountId, T::AccountId),
+		OwnerUpdateRequested(T::FeedId, T::AccountAddress, T::AccountAddress),
 		/// An initiated owner change was canceled for the given feed by the
 		/// current owner. \[feed, old_owner, pending_owner\]
-		OwnerUpdateCanceled(T::FeedId, T::AccountId, T::AccountId),
+		OwnerUpdateCanceled(T::FeedId, T::AccountAddress, T::AccountAddress),
 		/// The owner change was executed. \[feed, new_owner\]
-		OwnerUpdated(T::FeedId, T::AccountId),
+		OwnerUpdated(T::FeedId, T::AccountAddress),
 		/// A pallet admin change was requested. \[old_pallet_admin,
 		/// new_pallet_admin\]
-		PalletAdminUpdateRequested(T::AccountId, T::AccountId),
+		PalletAdminUpdateRequested(T::AccountAddress, T::AccountAddress),
 		/// An initiated pallet admin change was canceled by the current admin.
 		/// \[old_pallet_admin, new_pallet_admin\]
-		PalletAdminUpdateCanceled(T::AccountId, T::AccountId),
+		PalletAdminUpdateCanceled(T::AccountAddress, T::AccountAddress),
 		/// The pallet admin change was executed. \[new_admin\]
-		PalletAdminUpdated(T::AccountId),
+		PalletAdminUpdated(T::AccountAddress),
 		/// The account is allowed to create feeds. \[new_creator\]
-		FeedCreator(T::AccountId),
+		FeedCreator(T::AccountAddress),
 		/// The account is no longer allowed to create feeds.
 		/// \[previously_creator\]
-		FeedCreatorRemoved(T::AccountId),
+		FeedCreatorRemoved(T::AccountAddress),
 		#[cfg(test)]
 		/// New round data
 		///
@@ -591,8 +594,9 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		/// Shortcut for getting account ID
-		fn account_id() -> T::AccountId {
-			T::PalletId::get().into_account()
+		fn account_id() -> T::AccountAddress {
+			let account_id: T::AccountId = T::PalletId::get().into_account_truncating();
+			account_id.into()
 		}
 
 		/// Get debt by FeedId
@@ -607,7 +611,7 @@ pub mod pallet {
 		/// Initialize the feed and write to storage
 		fn do_create_feed(
 			new_config: FeedConfigOf<T>,
-			oracles: Vec<(T::AccountId, T::AccountId)>,
+			oracles: Vec<(T::AccountAddress, T::AccountAddress)>,
 		) -> Result<T::FeedId, DispatchError> {
 			let id: T::FeedId = FeedCounter::<T>::get();
 			ensure!(id < T::FeedLimit::get(), Error::<T>::FeedLimitReached);
@@ -695,6 +699,7 @@ pub mod pallet {
 		///
 		/// Emits `FeedCreated` event when successful.
 		#[pallet::weight(T::WeightInfo::create_feed(oracles.len() as u32))]
+		#[pallet::call_index(0)]
 		#[allow(clippy::too_many_arguments)]
 		pub fn create_feed(
 			origin: OriginFor<T>,
@@ -705,11 +710,11 @@ pub mod pallet {
 			decimals: u8,
 			description: Vec<u8>,
 			restart_delay: u32,
-			oracles: Vec<(T::AccountId, T::AccountId)>,
+			oracles: Vec<(T::AccountAddress, T::AccountAddress)>,
 			pruning_window: Option<u32>,
 			max_debt: Option<BalanceOf<T>>,
 		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
+			let owner: T::AccountAddress = ensure_signed(origin)?.into();
 			ensure!(
 				FeedCreators::<T>::contains_key(&owner),
 				Error::<T>::NotFeedCreator
@@ -765,12 +770,13 @@ pub mod pallet {
 		/// This is a noop if the requested `new_owner` is the sender itself
 		/// and the sender is already the owner.
 		#[pallet::weight(T::WeightInfo::transfer_ownership())]
+		#[pallet::call_index(1)]
 		pub fn transfer_ownership(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
-			new_owner: T::AccountId,
+			new_owner: T::AccountAddress,
 		) -> DispatchResultWithPostInfo {
-			let old_owner = ensure_signed(origin)?;
+			let old_owner = ensure_signed(origin)?.into();
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == old_owner, Error::<T>::NotFeedOwner);
 			if old_owner == new_owner {
@@ -799,11 +805,12 @@ pub mod pallet {
 		/// This will fail if the `pending_owner` already accepted the transfer
 		/// with `accept_ownership`..
 		#[pallet::weight(T::WeightInfo::cancel_ownership_transfer())]
+		#[pallet::call_index(2)]
 		pub fn cancel_ownership_transfer(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
 		) -> DispatchResult {
-			let old_owner = ensure_signed(origin)?;
+			let old_owner = ensure_signed(origin)?.into();
 			let mut feed = Self::feed_mut(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.config.owner == old_owner, Error::<T>::NotFeedOwner);
 			if let Some(pending_owner) = feed.config.pending_owner.take() {
@@ -820,11 +827,12 @@ pub mod pallet {
 
 		/// Accept the transfer of feed ownership.
 		#[pallet::weight(T::WeightInfo::accept_ownership())]
+		#[pallet::call_index(3)]
 		pub fn accept_ownership(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
 		) -> DispatchResultWithPostInfo {
-			let new_owner = ensure_signed(origin)?;
+			let new_owner = ensure_signed(origin)?.into();
 			let mut feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 
 			ensure!(
@@ -846,12 +854,13 @@ pub mod pallet {
 		/// - Will prune rounds if the given window is smaller than the existing
 		///   one.
 		#[pallet::weight(T::WeightInfo::set_pruning_window(Feed::<T>::load_from(*feed_id).map(|feed|feed.current_window()).unwrap_or_default().saturating_sub(*pruning_window)))]
+		#[pallet::call_index(4)]
 		pub fn set_pruning_window(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
 			pruning_window: u32,
 		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?.into();
 			ensure!(pruning_window > 0, Error::<T>::CannotPruneRoundZero);
 
 			let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
@@ -881,13 +890,14 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::submit_opening_round_answers().max(
 		T::WeightInfo::submit_closing_answer(T::OracleCountLimit::get())
 		))]
+		#[pallet::call_index(5)]
 		pub fn submit(
 			origin: OriginFor<T>,
 			#[pallet::compact] feed_id: T::FeedId,
 			#[pallet::compact] round_id: RoundId,
 			#[pallet::compact] submission: T::Value,
 		) -> DispatchResultWithPostInfo {
-			let oracle = ensure_signed(origin)?;
+			let oracle = ensure_signed(origin)?.into();
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
@@ -979,7 +989,7 @@ pub mod pallet {
 				// update oracle rewards and try to reserve them
 				let payment = details.payment;
 				// track the debt in case we cannot reserve
-				T::Currency::reserve(&Self::account_id(), payment).or_else(
+				T::Currency::reserve(&Self::account_id().into(), payment).or_else(
 					|_| -> DispatchResult {
 						// track the debt in case we cannot reserve
 						let mut new_debt = feed.config.debt;
@@ -1013,13 +1023,14 @@ pub mod pallet {
 		/// Disable and add oracles for the given feed.
 		/// Limited to the owner of a feed.
 		#[pallet::weight(T::WeightInfo::change_oracles(to_disable.len() as u32, to_add.len() as u32))]
+		#[pallet::call_index(6)]
 		pub fn change_oracles(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
-			to_disable: Vec<T::AccountId>,
-			to_add: Vec<(T::AccountId, T::AccountId)>,
+			to_disable: Vec<T::AccountAddress>,
+			to_add: Vec<(T::AccountAddress, T::AccountAddress)>,
 		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?.into();
 
 			with_transaction_result(|| -> DispatchResultWithPostInfo {
 				// synced on drop
@@ -1035,6 +1046,7 @@ pub mod pallet {
 		/// Update the configuration for future oracle rounds.
 		/// Limited to the owner of a feed.
 		#[pallet::weight(T::WeightInfo::update_future_rounds())]
+		#[pallet::call_index(7)]
 		pub fn update_future_rounds(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
@@ -1043,7 +1055,7 @@ pub mod pallet {
 			restart_delay: u32,
 			timeout: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?.into();
 			with_transaction_result(|| {
 				// synced on drop
 				let mut feed = Feed::<T>::load_from(feed_id).ok_or(Error::<T>::FeedNotFound)?;
@@ -1065,13 +1077,14 @@ pub mod pallet {
 		/// Set requester permissions for `requester`.
 		/// Limited to the feed owner.
 		#[pallet::weight(T::WeightInfo::set_requester())]
+		#[pallet::call_index(8)]
 		pub fn set_requester(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
-			requester: T::AccountId,
+			requester: T::AccountAddress,
 			delay: RoundId,
 		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?.into();
 			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 
@@ -1090,12 +1103,13 @@ pub mod pallet {
 		/// Remove requester permissions for `requester`.
 		/// Limited to the feed owner.
 		#[pallet::weight(T::WeightInfo::remove_requester())]
+		#[pallet::call_index(9)]
 		pub fn remove_requester(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
-			requester: T::AccountId,
+			requester: T::AccountAddress,
 		) -> DispatchResultWithPostInfo {
-			let owner = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?.into();
 			let feed = Self::feed_config(feed_id).ok_or(Error::<T>::FeedNotFound)?;
 			ensure!(feed.owner == owner, Error::<T>::NotFeedOwner);
 
@@ -1115,11 +1129,12 @@ pub mod pallet {
 		/// Request the start of a new oracle round.
 		/// Limited to accounts with "requester" permission.
 		#[pallet::weight(T::WeightInfo::request_new_round())]
+		#[pallet::call_index(10)]
 		pub fn request_new_round(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
 		) -> DispatchResultWithPostInfo {
-			let sender = ensure_signed(origin)?;
+			let sender: T::AccountAddress = ensure_signed(origin)?.into();
 			let mut requester =
 				Self::requester(feed_id, &sender).ok_or(Error::<T>::NotAuthorizedRequester)?;
 
@@ -1142,7 +1157,7 @@ pub mod pallet {
 				requester.last_started_round = Some(new_round);
 				Requesters::<T>::insert(feed_id, &sender, requester);
 
-				feed.request_new_round(sender)?;
+				feed.request_new_round(sender.into())?;
 
 				Ok(().into())
 			})
@@ -1153,14 +1168,15 @@ pub mod pallet {
 		/// Withdraw `amount` payment of the given oracle to `recipient`.
 		/// Limited to the oracle admin.
 		#[pallet::weight(T::WeightInfo::withdraw_payment())]
+		#[pallet::call_index(11)]
 		#[transactional]
 		pub fn withdraw_payment(
 			origin: OriginFor<T>,
-			oracle: T::AccountId,
-			recipient: T::AccountId,
+			oracle: T::AccountAddress,
+			recipient: T::AccountAddress,
 			amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let admin = ensure_signed(origin)?;
+			let admin: T::AccountAddress = ensure_signed(origin)?.into();
 			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 			ensure!(oracle_meta.admin == admin, Error::<T>::NotAdmin);
 
@@ -1169,14 +1185,19 @@ pub mod pallet {
 				.checked_sub(&amount)
 				.ok_or(Error::<T>::InsufficientFunds)?;
 
-			let fund = Self::account_id();
+			let fund = Self::account_id().into();
 			ensure!(
 				T::Currency::reserved_balance(&fund) >= amount,
 				Error::<T>::InsufficientReserve
 			);
 			T::Currency::unreserve(&fund, amount);
 
-			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
+			T::Currency::transfer(
+				&fund,
+				&recipient.into(),
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
 			Oracles::<T>::insert(&oracle, oracle_meta);
 
 			Ok(().into())
@@ -1188,12 +1209,13 @@ pub mod pallet {
 		/// This is a noop if the requested `new_admin` is the sender itself
 		/// and the sender is already the oracle admin.
 		#[pallet::weight(T::WeightInfo::transfer_admin())]
+		#[pallet::call_index(12)]
 		pub fn transfer_admin(
 			origin: OriginFor<T>,
-			oracle: T::AccountId,
-			new_admin: T::AccountId,
+			oracle: T::AccountAddress,
+			new_admin: T::AccountAddress,
 		) -> DispatchResultWithPostInfo {
-			let old_admin = ensure_signed(origin)?;
+			let old_admin = ensure_signed(origin)?.into();
 			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 
 			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
@@ -1226,8 +1248,12 @@ pub mod pallet {
 		/// This will fail if the `pending_admin` already accepted the transfer
 		/// with `accept_admin`..
 		#[pallet::weight(T::WeightInfo::cancel_admin_transfer())]
-		pub fn cancel_admin_transfer(origin: OriginFor<T>, oracle: T::AccountId) -> DispatchResult {
-			let old_admin = ensure_signed(origin)?;
+		#[pallet::call_index(13)]
+		pub fn cancel_admin_transfer(
+			origin: OriginFor<T>,
+			oracle: T::AccountAddress,
+		) -> DispatchResult {
+			let old_admin = ensure_signed(origin)?.into();
 			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 
 			ensure!(oracle_meta.admin == old_admin, Error::<T>::NotAdmin);
@@ -1248,11 +1274,12 @@ pub mod pallet {
 		/// Complete an admin transfer for the given oracle.
 		/// Limited to the pending oracle admin account.
 		#[pallet::weight(T::WeightInfo::accept_admin())]
+		#[pallet::call_index(14)]
 		pub fn accept_admin(
 			origin: OriginFor<T>,
-			oracle: T::AccountId,
+			oracle: T::AccountAddress,
 		) -> DispatchResultWithPostInfo {
-			let new_admin = ensure_signed(origin)?;
+			let new_admin = ensure_signed(origin)?.into();
 			let mut oracle_meta = Self::oracle(&oracle).ok_or(Error::<T>::OracleNotFound)?;
 
 			ensure!(
@@ -1277,14 +1304,15 @@ pub mod pallet {
 		/// Withdraw `amount` funds to `recipient`.
 		/// Limited to the pallet admin.
 		#[pallet::weight(T::WeightInfo::withdraw_funds())]
+		#[pallet::call_index(15)]
 		pub fn withdraw_funds(
 			origin: OriginFor<T>,
-			recipient: T::AccountId,
+			recipient: T::AccountAddress,
 			amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let sender = ensure_signed(origin)?;
+			let sender: T::AccountAddress = ensure_signed(origin)?.into();
 			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
-			let fund = Self::account_id();
+			let fund = Self::account_id().into();
 			let reserve = T::Currency::free_balance(&fund);
 			let new_reserve = reserve
 				.checked_sub(&amount)
@@ -1293,7 +1321,12 @@ pub mod pallet {
 				new_reserve >= T::MinimumReserve::get(),
 				Error::<T>::InsufficientReserve
 			);
-			T::Currency::transfer(&fund, &recipient, amount, ExistenceRequirement::KeepAlive)?;
+			T::Currency::transfer(
+				&fund,
+				&recipient.into(),
+				amount,
+				ExistenceRequirement::KeepAlive,
+			)?;
 
 			Ok(().into())
 		}
@@ -1302,18 +1335,19 @@ pub mod pallet {
 		/// the free balance to the reserved so oracles can be payed out.
 		/// Limited to the pallet admin.
 		#[pallet::weight(T::WeightInfo::reduce_debt())]
+		#[pallet::call_index(16)]
 		pub fn reduce_debt(
 			origin: OriginFor<T>,
 			feed_id: T::FeedId,
 			amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let sender = ensure_signed(origin)?;
+			let sender: T::AccountAddress = ensure_signed(origin)?.into();
 			ensure!(sender == Self::pallet_admin(), Error::<T>::NotPalletAdmin);
 
 			let mut feed = <Feed<T>>::load_from(feed_id).ok_or(<Error<T>>::FeedNotFound)?;
 
 			let to_reserve = amount.min(feed.config.debt);
-			T::Currency::reserve(&Self::account_id(), to_reserve)?;
+			T::Currency::reserve(&Self::account_id().into(), to_reserve)?;
 			// it's fine if we saturate to 0 debt
 			feed.config.debt = feed.config.debt.saturating_sub(amount);
 
@@ -1328,9 +1362,10 @@ pub mod pallet {
 		/// required to accept the transfer, instead the `PalletAdmin` is
 		/// forcibly set and the eventual pending transfer is aborted.
 		#[pallet::weight(T::DbWeight::get().writes(2))]
+		#[pallet::call_index(17)]
 		pub fn force_set_pallet_admin(
 			origin: OriginFor<T>,
-			new_pallet_admin: T::AccountId,
+			new_pallet_admin: T::AccountAddress,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			PendingPalletAdmin::<T>::kill();
@@ -1346,11 +1381,12 @@ pub mod pallet {
 		/// This is a noop if the requested `new_pallet_admin` is the sender
 		/// itself and the sender is already the pallet admin.
 		#[pallet::weight(T::WeightInfo::transfer_pallet_admin())]
+		#[pallet::call_index(18)]
 		pub fn transfer_pallet_admin(
 			origin: OriginFor<T>,
-			new_pallet_admin: T::AccountId,
+			new_pallet_admin: T::AccountAddress,
 		) -> DispatchResultWithPostInfo {
-			let old_admin = ensure_signed(origin)?;
+			let old_admin = ensure_signed(origin)?.into();
 
 			ensure!(
 				Self::pallet_admin() == old_admin,
@@ -1385,8 +1421,9 @@ pub mod pallet {
 		/// This will fail if the `PendingPalletAdmin` already accepted the
 		/// transfer with `accept_pallet_admin`.
 		#[pallet::weight(T::WeightInfo::cancel_pallet_admin_transfer())]
+		#[pallet::call_index(19)]
 		pub fn cancel_pallet_admin_transfer(origin: OriginFor<T>) -> DispatchResult {
-			let old_admin = ensure_signed(origin)?;
+			let old_admin = ensure_signed(origin)?.into();
 
 			ensure!(
 				Self::pallet_admin() == old_admin,
@@ -1407,8 +1444,9 @@ pub mod pallet {
 		/// Complete an admin transfer for the pallet.
 		/// Limited to the pending pallet admin account.
 		#[pallet::weight(T::WeightInfo::accept_pallet_admin())]
+		#[pallet::call_index(20)]
 		pub fn accept_pallet_admin(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let new_pallet_admin = ensure_signed(origin)?;
+			let new_pallet_admin = ensure_signed(origin)?.into();
 
 			ensure!(
 				PendingPalletAdmin::<T>::get()
@@ -1428,12 +1466,16 @@ pub mod pallet {
 		/// Allow the given account to create oracle feeds.
 		/// Limited to the pallet admin account.
 		#[pallet::weight(T::WeightInfo::set_feed_creator())]
+		#[pallet::call_index(21)]
 		pub fn set_feed_creator(
 			origin: OriginFor<T>,
-			new_creator: T::AccountId,
+			new_creator: T::AccountAddress,
 		) -> DispatchResultWithPostInfo {
 			let admin = ensure_signed(origin)?;
-			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
+			ensure!(
+				Self::pallet_admin() == admin.into(),
+				Error::<T>::NotPalletAdmin
+			);
 
 			FeedCreators::<T>::insert(&new_creator, ());
 
@@ -1445,12 +1487,16 @@ pub mod pallet {
 		/// Disallow the given account to create oracle feeds.
 		/// Limited to the pallet admin account.
 		#[pallet::weight(T::WeightInfo::remove_feed_creator())]
+		#[pallet::call_index(22)]
 		pub fn remove_feed_creator(
 			origin: OriginFor<T>,
-			creator: T::AccountId,
+			creator: T::AccountAddress,
 		) -> DispatchResultWithPostInfo {
 			let admin = ensure_signed(origin)?;
-			ensure!(Self::pallet_admin() == admin, Error::<T>::NotPalletAdmin);
+			ensure!(
+				Self::pallet_admin() == admin.into(),
+				Error::<T>::NotPalletAdmin
+			);
 
 			FeedCreators::<T>::remove(&creator);
 
@@ -1462,9 +1508,9 @@ pub mod pallet {
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
-		pub pallet_admin: Option<T::AccountId>,
+		pub pallet_admin: Option<T::AccountAddress>,
 		// accounts configured at genesis to be allowed to create new feeds
-		pub feed_creators: Vec<T::AccountId>,
+		pub feed_creators: Vec<T::AccountAddress>,
 		// All feeds that should be created on genesis
 		pub feeds: Vec<FeedBuilderOf<T>>,
 	}
@@ -1580,7 +1626,7 @@ pub mod pallet {
 		}
 
 		/// Return the oracle status associated with this feed.
-		fn status(&self, oracle: &T::AccountId) -> Option<OracleStatusOf<T>> {
+		fn status(&self, oracle: &T::AccountAddress) -> Option<OracleStatusOf<T>> {
 			OracleStatuses::<T>::get(self.id, oracle)
 		}
 
@@ -1592,13 +1638,17 @@ pub mod pallet {
 		// --- checks ---
 
 		/// Make sure that the given account is the owner of the feed.
-		fn ensure_owner(&self, owner: &T::AccountId) -> DispatchResult {
+		fn ensure_owner(&self, owner: &T::AccountAddress) -> DispatchResult {
 			ensure!(&self.config.owner == owner, Error::<T>::NotFeedOwner);
 			Ok(())
 		}
 
 		/// Make sure that the given oracle can submit data for the given round.
-		fn ensure_valid_round(&self, oracle: &T::AccountId, round_id: RoundId) -> DispatchResult {
+		fn ensure_valid_round(
+			&self,
+			oracle: &T::AccountAddress,
+			round_id: RoundId,
+		) -> DispatchResult {
 			let o = self.status(oracle).ok_or(Error::<T>::NotOracle)?;
 
 			ensure!(o.starting_round <= round_id, Error::<T>::OracleNotEnabled);
@@ -1666,11 +1716,17 @@ pub mod pallet {
 
 		/// Add the given oracles to the feed.
 		#[require_transactional]
-		pub fn add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
+		pub fn add_oracles(
+			&mut self,
+			to_add: Vec<(T::AccountAddress, T::AccountAddress)>,
+		) -> DispatchResult {
 			self.do_add_oracles(to_add)
 		}
 
-		fn do_add_oracles(&mut self, to_add: Vec<(T::AccountId, T::AccountId)>) -> DispatchResult {
+		fn do_add_oracles(
+			&mut self,
+			to_add: Vec<(T::AccountAddress, T::AccountAddress)>,
+		) -> DispatchResult {
 			let new_count = self
 				.oracle_count()
 				// saturating is fine because we enforce a limit below
@@ -1727,7 +1783,7 @@ pub mod pallet {
 
 		/// Disable the given oracles.
 		#[require_transactional]
-		fn disable_oracles(&mut self, to_disable: Vec<T::AccountId>) -> DispatchResult {
+		fn disable_oracles(&mut self, to_disable: Vec<T::AccountAddress>) -> DispatchResult {
 			let disabled_count = to_disable.len() as u32;
 			self.config.oracle_count = self
 				.config
@@ -1952,7 +2008,12 @@ pub mod pallet {
 			);
 			let started_at = self.initialize_round(new_round)?;
 
-			Pallet::<T>::deposit_event(Event::NewRound(self.id, new_round, requester, started_at));
+			Pallet::<T>::deposit_event(Event::NewRound(
+				self.id,
+				new_round,
+				requester.into(),
+				started_at,
+			));
 
 			Ok(())
 		}

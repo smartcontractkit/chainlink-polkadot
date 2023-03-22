@@ -16,7 +16,7 @@ type Balances = pallet_balances::Pallet<Test>;
 fn feed_creation_should_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(ChainlinkFeed::create_feed(
-			Origin::signed(1),
+			RuntimeOrigin::signed(1),
 			20,
 			10,
 			(10, 1_000),
@@ -105,14 +105,14 @@ fn submit_should_work() {
 		let oracle = 2;
 		let submission = 42;
 		assert_ok!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
+			RuntimeOrigin::signed(oracle),
 			feed_id,
 			round_id,
 			submission
 		));
 		let second_oracle = 3;
 		assert_ok!(ChainlinkFeed::submit(
-			Origin::signed(second_oracle),
+			RuntimeOrigin::signed(second_oracle),
 			feed_id,
 			round_id,
 			submission
@@ -165,7 +165,7 @@ fn on_answer_callback_works() {
 		let oracle = 2;
 		let submission = 42;
 		assert_ok!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
+			RuntimeOrigin::signed(oracle),
 			feed_id,
 			round_id,
 			submission
@@ -176,7 +176,8 @@ fn on_answer_callback_works() {
 				.into_iter()
 				.map(|r| r.event)
 				.filter_map(|e| {
-					if let mock::Event::ChainlinkFeed(crate::Event::NewData(feed, data)) = e {
+					if let mock::RuntimeEvent::ChainlinkFeed(crate::Event::NewData(feed, data)) = e
+					{
 						Some((feed, data))
 					} else {
 						None
@@ -220,13 +221,13 @@ fn details_are_cleared() {
 			let submission = 42;
 			let answer = submission;
 			assert_ok!(ChainlinkFeed::submit(
-				Origin::signed(oracle),
+				RuntimeOrigin::signed(oracle),
 				feed_id,
 				r,
 				submission
 			));
 			assert_ok!(ChainlinkFeed::submit(
-				Origin::signed(snd_oracle),
+				RuntimeOrigin::signed(snd_oracle),
 				feed_id,
 				r,
 				submission
@@ -246,13 +247,13 @@ fn details_are_cleared() {
 			// switch the order because `oracle` is not allowed
 			// to start a new round
 			assert_ok!(ChainlinkFeed::submit(
-				Origin::signed(snd_oracle),
+				RuntimeOrigin::signed(snd_oracle),
 				feed_id,
 				r,
 				submission
 			));
 			assert_ok!(ChainlinkFeed::submit(
-				Origin::signed(oracle),
+				RuntimeOrigin::signed(oracle),
 				feed_id,
 				r,
 				submission
@@ -284,27 +285,37 @@ fn submit_failure_cases() {
 		let round_id = 1;
 		let submission = 42;
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(oracle), no_feed, round_id, submission),
+			ChainlinkFeed::submit(RuntimeOrigin::signed(oracle), no_feed, round_id, submission),
 			Error::<Test>::FeedNotFound
 		);
 		let not_oracle = 1337;
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(not_oracle), feed_id, round_id, submission),
+			ChainlinkFeed::submit(
+				RuntimeOrigin::signed(not_oracle),
+				feed_id,
+				round_id,
+				submission
+			),
 			Error::<Test>::NotOracle
 		);
 		let invalid_round = 1337;
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(oracle), feed_id, invalid_round, submission),
+			ChainlinkFeed::submit(
+				RuntimeOrigin::signed(oracle),
+				feed_id,
+				invalid_round,
+				submission
+			),
 			Error::<Test>::InvalidRound
 		);
 		let low_value = 0;
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, low_value,),
+			ChainlinkFeed::submit(RuntimeOrigin::signed(oracle), feed_id, round_id, low_value,),
 			Error::<Test>::SubmissionBelowMinimum
 		);
 		let high_value = 13377331;
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(oracle), feed_id, round_id, high_value,),
+			ChainlinkFeed::submit(RuntimeOrigin::signed(oracle), feed_id, round_id, high_value,),
 			Error::<Test>::SubmissionAboveMaximum
 		);
 	});
@@ -334,7 +345,7 @@ fn change_oracles_should_work() {
 		let round = 1;
 		let submission = 42;
 		assert_ok!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
+			RuntimeOrigin::signed(oracle),
 			feed_id,
 			round,
 			submission
@@ -350,7 +361,7 @@ fn change_oracles_should_work() {
 		// failing cases
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				123,
 				to_disable.clone(),
 				to_add.clone(),
@@ -359,7 +370,7 @@ fn change_oracles_should_work() {
 		);
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(123),
+				RuntimeOrigin::signed(123),
 				feed_id,
 				to_disable.clone(),
 				to_add.clone(),
@@ -370,7 +381,7 @@ fn change_oracles_should_work() {
 		let cannot_disable = to_add.iter().cloned().take(2).map(|(o, _a)| o).collect();
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				cannot_disable,
 				to_add.clone(),
@@ -383,7 +394,7 @@ fn change_oracles_should_work() {
 			.collect();
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				to_disable.clone(),
 				too_many_oracles,
@@ -397,7 +408,7 @@ fn change_oracles_should_work() {
 			.collect();
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				to_disable.clone(),
 				changed_admin,
@@ -412,7 +423,7 @@ fn change_oracles_should_work() {
 			.collect();
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				many_duplicates,
 				to_add.clone(),
@@ -422,7 +433,7 @@ fn change_oracles_should_work() {
 		let duplicates = vec![1, 1, 1];
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				duplicates,
 				to_add.clone(),
@@ -437,7 +448,7 @@ fn change_oracles_should_work() {
 		}
 		// successfully change oracles
 		assert_ok!(ChainlinkFeed::change_oracles(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			to_disable.clone(),
 			to_add.clone(),
@@ -446,7 +457,7 @@ fn change_oracles_should_work() {
 		// we cannot disable the same oracles a second time
 		assert_noop!(
 			ChainlinkFeed::change_oracles(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				to_disable.clone(),
 				to_add.clone(),
@@ -454,7 +465,12 @@ fn change_oracles_should_work() {
 			Error::<Test>::OracleDisabled
 		);
 		assert_noop!(
-			ChainlinkFeed::change_oracles(Origin::signed(owner), feed_id, vec![], to_add.clone(),),
+			ChainlinkFeed::change_oracles(
+				RuntimeOrigin::signed(owner),
+				feed_id,
+				vec![],
+				to_add.clone(),
+			),
 			Error::<Test>::AlreadyEnabled
 		);
 
@@ -478,7 +494,7 @@ fn change_oracles_should_work() {
 			);
 		}
 		assert_ok!(ChainlinkFeed::change_oracles(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			vec![],
 			vec![(oracle, admin)],
@@ -523,7 +539,7 @@ fn update_future_rounds_should_work() {
 		// failure cases
 		assert_noop!(
 			ChainlinkFeed::update_future_rounds(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				5,
 				new_payment,
 				(new_min, new_max),
@@ -534,7 +550,7 @@ fn update_future_rounds_should_work() {
 		);
 		assert_noop!(
 			ChainlinkFeed::update_future_rounds(
-				Origin::signed(123),
+				RuntimeOrigin::signed(123),
 				feed_id,
 				new_payment,
 				(new_min, new_max),
@@ -545,7 +561,7 @@ fn update_future_rounds_should_work() {
 		);
 		assert_noop!(
 			ChainlinkFeed::update_future_rounds(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				new_payment,
 				(new_max + 1, new_max),
@@ -556,7 +572,7 @@ fn update_future_rounds_should_work() {
 		);
 		assert_noop!(
 			ChainlinkFeed::update_future_rounds(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				new_payment,
 				(new_min, oracles.len() as u32 + 1),
@@ -567,7 +583,7 @@ fn update_future_rounds_should_work() {
 		);
 		assert_noop!(
 			ChainlinkFeed::update_future_rounds(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				new_payment,
 				(new_min, new_max),
@@ -578,7 +594,7 @@ fn update_future_rounds_should_work() {
 		);
 		assert_noop!(
 			ChainlinkFeed::update_future_rounds(
-				Origin::signed(owner),
+				RuntimeOrigin::signed(owner),
 				feed_id,
 				new_payment,
 				(0, new_max),
@@ -590,7 +606,7 @@ fn update_future_rounds_should_work() {
 
 		// successful update
 		tx_assert_ok!(ChainlinkFeed::update_future_rounds(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			new_payment,
 			(new_min, new_max),
@@ -611,11 +627,11 @@ fn force_admin_transfer_should_work() {
 		let new_admin = 42;
 
 		assert_noop!(
-			ChainlinkFeed::force_set_pallet_admin(Origin::signed(current_admin), new_admin),
+			ChainlinkFeed::force_set_pallet_admin(RuntimeOrigin::signed(current_admin), new_admin),
 			DispatchError::BadOrigin
 		);
 		assert_ok!(ChainlinkFeed::force_set_pallet_admin(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			new_admin
 		));
 		assert_eq!(ChainlinkFeed::pallet_admin(), new_admin);
@@ -625,6 +641,7 @@ fn force_admin_transfer_should_work() {
 #[test]
 fn admin_transfer_should_work() {
 	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
 		let oracle = 1;
 		let old_admin = 2;
 		assert_ok!(FeedBuilder::new()
@@ -635,62 +652,66 @@ fn admin_transfer_should_work() {
 
 		let new_admin = 42;
 		assert_noop!(
-			ChainlinkFeed::transfer_admin(Origin::signed(old_admin), 123, new_admin),
+			ChainlinkFeed::transfer_admin(RuntimeOrigin::signed(old_admin), 123, new_admin),
 			Error::<Test>::OracleNotFound
 		);
 		assert_noop!(
-			ChainlinkFeed::transfer_admin(Origin::signed(123), oracle, new_admin),
+			ChainlinkFeed::transfer_admin(RuntimeOrigin::signed(123), oracle, new_admin),
 			Error::<Test>::NotAdmin
 		);
 		assert_noop!(
-			ChainlinkFeed::cancel_admin_transfer(Origin::signed(old_admin), oracle,),
+			ChainlinkFeed::cancel_admin_transfer(RuntimeOrigin::signed(old_admin), oracle,),
 			Error::<Test>::NoPendingOwnershipTransfer
 		);
 
 		// transfer to self yields nothing
 		assert_ok!(ChainlinkFeed::transfer_admin(
-			Origin::signed(old_admin),
+			RuntimeOrigin::signed(old_admin),
 			oracle,
 			old_admin
 		));
 		assert!(System::events().into_iter().all(|r| {
 			!matches!(
 				r.event,
-				mock::Event::ChainlinkFeed(crate::Event::OracleAdminUpdateRequested(_, _, _))
+				mock::RuntimeEvent::ChainlinkFeed(crate::Event::OracleAdminUpdateRequested(
+					_,
+					_,
+					_
+				))
 			)
 		}));
 
 		assert_ok!(ChainlinkFeed::transfer_admin(
-			Origin::signed(old_admin),
+			RuntimeOrigin::signed(old_admin),
 			oracle,
 			new_admin
 		));
 		let oracle_meta = ChainlinkFeed::oracle(oracle).expect("oracle should be present");
 		assert_eq!(oracle_meta.pending_admin, Some(new_admin));
 		assert_noop!(
-			ChainlinkFeed::accept_admin(Origin::signed(new_admin), 123,),
+			ChainlinkFeed::accept_admin(RuntimeOrigin::signed(new_admin), 123,),
 			Error::<Test>::OracleNotFound
 		);
 		assert_noop!(
-			ChainlinkFeed::accept_admin(Origin::signed(123), oracle),
+			ChainlinkFeed::accept_admin(RuntimeOrigin::signed(123), oracle),
 			Error::<Test>::NotPendingAdmin
 		);
 		assert_ok!(ChainlinkFeed::cancel_admin_transfer(
-			Origin::signed(old_admin),
+			RuntimeOrigin::signed(old_admin),
 			oracle,
 		),);
 		assert_noop!(
-			ChainlinkFeed::accept_admin(Origin::signed(new_admin), oracle),
+			ChainlinkFeed::accept_admin(RuntimeOrigin::signed(new_admin), oracle),
 			Error::<Test>::NotPendingAdmin
 		);
 		assert_ok!(ChainlinkFeed::transfer_admin(
-			Origin::signed(old_admin),
+			RuntimeOrigin::signed(old_admin),
 			oracle,
 			new_admin
 		));
 
 		assert_ok!(ChainlinkFeed::accept_admin(
-			Origin::signed(new_admin),
+			RuntimeOrigin::signed(new_admin),
 			oracle
 		));
 		let oracle_meta = ChainlinkFeed::oracle(oracle).expect("oracle should be present");
@@ -721,13 +742,13 @@ fn request_new_round_should_work() {
 		let snd_requester = 33;
 		let delay = 4;
 		assert_ok!(ChainlinkFeed::set_requester(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			requester,
 			delay
 		));
 		assert_ok!(ChainlinkFeed::set_requester(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			snd_requester,
 			delay
@@ -743,29 +764,29 @@ fn request_new_round_should_work() {
 		);
 		// failure cases
 		assert_noop!(
-			ChainlinkFeed::request_new_round(Origin::signed(123), feed_id),
+			ChainlinkFeed::request_new_round(RuntimeOrigin::signed(123), feed_id),
 			Error::<Test>::NotAuthorizedRequester
 		);
 		// non existent feed is not present but also not authorized
 		assert_noop!(
-			ChainlinkFeed::request_new_round(Origin::signed(requester), 123),
+			ChainlinkFeed::request_new_round(RuntimeOrigin::signed(requester), 123),
 			Error::<Test>::NotAuthorizedRequester
 		);
 
 		// actually request new round
 		assert_ok!(ChainlinkFeed::request_new_round(
-			Origin::signed(requester),
+			RuntimeOrigin::signed(requester),
 			feed_id
 		));
 		// need to wait `delay` rounds before requesting again
 		assert_noop!(
-			ChainlinkFeed::request_new_round(Origin::signed(requester), feed_id),
+			ChainlinkFeed::request_new_round(RuntimeOrigin::signed(requester), feed_id),
 			Error::<Test>::CannotRequestRoundYet
 		);
 		// round does not have data and is not timed out
 		// --> not supersedable
 		assert_noop!(
-			ChainlinkFeed::request_new_round(Origin::signed(snd_requester), feed_id),
+			ChainlinkFeed::request_new_round(RuntimeOrigin::signed(snd_requester), feed_id),
 			Error::<Test>::RoundNotSupersedable
 		);
 
@@ -812,16 +833,16 @@ fn requester_permissions() {
 		let delay = 4;
 		// failure cases
 		assert_noop!(
-			ChainlinkFeed::set_requester(Origin::signed(owner), 123, requester, delay),
+			ChainlinkFeed::set_requester(RuntimeOrigin::signed(owner), 123, requester, delay),
 			Error::<Test>::FeedNotFound
 		);
 		assert_noop!(
-			ChainlinkFeed::set_requester(Origin::signed(123), feed_id, requester, delay),
+			ChainlinkFeed::set_requester(RuntimeOrigin::signed(123), feed_id, requester, delay),
 			Error::<Test>::NotFeedOwner
 		);
 		// actually set the requester
 		assert_ok!(ChainlinkFeed::set_requester(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			requester,
 			delay
@@ -837,20 +858,20 @@ fn requester_permissions() {
 		);
 		// failure cases
 		assert_noop!(
-			ChainlinkFeed::remove_requester(Origin::signed(owner), 123, requester),
+			ChainlinkFeed::remove_requester(RuntimeOrigin::signed(owner), 123, requester),
 			Error::<Test>::FeedNotFound
 		);
 		assert_noop!(
-			ChainlinkFeed::remove_requester(Origin::signed(123), feed_id, requester),
+			ChainlinkFeed::remove_requester(RuntimeOrigin::signed(123), feed_id, requester),
 			Error::<Test>::NotFeedOwner
 		);
 		assert_noop!(
-			ChainlinkFeed::remove_requester(Origin::signed(owner), feed_id, 123),
+			ChainlinkFeed::remove_requester(RuntimeOrigin::signed(owner), feed_id, 123),
 			Error::<Test>::RequesterNotFound
 		);
 		// actually remove the requester
 		assert_ok!(ChainlinkFeed::remove_requester(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			requester
 		));
@@ -861,37 +882,38 @@ fn requester_permissions() {
 #[test]
 fn transfer_ownership_should_work() {
 	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
 		let old_owner = 1;
 		assert_ok!(FeedBuilder::new().owner(old_owner).build_and_store());
 
 		let feed_id = 0;
 		let new_owner = 42;
 		assert_noop!(
-			ChainlinkFeed::transfer_ownership(Origin::signed(old_owner), 5, new_owner),
+			ChainlinkFeed::transfer_ownership(RuntimeOrigin::signed(old_owner), 5, new_owner),
 			Error::<Test>::FeedNotFound
 		);
 		assert_noop!(
-			ChainlinkFeed::transfer_ownership(Origin::signed(23), feed_id, new_owner),
+			ChainlinkFeed::transfer_ownership(RuntimeOrigin::signed(23), feed_id, new_owner),
 			Error::<Test>::NotFeedOwner
 		);
 		assert_noop!(
-			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			ChainlinkFeed::cancel_ownership_transfer(RuntimeOrigin::signed(old_owner), feed_id,),
 			Error::<Test>::NoPendingOwnershipTransfer
 		);
 		// transfer to self yields nothing
 		assert_ok!(ChainlinkFeed::transfer_ownership(
-			Origin::signed(old_owner),
+			RuntimeOrigin::signed(old_owner),
 			feed_id,
 			old_owner
 		));
 		assert!(System::events().into_iter().all(|r| {
 			!matches!(
 				r.event,
-				mock::Event::ChainlinkFeed(crate::Event::OwnerUpdateRequested(_, _, _))
+				mock::RuntimeEvent::ChainlinkFeed(crate::Event::OwnerUpdateRequested(_, _, _))
 			)
 		}));
 		assert_ok!(ChainlinkFeed::transfer_ownership(
-			Origin::signed(old_owner),
+			RuntimeOrigin::signed(old_owner),
 			feed_id,
 			new_owner
 		));
@@ -899,36 +921,36 @@ fn transfer_ownership_should_work() {
 		let feed = ChainlinkFeed::feed_config(feed_id).expect("feed should be there");
 		assert_eq!(feed.pending_owner, Some(new_owner));
 		assert_noop!(
-			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), 123),
+			ChainlinkFeed::accept_ownership(RuntimeOrigin::signed(new_owner), 123),
 			Error::<Test>::FeedNotFound
 		);
 
 		// cancel transfer
 		assert_ok!(ChainlinkFeed::cancel_ownership_transfer(
-			Origin::signed(old_owner),
+			RuntimeOrigin::signed(old_owner),
 			feed_id,
 		));
 		assert_noop!(
-			ChainlinkFeed::accept_ownership(Origin::signed(new_owner), feed_id),
+			ChainlinkFeed::accept_ownership(RuntimeOrigin::signed(new_owner), feed_id),
 			Error::<Test>::NotPendingOwner
 		);
 
 		// initiate again
 		assert_ok!(ChainlinkFeed::transfer_ownership(
-			Origin::signed(old_owner),
+			RuntimeOrigin::signed(old_owner),
 			feed_id,
 			new_owner
 		));
 		assert_noop!(
-			ChainlinkFeed::accept_ownership(Origin::signed(old_owner), feed_id),
+			ChainlinkFeed::accept_ownership(RuntimeOrigin::signed(old_owner), feed_id),
 			Error::<Test>::NotPendingOwner
 		);
 		assert_ok!(ChainlinkFeed::accept_ownership(
-			Origin::signed(new_owner),
+			RuntimeOrigin::signed(new_owner),
 			feed_id
 		));
 		assert_noop!(
-			ChainlinkFeed::cancel_ownership_transfer(Origin::signed(old_owner), feed_id,),
+			ChainlinkFeed::cancel_ownership_transfer(RuntimeOrigin::signed(old_owner), feed_id,),
 			Error::<Test>::NotFeedOwner
 		);
 
@@ -957,13 +979,13 @@ fn feed_oracle_trait_should_work() {
 		let round_id = 1;
 		let submission = 42;
 		assert_ok!(ChainlinkFeed::submit(
-			Origin::signed(oracle),
+			RuntimeOrigin::signed(oracle),
 			feed_id,
 			round_id,
 			submission
 		));
 		assert_ok!(ChainlinkFeed::submit(
-			Origin::signed(second_oracle),
+			RuntimeOrigin::signed(second_oracle),
 			feed_id,
 			round_id,
 			submission
@@ -1013,37 +1035,50 @@ fn payment_withdrawal_should_work() {
 			},
 		);
 		assert_noop!(
-			ChainlinkFeed::withdraw_payment(Origin::signed(admin), 123, recipient, amount),
+			ChainlinkFeed::withdraw_payment(RuntimeOrigin::signed(admin), 123, recipient, amount),
 			Error::<Test>::OracleNotFound
 		);
 		assert_noop!(
-			ChainlinkFeed::withdraw_payment(Origin::signed(123), oracle, recipient, amount),
+			ChainlinkFeed::withdraw_payment(RuntimeOrigin::signed(123), oracle, recipient, amount),
 			Error::<Test>::NotAdmin
 		);
 		assert_noop!(
-			ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, 2 * amount),
+			ChainlinkFeed::withdraw_payment(
+				RuntimeOrigin::signed(admin),
+				oracle,
+				recipient,
+				2 * amount
+			),
 			Error::<Test>::InsufficientFunds
 		);
-		let fund = FeedPalletId::get().into_account();
+		let fund = FeedPalletId::get().into_account_truncating();
 		let fund_balance = Balances::free_balance(&fund);
 		Balances::make_free_balance_be(&fund, ExistentialDeposit::get());
-		assert!(
-			ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, amount)
-				.is_err()
-		);
+		assert!(ChainlinkFeed::withdraw_payment(
+			RuntimeOrigin::signed(admin),
+			oracle,
+			recipient,
+			amount
+		)
+		.is_err());
 		Balances::make_free_balance_be(&fund, fund_balance);
 
 		// nothing reserved for the oracle yet
 		assert_noop!(
-			ChainlinkFeed::withdraw_payment(Origin::signed(admin), oracle, recipient, amount),
+			ChainlinkFeed::withdraw_payment(
+				RuntimeOrigin::signed(admin),
+				oracle,
+				recipient,
+				amount
+			),
 			Error::<Test>::InsufficientReserve
 		);
 
-		assert_ok!(Balances::reserve(&fund, fund_balance));
+		assert_ok!(Balances::reserve(&fund, fund_balance / 2));
 
 		// nothing reserved for the oracle yet
 		assert_ok!(ChainlinkFeed::withdraw_payment(
-			Origin::signed(admin),
+			RuntimeOrigin::signed(admin),
 			oracle,
 			recipient,
 			amount
@@ -1056,21 +1091,29 @@ fn funds_withdrawal_should_work() {
 	new_test_ext().execute_with(|| {
 		let amount = 50;
 		let recipient = 5;
-		let fund = FeedPalletId::get().into_account();
+		let fund = FeedPalletId::get().into_account_truncating();
 		assert_noop!(
-			ChainlinkFeed::withdraw_funds(Origin::signed(123), recipient, amount),
+			ChainlinkFeed::withdraw_funds(RuntimeOrigin::signed(123), recipient, amount),
 			Error::<Test>::NotPalletAdmin
 		);
 		assert_noop!(
-			ChainlinkFeed::withdraw_funds(Origin::signed(fund), recipient, 101 * MIN_RESERVE),
+			ChainlinkFeed::withdraw_funds(
+				RuntimeOrigin::signed(fund),
+				recipient,
+				101 * MIN_RESERVE
+			),
 			Error::<Test>::InsufficientFunds
 		);
 		assert_noop!(
-			ChainlinkFeed::withdraw_funds(Origin::signed(fund), recipient, 100 * MIN_RESERVE),
+			ChainlinkFeed::withdraw_funds(
+				RuntimeOrigin::signed(fund),
+				recipient,
+				100 * MIN_RESERVE
+			),
 			Error::<Test>::InsufficientReserve
 		);
 		assert_ok!(ChainlinkFeed::withdraw_funds(
-			Origin::signed(fund),
+			RuntimeOrigin::signed(fund),
 			recipient,
 			amount
 		));
@@ -1080,52 +1123,53 @@ fn funds_withdrawal_should_work() {
 #[test]
 fn transfer_pallet_admin_should_work() {
 	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
 		let new_admin = 23;
-		let fund = FeedPalletId::get().into_account();
+		let fund = FeedPalletId::get().into_account_truncating();
 		assert_noop!(
-			ChainlinkFeed::transfer_pallet_admin(Origin::signed(123), new_admin),
+			ChainlinkFeed::transfer_pallet_admin(RuntimeOrigin::signed(123), new_admin),
 			Error::<Test>::NotPalletAdmin
 		);
 		assert_noop!(
-			ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(fund)),
+			ChainlinkFeed::cancel_pallet_admin_transfer(RuntimeOrigin::signed(fund)),
 			Error::<Test>::NoPendingOwnershipTransfer
 		);
 		// transfer to self yields nothing
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
-			Origin::signed(fund),
+			RuntimeOrigin::signed(fund),
 			fund
 		));
 		assert!(System::events().into_iter().all(|r| {
 			!matches!(
 				r.event,
-				mock::Event::ChainlinkFeed(crate::Event::PalletAdminUpdateRequested(_, _))
+				mock::RuntimeEvent::ChainlinkFeed(crate::Event::PalletAdminUpdateRequested(_, _))
 			)
 		}));
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
-			Origin::signed(fund),
+			RuntimeOrigin::signed(fund),
 			new_admin
 		));
 		assert_eq!(PendingPalletAdmin::<Test>::get(), Some(new_admin));
 		assert_noop!(
-			ChainlinkFeed::accept_pallet_admin(Origin::signed(123)),
+			ChainlinkFeed::accept_pallet_admin(RuntimeOrigin::signed(123)),
 			Error::<Test>::NotPendingPalletAdmin
 		);
 
-		assert_ok!(ChainlinkFeed::cancel_pallet_admin_transfer(Origin::signed(
-			fund
-		)),);
+		assert_ok!(ChainlinkFeed::cancel_pallet_admin_transfer(
+			RuntimeOrigin::signed(fund)
+		),);
 
 		assert_noop!(
-			ChainlinkFeed::accept_pallet_admin(Origin::signed(new_admin)),
+			ChainlinkFeed::accept_pallet_admin(RuntimeOrigin::signed(new_admin)),
 			Error::<Test>::NotPendingPalletAdmin
 		);
 
 		assert_ok!(ChainlinkFeed::transfer_pallet_admin(
-			Origin::signed(fund),
+			RuntimeOrigin::signed(fund),
 			new_admin
 		));
 
-		assert_ok!(ChainlinkFeed::accept_pallet_admin(Origin::signed(
+		assert_ok!(ChainlinkFeed::accept_pallet_admin(RuntimeOrigin::signed(
 			new_admin
 		)));
 		assert_eq!(PalletAdmin::<Test>::get(), new_admin);
@@ -1145,7 +1189,7 @@ fn auto_prune_should_work() {
 
 		assert_noop!(
 			ChainlinkFeed::create_feed(
-				Origin::signed(1),
+				RuntimeOrigin::signed(1),
 				20,
 				10,
 				(10, 1_000),
@@ -1162,7 +1206,7 @@ fn auto_prune_should_work() {
 
 		let submit_a = |r| {
 			assert_ok!(ChainlinkFeed::submit(
-				Origin::signed(oracle_a),
+				RuntimeOrigin::signed(oracle_a),
 				feed_id,
 				r,
 				submission
@@ -1171,7 +1215,7 @@ fn auto_prune_should_work() {
 		let submit_a_and_b = |r| {
 			submit_a(r);
 			assert_ok!(ChainlinkFeed::submit(
-				Origin::signed(oracle_b),
+				RuntimeOrigin::signed(oracle_b),
 				feed_id,
 				r,
 				submission
@@ -1218,7 +1262,7 @@ fn auto_prune_should_work() {
 
 		// shrink pruning window
 		assert_ok!(ChainlinkFeed::set_pruning_window(
-			Origin::signed(owner),
+			RuntimeOrigin::signed(owner),
 			feed_id,
 			1
 		));
@@ -1231,27 +1275,27 @@ fn auto_prune_should_work() {
 #[test]
 fn feed_creation_permissioning() {
 	new_test_ext().execute_with(|| {
-		let admin = FeedPalletId::get().into_account();
+		let admin = FeedPalletId::get().into_account_truncating();
 		let new_creator = 15;
 		assert_noop!(
 			FeedBuilder::new().owner(new_creator).build_and_store(),
 			Error::<Test>::NotFeedCreator
 		);
 		assert_noop!(
-			ChainlinkFeed::set_feed_creator(Origin::signed(123), new_creator),
+			ChainlinkFeed::set_feed_creator(RuntimeOrigin::signed(123), new_creator),
 			Error::<Test>::NotPalletAdmin
 		);
 		assert_ok!(ChainlinkFeed::set_feed_creator(
-			Origin::signed(admin),
+			RuntimeOrigin::signed(admin),
 			new_creator
 		));
 		assert_ok!(FeedBuilder::new().owner(new_creator).build_and_store());
 		assert_noop!(
-			ChainlinkFeed::remove_feed_creator(Origin::signed(123), new_creator),
+			ChainlinkFeed::remove_feed_creator(RuntimeOrigin::signed(123), new_creator),
 			Error::<Test>::NotPalletAdmin
 		);
 		assert_ok!(ChainlinkFeed::remove_feed_creator(
-			Origin::signed(admin),
+			RuntimeOrigin::signed(admin),
 			new_creator
 		));
 		assert_noop!(
@@ -1265,7 +1309,7 @@ fn feed_creation_permissioning() {
 fn can_go_into_debt_and_repay() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
-		let admin: AccountId = FeedPalletId::get().into_account();
+		let admin: AccountId = FeedPalletId::get().into_account_truncating();
 		let owner = 1;
 		let oracle = 2;
 		let payment = 33;
@@ -1278,24 +1322,33 @@ fn can_go_into_debt_and_repay() {
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), 0);
 		// ensure the fund is out of tokens
 		Balances::make_free_balance_be(&admin, ExistentialDeposit::get());
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(oracle), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(
+			RuntimeOrigin::signed(oracle),
+			0,
+			1,
+			42
+		));
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment);
 		let new_funds = 2 * payment;
 		Balances::make_free_balance_be(&admin, new_funds);
 
 		// reducing debt should fail for non admin
 		assert_noop!(
-			ChainlinkFeed::reduce_debt(Origin::signed(1), 0, 10),
+			ChainlinkFeed::reduce_debt(RuntimeOrigin::signed(1), 0, 10),
 			Error::<Test>::NotPalletAdmin
 		);
 
 		// should be possible to reduce debt partially
-		assert_ok!(ChainlinkFeed::reduce_debt(Origin::signed(admin), 0, 10));
+		assert_ok!(ChainlinkFeed::reduce_debt(
+			RuntimeOrigin::signed(admin),
+			0,
+			10
+		));
 		assert_eq!(Balances::free_balance(admin), new_funds - 10);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), payment - 10);
 		// should be possible to overshoot in passing the amount correcting debt...
 		assert_ok!(ChainlinkFeed::reduce_debt(
-			Origin::signed(admin),
+			RuntimeOrigin::signed(admin),
 			0,
 			payment
 		));
@@ -1386,7 +1439,7 @@ fn feed_life_cylce() {
 fn allows_submissions_until_max_debt() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
-		let admin: AccountId = FeedPalletId::get().into_account();
+		let admin: AccountId = FeedPalletId::get().into_account_truncating();
 		let owner = 1;
 		let payment = 10;
 		let oracle_admin = 4;
@@ -1415,20 +1468,20 @@ fn allows_submissions_until_max_debt() {
 		assert_eq!(ChainlinkFeed::debt(1).unwrap(), 0);
 		// ensure the fund is out of tokens
 		Balances::make_free_balance_be(&admin, ExistentialDeposit::get());
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(1), 0, 1, 42));
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 1, 42));
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(3), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(1), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(2), 0, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(3), 0, 1, 42));
 
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(1), 1, 1, 42));
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 1, 1, 42));
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(3), 1, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(1), 1, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(2), 1, 1, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(3), 1, 1, 42));
 
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(5), 0, 1, 42),
+			ChainlinkFeed::submit(RuntimeOrigin::signed(5), 0, 1, 42),
 			Error::<Test>::MaxDebtReached
 		);
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(5), 1, 1, 42),
+			ChainlinkFeed::submit(RuntimeOrigin::signed(5), 1, 1, 42),
 			Error::<Test>::MaxDebtReached
 		);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
@@ -1437,7 +1490,7 @@ fn allows_submissions_until_max_debt() {
 		// reduce debt withdraw and submit again
 		Balances::make_free_balance_be(&admin, max_debt + ExistentialDeposit::get());
 		assert_ok!(ChainlinkFeed::reduce_debt(
-			Origin::signed(admin),
+			RuntimeOrigin::signed(admin),
 			0,
 			max_debt
 		));
@@ -1446,13 +1499,13 @@ fn allows_submissions_until_max_debt() {
 
 		// try to withdraw more than the oracle earned so far
 		assert_noop!(
-			ChainlinkFeed::withdraw_payment(Origin::signed(oracle_admin), 1, 1, payment * 3),
+			ChainlinkFeed::withdraw_payment(RuntimeOrigin::signed(oracle_admin), 1, 1, payment * 3),
 			Error::<Test>::InsufficientFunds
 		);
 
 		// withdraw the payment
 		assert_ok!(ChainlinkFeed::withdraw_payment(
-			Origin::signed(oracle_admin),
+			RuntimeOrigin::signed(oracle_admin),
 			1,
 			1,
 			payment
@@ -1462,12 +1515,12 @@ fn allows_submissions_until_max_debt() {
 		assert_eq!(Balances::reserved_balance(&admin), max_debt - payment);
 
 		// can accumulate debt again, with different submission orders
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(3), 0, 2, 42));
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(1), 0, 2, 42));
-		assert_ok!(ChainlinkFeed::submit(Origin::signed(2), 0, 2, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(3), 0, 2, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(1), 0, 2, 42));
+		assert_ok!(ChainlinkFeed::submit(RuntimeOrigin::signed(2), 0, 2, 42));
 
 		assert_noop!(
-			ChainlinkFeed::submit(Origin::signed(5), 0, 2, 42),
+			ChainlinkFeed::submit(RuntimeOrigin::signed(5), 0, 2, 42),
 			Error::<Test>::MaxDebtReached
 		);
 		assert_eq!(ChainlinkFeed::debt(0).unwrap(), max_debt);
@@ -1475,19 +1528,19 @@ fn allows_submissions_until_max_debt() {
 		// can withdraw two more payments until fund is out of funds because current
 		// debt was not paid yet
 		assert_ok!(ChainlinkFeed::withdraw_payment(
-			Origin::signed(oracle_admin),
+			RuntimeOrigin::signed(oracle_admin),
 			2,
 			2,
 			payment
 		));
 		assert_ok!(ChainlinkFeed::withdraw_payment(
-			Origin::signed(oracle_admin),
+			RuntimeOrigin::signed(oracle_admin),
 			3,
 			3,
 			payment
 		));
 		assert_noop!(
-			ChainlinkFeed::withdraw_payment(Origin::signed(oracle_admin), 1, 1, payment),
+			ChainlinkFeed::withdraw_payment(RuntimeOrigin::signed(oracle_admin), 1, 1, payment),
 			Error::<Test>::InsufficientReserve
 		);
 	});
