@@ -1,5 +1,12 @@
 [workspace]
 members = [
   "pallet-chainlink",
-  "pallet-chainlink-feed"
+  "pallet-chainlink-feed",
+  "substrate-node-example/runtime",
+  "substrate-node-example/node",
 ]
+
+
+[workspace.dependencies]
+pallet-chainlink = { path = "pallet-chainlink", default-features = false }
+pallet-chainlink-feed = { path = "pallet-chainlink-feed", default-features = false }
