@@ -6,8 +6,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-mod example;
-
 use codec::{Decode, Encode};
 use pallet_grandpa::AuthorityId as GrandpaId;
 use scale_info::TypeInfo;
@@ -303,8 +301,8 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
-impl example::Config for Runtime {
-	type Callback = example::Call<Runtime>;
+impl pallet_template::Config for Runtime {
+	type Callback = pallet_template::Call<Runtime>;
 }
 
 pub type FeedId = u32;
@@ -340,7 +338,7 @@ parameter_types! {
 impl pallet_chainlink::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type Callback = example::Call<Runtime>;
+	type Callback = pallet_template::Call<Runtime>;
 	type ValidityPeriod = ValidityPeriod;
 }
 
@@ -362,7 +360,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		ChainLink: pallet_chainlink,
 		ChainlinkFeed: pallet_chainlink_feed,
-		Example: example,
+		Template: pallet_template,
 	}
 );
 
@@ -409,6 +407,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+    [pallet_chainlink_feed, ChainlinkFeed]
 	);
 }
 

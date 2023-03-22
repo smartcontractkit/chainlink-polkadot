@@ -1,13 +1,15 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
 
 #[frame_support::pallet]
 #[allow(unused)]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
+	use frame_support::sp_runtime::traits::UniqueSaturatedFrom;
 	use frame_system::pallet_prelude::*;
 	use pallet_chainlink::{BalanceOf, CallbackWithParameter};
 	use sp_std::{convert::TryInto, prelude::*};
-  use frame_support::sp_runtime::traits::UniqueSaturatedFrom;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -15,8 +17,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_chainlink::Config {
-      type Callback: From<Call<Self>> + Into<<Self as pallet_chainlink::Config>::Callback>;
-  }
+		type Callback: From<Call<Self>> + Into<<Self as pallet_chainlink::Config>::Callback>;
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {

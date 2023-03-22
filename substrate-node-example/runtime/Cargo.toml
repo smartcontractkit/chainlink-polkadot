@@ -52,6 +52,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 # Local dependencies
 pallet-chainlink = { workspace = true }
 pallet-chainlink-feed = { workspace = true }
+pallet-template = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", optional = true , branch = "master" }
@@ -79,6 +80,7 @@ std = [
 	"pallet-transaction-payment/std",
   "pallet-chainlink/std",
   "pallet-chainlink-feed/std",
+  "pallet-template/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -104,16 +106,16 @@ runtime-benchmarks = [
   "pallet-chainlink-feed/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = [
-	"frame-try-runtime/try-runtime",
-	"frame-executive/try-runtime",
-	"frame-system/try-runtime",
-	"frame-support/try-runtime",
-	"pallet-aura/try-runtime",
-	"pallet-balances/try-runtime",
-	"pallet-grandpa/try-runtime",
-	"pallet-insecure-randomness-collective-flip/try-runtime",
-	"pallet-sudo/try-runtime",
-	"pallet-timestamp/try-runtime",
-	"pallet-transaction-payment/try-runtime",
-]
+# try-runtime = [
+# 	"frame-try-runtime/try-runtime",
+# 	"frame-executive/try-runtime",
+# 	"frame-system/try-runtime",
+# 	"frame-support/try-runtime",
+# 	"pallet-aura/try-runtime",
+# 	"pallet-balances/try-runtime",
+# 	"pallet-grandpa/try-runtime",
+# 	"pallet-insecure-randomness-collective-flip/try-runtime",
+# 	"pallet-sudo/try-runtime",
+# 	"pallet-timestamp/try-runtime",
+# 	"pallet-transaction-payment/try-runtime",
+# ]

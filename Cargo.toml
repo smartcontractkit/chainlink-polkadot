@@ -2,11 +2,12 @@
 members = [
   "pallet-chainlink",
   "pallet-chainlink-feed",
+  "pallet-template",
   "substrate-node-example/runtime",
   "substrate-node-example/node",
 ]
 
-
 [workspace.dependencies]
 pallet-chainlink = { path = "pallet-chainlink", default-features = false }
 pallet-chainlink-feed = { path = "pallet-chainlink-feed", default-features = false }
+pallet-template = { path = "pallet-template", default-features = false }

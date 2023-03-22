@@ -2063,7 +2063,6 @@ source = "git+https://github.com/paritytech/substrate.git?branch=master#a9e85ae5
 dependencies = [
  "frame-support",
  "frame-system",
- "frame-try-runtime",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -4330,6 +4329,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-insecure-randomness-collective-flip",
  "pallet-sudo",
+ "pallet-template",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -4691,6 +4691,23 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-template"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-chainlink",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -8689,7 +8706,6 @@ dependencies = [
  "async-trait",
  "clap",
  "frame-remote-externalities",
- "frame-try-runtime",
  "hex",
  "log",
  "parity-scale-codec",
