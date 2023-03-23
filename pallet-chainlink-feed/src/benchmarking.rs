@@ -523,7 +523,7 @@ benchmarks! {
 		 T::Currency::reserve(&fund_account, payment).unwrap();
 	 }: _(
 		 RawOrigin::Signed(admin.clone().into()),
-		 oracle.clone(),
+		 oracle,
 		 recipient.clone(),
 		 payment
 	 )
@@ -632,7 +632,7 @@ benchmarks! {
 		let payment = 600u32.into();
 		let description = vec![1; T::StringLimit::get() as usize];
 		assert_is_ok(ChainlinkFeed::<T>::create_feed(
-			RawOrigin::Signed(caller.clone().into()).into(),
+			RawOrigin::Signed(caller.into()).into(),
 			payment,
 			Zero::zero(),
 			(1u8.into(), 100u8.into()),

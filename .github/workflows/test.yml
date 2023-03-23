@@ -1,12 +1,72 @@
-on: [push, pull_request]
 name: Build and Test
+on:
+  push: # branches: [ master ]
+  pull_request: # branches: [ master ]
+  schedule:
+    - cron: '0 0 1 * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
+  TERM: xterm-256color
+
 jobs:
-  build_and_test:
-    name: Rust project
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nightly Toolchain
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-      - run: cargo t --release --all-features
+          default: true
+          override: true
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check Format
+        run: cargo fmt --check
+
+      - name: Clippy Check
+        run: cargo clippy --all-features
+
+  build:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nightly Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          default: true
+          override: true
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo t --release --all-features
