@@ -1,6 +1,7 @@
 //! # Chainlink Price Feed Module
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 
 pub use pallet::*;
 

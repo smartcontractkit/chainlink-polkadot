@@ -138,7 +138,7 @@ where
 	}
 
 	/// turn the builder into a storage `FeedConfig`
-	pub fn build<'a, StringLimit: Get<u32>>(
+	pub fn build<StringLimit: Get<u32>>(
 		self,
 	) -> Result<
 		FeedConfig<AccountId, Balance, BlockNumber, Value, BoundedVec<u8, StringLimit>>,

@@ -15,6 +15,7 @@
 //! Fee: the amount of token a users pays to an operator
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::type_complexity)]
 
 #[cfg(test)]
 mod tests;
@@ -265,7 +266,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who: <T as frame_system::Config>::AccountId = ensure_signed(origin)?;
 			let (operator, callback, _, fee) =
-				<Requests<T>>::get(&request_id).ok_or(Error::<T>::UnknownRequest)?;
+				<Requests<T>>::get(request_id).ok_or(Error::<T>::UnknownRequest)?;
 			ensure!(operator == who, Error::<T>::WrongOperator);
 
 			// REVIEW: This does not make sure that the fee is payed. `repatriate_reserved` removes

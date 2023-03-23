@@ -77,14 +77,14 @@ impl Default for AccountAddress {
 }
 
 impl From<AccountId32> for AccountAddress {
-	fn from(acc: AccountId) -> Self {
+	fn from(acc: AccountId32) -> Self {
 		Self(acc)
 	}
 }
 
-impl Into<AccountId32> for AccountAddress {
-	fn into(self) -> AccountId32 {
-		self.0
+impl From<AccountAddress> for AccountId32 {
+	fn from(acc: AccountAddress) -> Self {
+		acc.0
 	}
 }
 
